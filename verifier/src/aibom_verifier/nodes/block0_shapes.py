@@ -3,13 +3,9 @@ import json
 from huggingface_hub import HfApi
 
 from aibom_verifier.hf.safetensors_io import list_tensor_names, tensor_shapes
-from aibom_verifier.mapping.block0 import build_block0_plan
+from aibom_verifier.mapping.block0 import block0_plan_key, build_block0_plan
 from aibom_verifier.slots.artifact_store import ArtifactStore
 from aibom_verifier.types import TestOutcome
-
-
-def _plan_key(target_repo: str, target_sha: str, base_repo: str, base_sha: str) -> str:
-    return f"block0_plan:{target_repo}:{target_sha}:{base_repo}:{base_sha}"
 
 
 def block0_shapes_node(inputs: dict, store: ArtifactStore) -> TestOutcome:
@@ -26,7 +22,7 @@ def block0_shapes_node(inputs: dict, store: ArtifactStore) -> TestOutcome:
     base_sha: str = inputs["base_sha"]
     api: HfApi | None = inputs.get("api")
 
-    plan_key = _plan_key(target_repo, target_sha, base_repo, base_sha)
+    plan_key = block0_plan_key(target_repo, target_sha, base_repo, base_sha)
 
     try:
         target_names = list_tensor_names(target_repo, target_sha, store, api=api)

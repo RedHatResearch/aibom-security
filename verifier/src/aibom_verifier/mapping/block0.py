@@ -24,6 +24,11 @@ OPTIONAL_SUFFIXES = [
 ]
 
 
+def block0_plan_key(target_repo: str, target_sha: str, base_repo: str, base_sha: str) -> str:
+    """Cache key for the shared block-0 compare plan artifact."""
+    return f"block0_plan:{target_repo}:{target_sha}:{base_repo}:{base_sha}"
+
+
 def build_block0_plan(target_names: list[str], base_names: list[str]) -> dict:
     """Plan which block-0 (`model.layers.0.*`) tensors to compare across target/base.
 

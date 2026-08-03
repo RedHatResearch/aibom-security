@@ -11,13 +11,12 @@ from aibom_verifier.errors import CompareStartError
 from aibom_verifier.nodes.verdict_synthesize import verdict_message
 from aibom_verifier.planner import run_compare
 from aibom_verifier.slots.artifact_store import FilesystemArtifactStore
-from aibom_verifier.types import RunResult, VerificationResult
+from aibom_verifier.types import POLICY_VERSION, RunResult, VerificationResult
 
 NAME = "verify"
 HELP = "Verify whether a model's declared base_model claim holds up against its weights"
 
 DEFAULT_CACHE_DIR = ".cache/aibom-verifier"
-POLICY_VERSION = "t1-1"
 
 
 def add_arguments(parser: argparse.ArgumentParser) -> None:
@@ -86,7 +85,6 @@ def run(args: argparse.Namespace) -> int:
             revision_target=args.revision_target,
             revision_base=args.revision_base,
             store=store,
-            ignore_cache=bool(getattr(args, "ignore_cache", False)),
         )
     except CompareStartError as exc:
         print(json.dumps(_error_envelope(exc.error_code, exc.message), indent=2))

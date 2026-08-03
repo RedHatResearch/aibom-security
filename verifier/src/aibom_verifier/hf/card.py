@@ -26,6 +26,13 @@ def resolve_presumed_base(repo_id: str, sha: str, *, api: HfApi | None = None) -
     base_model = _extract_base_model(getattr(info, "card_data", None))
 
     if isinstance(base_model, list):
+        if len(base_model) > 1:
+            raise CompareStartError(
+                "ambiguous_base_model",
+                f"Repo '{repo_id}' card lists multiple base_model entries "
+                f"(revision={sha!r}); pass --base to choose one. "
+                "Multi-parent / merge claims are out of scope for T1.",
+            )
         base_model = base_model[0] if base_model else None
     if isinstance(base_model, str):
         base_model = base_model.strip() or None

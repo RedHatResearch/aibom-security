@@ -27,6 +27,8 @@ TestStatus = Literal["pass", "fail", "skip", "error"]
 Compatibility = Literal["compatible", "incompatible", "unsupported", "insufficient_evidence"]
 BaseSource = Literal["card", "cli"]
 
+POLICY_VERSION = "t1-1"
+
 
 @dataclass(frozen=True, slots=True)
 class VerificationResult:
@@ -77,7 +79,7 @@ class RunResult:
     tests: list[TestOutcome]
     final_verdict: FinalVerdict
     cache: dict[str, list[str]]  # {"hits": [...], "misses": [...]}
-    policy_version: str = "t1-1"
+    policy_version: str = POLICY_VERSION
 
     def to_dict(self) -> dict[str, Any]:
         return {

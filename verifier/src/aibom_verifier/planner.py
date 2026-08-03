@@ -22,22 +22,6 @@ from aibom_verifier.slots.worker import LocalWorker, NodeFn
 from aibom_verifier.types import ModelRef, RunResult, TestOutcome
 
 
-class _ForceMissStore:
-    """Wraps a store so every read misses, while writes still pass through."""
-
-    def __init__(self, inner: ArtifactStore) -> None:
-        self._inner = inner
-
-    def exists(self, key: str) -> bool:
-        return False
-
-    def get(self, key: str) -> bytes | None:
-        return None
-
-    def put(self, key: str, data: bytes) -> None:
-        self._inner.put(key, data)
-
-
 def _result_key(target_repo: str, target_sha: str, base_repo: str, base_sha: str) -> str:
     return f"result:{target_repo}:{target_sha}:{base_repo}:{base_sha}"
 
@@ -57,7 +41,6 @@ def run_compare(
     revision_target: str | None = None,
     revision_base: str | None = None,
     store: ArtifactStore,
-    ignore_cache: bool = False,
     api: HfApi | None = None,
     node_overrides: dict[str, NodeFn] | None = None,
 ) -> RunResult:
@@ -65,9 +48,10 @@ def run_compare(
 
     Raises ``CompareStartError`` if resolve_refs cannot pin/resolve the target
     or base — that failure happens before the DAG conceptually starts.
+
+    Cache bypass belongs on the ``store`` (construct with ``ignore_cache=True``).
     """
-    effective_store: ArtifactStore = _ForceMissStore(store) if ignore_cache else store
-    counting_store = CountingArtifactStore(effective_store)
+    counting_store = CountingArtifactStore(store)
 
     registry: dict[str, NodeFn] = {
         "resolve_refs": resolve_refs_node,
