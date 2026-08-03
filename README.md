@@ -45,7 +45,3 @@ uv run ruff check .             # lint
 uv run ruff format .            # format
 uv run ty check                 # type check
 ```
-
-## Background
-
-This project sits alongside [`sbom-security`](https://github.com/RedHatResearch/sbom-security), building on AI-BOM standards work (SPDX AI Profile, CycloneDX AI/ML-BOM) and prior work in [`ai-model-verifier`](https://github.com/aykoooo/ai-model-verifier).
