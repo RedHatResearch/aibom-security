@@ -1,0 +1,60 @@
+name: Bug report
+description: Something in aibom-security is broken or behaves incorrectly
+labels: ["bug"]
+body:
+  - type: textarea
+    id: description
+    attributes:
+      label: Description
+      description: What's broken? What did you expect instead?
+    validations:
+      required: true
+
+  - type: textarea
+    id: repro
+    attributes:
+      label: Steps to reproduce
+      render: shell
+      placeholder: |
+        aibom verify org/target-model --base org/base-model
+        # observed: crashes with KeyError
+        # expected: a verdict, or a clean "insufficient_evidence"
+    validations:
+      required: true
+
+  - type: textarea
+    id: regression-test
+    attributes:
+      label: Regression Test
+      description: >
+        Every bug fix ships with a test that fails before the fix and passes
+        after it. Describe the case here — the PR closing this issue must
+        include it.
+    validations:
+      required: true
+
+  - type: dropdown
+    id: estimate
+    attributes:
+      label: Estimated Time
+      description: Rough estimate, set when you pick this up
+      options:
+        - "< 1 day"
+        - "1-3 days"
+        - "3-5 days"
+        - "1-2 weeks"
+        - "2+ weeks"
+    validations:
+      required: true
+
+  - type: textarea
+    id: stuck-on
+    attributes:
+      label: What I Got Stuck On
+      description: >
+        Leave empty at creation. Update this as you work — it's the running
+        log of blockers/surprises for anyone (including future you) reading
+        this issue later.
+      placeholder: "(nothing yet)"
+    validations:
+      required: false

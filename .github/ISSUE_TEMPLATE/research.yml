@@ -1,0 +1,61 @@
+name: Research / State of the Art
+description: An analytical, no-code investigation (competitor scan, standards review, feasibility study...)
+labels: ["question"]
+body:
+  - type: textarea
+    id: description
+    attributes:
+      label: What are we trying to learn, and why?
+      description: One or two sentences of framing — what decision does this research inform?
+    validations:
+      required: true
+
+  - type: textarea
+    id: subtopics
+    attributes:
+      label: Sub-topics
+      description: >
+        A checklist of the pieces to investigate. Check each one off as you
+        post a comment resolving it — keep the depth in comments, keep this
+        list scannable.
+      placeholder: |
+        - [ ] Topic A
+        - [ ] Topic B
+      render: markdown
+    validations:
+      required: true
+
+  - type: dropdown
+    id: estimate
+    attributes:
+      label: Estimated Time
+      description: Rough estimate, set when you pick this up
+      options:
+        - "< 1 day"
+        - "1-3 days"
+        - "3-5 days"
+        - "1-2 weeks"
+        - "2+ weeks"
+    validations:
+      required: true
+
+  - type: input
+    id: wiki-page
+    attributes:
+      label: Wiki page
+      description: >
+        Filled in once this is done — link to the polished write-up on the
+        wiki. Research issues get closed once their findings are promoted
+        there; the issue stays as the working discussion log.
+      placeholder: "https://github.com/RedHatResearch/aibom-security/wiki/..."
+    validations:
+      required: false
+
+  - type: textarea
+    id: stuck-on
+    attributes:
+      label: What I Got Stuck On
+      description: Leave empty at creation, update as you work.
+      placeholder: "(nothing yet)"
+    validations:
+      required: false

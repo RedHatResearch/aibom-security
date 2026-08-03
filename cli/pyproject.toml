@@ -1,0 +1,22 @@
+[project]
+name = "aibom"
+version = "0.1.0"
+description = "aibom-security's umbrella CLI (verify, and future subcommands)"
+readme = "README.md"
+authors = [
+    { name = "Ali Al-Sorehi", email = "aalsoreh@redhat.com" }
+]
+requires-python = ">=3.12"
+dependencies = [
+    "aibom-verifier",
+]
+
+[project.scripts]
+aibom = "aibom.cli:main"
+
+[build-system]
+requires = ["uv_build>=0.11.28,<0.12.0"]
+build-backend = "uv_build"
+
+[tool.uv.sources]
+aibom-verifier = { workspace = true }

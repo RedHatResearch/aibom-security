@@ -1,0 +1,34 @@
+[project]
+name = "aibom-security"
+version = "0.1.0"
+requires-python = ">=3.12"
+dependencies = []
+
+[tool.uv.workspace]
+members = [
+    "verifier",
+    "cli",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=9.1.1",
+    "ruff>=0.16.1",
+    "ty>=0.0.65",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["verifier/tests", "cli/tests"]
+addopts = "--import-mode=importlib"
+markers = ["network: tests that require Hugging Face Hub network access"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+src = ["verifier/src", "cli/src"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM"]
+
+[tool.ty.environment]
+root = ["./verifier/src", "./cli/src"]

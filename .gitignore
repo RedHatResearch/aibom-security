@@ -1,0 +1,29 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+
+# uv / venv
+.venv/
+uv.lock.bak
+
+# Test / lint / type-check caches
+.pytest_cache/
+.ruff_cache/
+.ty_cache/
+.coverage
+htmlcov/
+
+# Local cache used by the verifier at runtime
+.cache/
+
+# Editors / OS
+.vscode/
+.idea/
+.cursor/
+.DS_Store
+
+# Env files
+.env
+.env.*
