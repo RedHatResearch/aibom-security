@@ -1,7 +1,15 @@
 name: Bug report
 description: Something in aibom-security is broken or behaves incorrectly
-labels: ["bug"]
+labels: ["bug", "status:ready"]
 body:
+  - type: markdown
+    attributes:
+      value: |
+        **Board habits** (see `AGENTS.md`): keep shared context on this issue.
+        Comments use prefixes `Plan:` · `Context:` · `Decision:` · `Stuck:` · `Done:`.
+        **What I Got Stuck On** is for durable blockers only.
+        Status labels: `status:ready` → `in-progress` → (`blocked` \| `needs-review`) → `done`.
+
   - type: textarea
     id: description
     attributes:
@@ -52,9 +60,9 @@ body:
     attributes:
       label: What I Got Stuck On
       description: >
-        Leave empty at creation. Update this as you work — it's the running
-        log of blockers/surprises for anyone (including future you) reading
-        this issue later.
+        Leave empty at creation. Update only for durable blockers (what
+        blocks you and what would unblock it). Day-to-day progress goes in
+        comments as Plan: / Decision: / Done: — see AGENTS.md.
       placeholder: "(nothing yet)"
     validations:
       required: false
