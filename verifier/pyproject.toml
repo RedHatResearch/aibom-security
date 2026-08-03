@@ -7,7 +7,9 @@ authors = [
     { name = "Ali Al-Sorehi", email = "aalsoreh@redhat.com" }
 ]
 requires-python = ">=3.12"
-dependencies = []
+dependencies = [
+    "huggingface-hub>=1.26.0",
+]
 
 [build-system]
 requires = ["uv_build>=0.11.28,<0.12.0"]

@@ -1,23 +1,23 @@
-"""``verify`` subcommand: registered into the ``aibom`` umbrella CLI.
-
-Only argument parsing and the JSON output contract are implemented so far.
-The fingerprinting pipeline itself (ref resolution, architecture-hash gate,
-block-0 shape/byte comparison, verdict synthesis) is tracked as individual
-FR issues under Milestone 1:
-https://github.com/RedHatResearch/aibom-security/milestone/1
-"""
+"""``verify`` subcommand: registered into the ``aibom`` umbrella CLI."""
 
 from __future__ import annotations
 
 import argparse
 import json
+import os
+from pathlib import Path
 
-from aibom_verifier.types import VerificationResult
+from aibom_verifier.errors import CompareStartError
+from aibom_verifier.nodes.verdict_synthesize import verdict_message
+from aibom_verifier.planner import run_compare
+from aibom_verifier.slots.artifact_store import FilesystemArtifactStore
+from aibom_verifier.types import RunResult, VerificationResult
 
 NAME = "verify"
 HELP = "Verify whether a model's declared base_model claim holds up against its weights"
 
-NOT_IMPLEMENTED_EXIT_CODE = 3
+DEFAULT_CACHE_DIR = ".cache/aibom-verifier"
+POLICY_VERSION = "t1-1"
 
 
 def add_arguments(parser: argparse.ArgumentParser) -> None:
@@ -37,18 +37,61 @@ def add_arguments(parser: argparse.ArgumentParser) -> None:
         "--revision-base", default=None, help="Pin the base to a specific revision/commit SHA"
     )
     parser.add_argument("--cache-dir", default=None, help="Override the local cache directory")
+    parser.add_argument(
+        "--ignore-cache",
+        action="store_true",
+        help="Skip cache reads (still write new artifacts)",
+    )
+
+
+def _default_cache_dir() -> str:
+    return os.environ.get("AIBOM_CACHE_DIR", DEFAULT_CACHE_DIR)
+
+
+def _error_envelope(error_code: str, message: str) -> dict[str, object]:
+    return {
+        "ok": False,
+        "error": error_code,
+        "message": message,
+        "policy_version": POLICY_VERSION,
+    }
+
+
+def _exit_code_for_result(result: RunResult) -> int:
+    if any(test.status == "error" for test in result.tests):
+        return 1
+    return 0
+
+
+def _to_verification_result(result: RunResult) -> VerificationResult:
+    return VerificationResult(
+        target=result.target.repo_id,
+        base=result.base.repo_id,
+        verdict=result.final_verdict,
+        message=verdict_message(result.final_verdict, tests=result.tests),
+    )
 
 
 def run(args: argparse.Namespace) -> int:
     """Execute the ``verify`` subcommand and print a :class:`VerificationResult` as JSON."""
-    result = VerificationResult(
-        target=args.target,
-        base=args.base,
-        verdict="insufficient_evidence",
-        message=(
-            "The fingerprinting pipeline is not implemented yet — "
-            "see Milestone 1: https://github.com/RedHatResearch/aibom-security/milestone/1"
-        ),
+    cache_dir = args.cache_dir if args.cache_dir is not None else _default_cache_dir()
+    store = FilesystemArtifactStore(
+        base_dir=Path(cache_dir),
+        ignore_cache=bool(getattr(args, "ignore_cache", False)),
     )
-    print(json.dumps(result.to_dict(), indent=2))
-    return NOT_IMPLEMENTED_EXIT_CODE
+    try:
+        result = run_compare(
+            args.target,
+            base_repo=args.base,
+            revision_target=args.revision_target,
+            revision_base=args.revision_base,
+            store=store,
+            ignore_cache=bool(getattr(args, "ignore_cache", False)),
+        )
+    except CompareStartError as exc:
+        print(json.dumps(_error_envelope(exc.error_code, exc.message), indent=2))
+        return 1
+
+    public = _to_verification_result(result)
+    print(json.dumps(public.to_dict(), indent=2))
+    return _exit_code_for_result(result)
