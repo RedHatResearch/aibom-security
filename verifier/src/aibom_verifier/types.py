@@ -1,16 +1,9 @@
-"""Core result types shared across the verification pipeline.
-
-The actual fingerprinting/comparison logic (architecture-hash gate, block-0
-shape and byte comparison) lands with Milestone 1's FR issues — see
-https://github.com/RedHatResearch/aibom-security/milestone/1. This module
-only defines the stable output shape so the CLI has something real to return
-in the meantime.
-"""
+"""Core result types shared across the verification pipeline."""
 
 from __future__ import annotations
 
-from dataclasses import asdict, dataclass
-from typing import Literal
+from dataclasses import asdict, dataclass, field
+from typing import Any, Literal
 
 Verdict = Literal[
     "verified_derivative",
@@ -27,6 +20,15 @@ rather than over-confirming on architectures or evidence it cannot honestly
 assess.
 """
 
+# Alias used by the internal gate chain (same taxonomy as the public Verdict).
+FinalVerdict = Verdict
+
+TestStatus = Literal["pass", "fail", "skip", "error"]
+Compatibility = Literal["compatible", "incompatible", "unsupported", "insufficient_evidence"]
+BaseSource = Literal["card", "cli"]
+
+POLICY_VERSION = "t1-1"
+
 
 @dataclass(frozen=True, slots=True)
 class VerificationResult:
@@ -39,3 +41,60 @@ class VerificationResult:
 
     def to_dict(self) -> dict[str, object]:
         return asdict(self)
+
+
+@dataclass
+class ModelRef:
+    repo_id: str
+    revision: str
+    sha: str
+
+    def to_dict(self) -> dict[str, str]:
+        return {"repo_id": self.repo_id, "revision": self.revision, "sha": self.sha}
+
+
+@dataclass
+class TestOutcome:
+    __test__ = False
+
+    test_id: str
+    status: TestStatus
+    compatibility: Compatibility | None = None
+    scores: dict[str, float] = field(default_factory=dict)
+    reason_codes: list[str] = field(default_factory=list)
+    skipped_because: dict[str, str] | None = None  # {"upstream", "reason"} only
+    artifacts: list[str] = field(default_factory=list)
+    detail: dict[str, Any] = field(default_factory=dict)
+
+    def to_dict(self) -> dict[str, Any]:
+        return asdict(self)
+
+
+@dataclass
+class RunResult:
+    target: ModelRef
+    base: ModelRef
+    base_source: BaseSource
+    support_class: str
+    tests: list[TestOutcome]
+    final_verdict: FinalVerdict
+    cache: dict[str, list[str]]  # {"hits": [...], "misses": [...]}
+    policy_version: str = POLICY_VERSION
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "target": self.target.to_dict(),
+            "base": {**self.base.to_dict(), "source": self.base_source},
+            "support_class": self.support_class,
+            "tests": [t.to_dict() for t in self.tests],
+            "final_verdict": self.final_verdict,
+            "cache": self.cache,
+            "policy_version": self.policy_version,
+        }
+
+
+class CompareStartError(Exception):
+    def __init__(self, error_code: str, message: str) -> None:
+        self.error_code = error_code
+        self.message = message
+        super().__init__(message)
