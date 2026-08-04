@@ -17,9 +17,17 @@ from aibom_verifier.types import POLICY_VERSION, RunResult, VerificationResult
 NAME = "verify"
 HELP = "Verify whether a model's declared base_model claim holds up against its weights"
 
+EXIT_CODE_EPILOG = """\
+exit codes:
+  0  compare completed (any verdict, including non-confirming)
+  1  Hub/start error (resolve failed, gated, bad store config, …)
+"""
+
 
 def add_arguments(parser: argparse.ArgumentParser) -> None:
     """Populate ``parser`` with the ``verify`` subcommand's arguments."""
+    parser.formatter_class = argparse.RawDescriptionHelpFormatter
+    parser.epilog = EXIT_CODE_EPILOG
     parser.add_argument(
         "target", help="Hugging Face repo id of the model being verified, e.g. org/model"
     )
@@ -34,20 +42,26 @@ def add_arguments(parser: argparse.ArgumentParser) -> None:
     parser.add_argument(
         "--revision-base", default=None, help="Pin the base to a specific revision/commit SHA"
     )
-    add_store_arguments(parser)
+    add_store_arguments(
+        parser,
+        cache_dir_help=(
+            "Filesystem cache directory when --store filesystem "
+            "(default: AIBOM_CACHE_DIR or .cache/aibom-verifier; ignored for proxy)"
+        ),
+    )
     parser.add_argument(
         "--ignore-cache",
         action="store_true",
-        help="Skip cache reads (still write new artifacts)",
+        help="Skip cache reads and recompute; still write new artifacts to the store",
     )
     parser.add_argument(
         "--backend",
         choices=["local", "ssh", "compose"],
         default="local",
         help=(
-            "Where detection tests run: local in-process (default), "
-            "ssh (ssh localhost → python -m aibom_verifier.run_test), or "
-            "compose (Redis list queue → worker; AIBOM_REDIS_URL)."
+            "Where detection tests run: local in-process (default); "
+            "ssh (ssh localhost → python -m aibom_verifier.run_test); "
+            "compose (Redis list queue → worker; needs AIBOM_REDIS_URL)"
         ),
     )
 
@@ -59,12 +73,6 @@ def _error_envelope(error_code: str, message: str) -> dict[str, object]:
         "message": message,
         "policy_version": POLICY_VERSION,
     }
-
-
-def _exit_code_for_result(result: RunResult) -> int:
-    if any(test.status == "error" for test in result.tests):
-        return 1
-    return 0
 
 
 def _to_verification_result(result: RunResult) -> VerificationResult:
@@ -93,12 +101,17 @@ def _build_backend(args: argparse.Namespace) -> ExecutionBackend | None:
 
 
 def run(args: argparse.Namespace) -> int:
-    """Execute the ``verify`` subcommand and print a :class:`VerificationResult` as JSON."""
-    store = build_artifact_store(
-        store=args.store,
-        cache_dir=args.cache_dir,
-        ignore_cache=bool(args.ignore_cache),
-    )
+    """Execute ``verify``: print JSON to stdout; exit codes in ``EXIT_CODE_EPILOG``."""
+    try:
+        store = build_artifact_store(
+            store=args.store,
+            cache_dir=args.cache_dir,
+            ignore_cache=bool(args.ignore_cache),
+        )
+    except ValueError as exc:
+        print(json.dumps(_error_envelope("invalid_store", str(exc)), indent=2))
+        return 1
+
     try:
         result = run_compare(
             args.target,
@@ -114,4 +127,4 @@ def run(args: argparse.Namespace) -> int:
 
     public = _to_verification_result(result)
     print(json.dumps(public.to_dict(), indent=2))
-    return _exit_code_for_result(result)
+    return 0
