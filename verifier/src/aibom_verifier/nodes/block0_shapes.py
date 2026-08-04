@@ -2,6 +2,7 @@ import json
 
 from huggingface_hub import HfApi
 
+from aibom_verifier.errors import NotSafetensorsError
 from aibom_verifier.hf.safetensors_io import list_tensor_names, tensor_shapes
 from aibom_verifier.mapping.block0 import block0_plan_key, build_block0_plan
 from aibom_verifier.slots.artifact_store import ArtifactStore
@@ -55,16 +56,14 @@ def block0_shapes_node(inputs: dict, store: ArtifactStore) -> TestOutcome:
 
         target_shapes = tensor_shapes(target_repo, target_sha, store, api=api)
         base_shapes = tensor_shapes(base_repo, base_sha, store, api=api)
-    except ValueError as exc:
-        if str(exc) == "not_safetensors":
-            return TestOutcome(
-                test_id="block0_shapes",
-                status="pass",
-                compatibility="insufficient_evidence",
-                reason_codes=["not_safetensors"],
-                detail={"message": str(exc)},
-            )
-        raise
+    except NotSafetensorsError as exc:
+        return TestOutcome(
+            test_id="block0_shapes",
+            status="pass",
+            compatibility="insufficient_evidence",
+            reason_codes=["not_safetensors"],
+            detail={"message": str(exc)},
+        )
 
     mismatched = [
         pair["name"]

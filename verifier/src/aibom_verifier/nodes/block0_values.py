@@ -2,6 +2,7 @@ import json
 
 from huggingface_hub import HfApi
 
+from aibom_verifier.errors import NotSafetensorsError
 from aibom_verifier.hf.safetensors_io import fetch_tensor_bytes
 from aibom_verifier.mapping.block0 import block0_plan_key
 from aibom_verifier.slots.artifact_store import ArtifactStore
@@ -44,16 +45,14 @@ def block0_values_node(inputs: dict, store: ArtifactStore) -> TestOutcome:
                     reason_codes=["byte_mismatch"],
                     detail={"first_mismatch": name},
                 )
-    except ValueError as exc:
-        if str(exc) == "not_safetensors":
-            return TestOutcome(
-                test_id="block0_values",
-                status="pass",
-                compatibility="insufficient_evidence",
-                reason_codes=["not_safetensors"],
-                detail={"message": str(exc)},
-            )
-        raise
+    except NotSafetensorsError as exc:
+        return TestOutcome(
+            test_id="block0_values",
+            status="pass",
+            compatibility="insufficient_evidence",
+            reason_codes=["not_safetensors"],
+            detail={"message": str(exc)},
+        )
 
     return TestOutcome(
         test_id="block0_values",

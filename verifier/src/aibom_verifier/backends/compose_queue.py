@@ -107,13 +107,36 @@ def _error_payload(exc: BaseException) -> dict[str, Any]:
     }
 
 
+def _store_cache_key(store_config: Mapping[str, Any]) -> tuple[object, ...]:
+    return (
+        store_config.get("store"),
+        store_config.get("store_dir"),
+        bool(store_config.get("ignore_cache", False)),
+    )
+
+
+def _store_for_job(
+    store_config: Mapping[str, Any],
+    store_cache: dict[tuple[object, ...], ArtifactStore] | None,
+) -> ArtifactStore:
+    if store_cache is None:
+        return _build_store(store_config)
+    key = _store_cache_key(store_config)
+    store = store_cache.get(key)
+    if store is None:
+        store = _build_store(store_config)
+        store_cache[key] = store
+    return store
+
+
 def process_job(
     job: Mapping[str, Any],
     *,
     registry: dict[str, NodeFn] | None = None,
+    store_cache: dict[tuple[object, ...], ArtifactStore] | None = None,
 ) -> dict[str, Any]:
     """Run one decoded job; return the result envelope (does not touch Redis)."""
-    store = _build_store(job.get("store_config") or {})
+    store = _store_for_job(job.get("store_config") or {}, store_cache)
     outcome = run_one_node(
         job["node_id"],
         dict(job.get("inputs") or {}),
@@ -129,6 +152,7 @@ def process_next_job(
     queue_key: str | None = None,
     registry: dict[str, NodeFn] | None = None,
     timeout: int = 5,
+    store_cache: dict[tuple[object, ...], ArtifactStore] | None = None,
 ) -> bool:
     """``BRPOP`` one job, run it, push result. Return False on queue timeout."""
     key = queue_key or default_queue_key()
@@ -144,14 +168,12 @@ def process_next_job(
             raise ValueError("job_id must be a non-empty string")
         # Always derive from job_id — never trust a client-supplied result_key.
         result_key = result_list_key(job_id)
-        payload = process_job(job, registry=registry)
+        payload = process_job(job, registry=registry, store_cache=store_cache)
     except Exception as exc:
         payload = _error_payload(exc)
         if result_key is None:
             # Poison message with no recoverable result key — drop and keep looping.
             return True
-        _push_result(client, result_key, payload)
-        return True
     _push_result(client, result_key, payload)
     return True
 
@@ -169,8 +191,11 @@ def worker_main(
 
     ``max_jobs`` limits processed jobs (including failures/poison). Empty-queue
     ``BRPOP`` timeouts do not count. ``None`` runs forever.
+
+    Rebuilds the artifact store at most once per distinct ``store_config``.
     """
     redis_client = client if client is not None else connect_redis(redis_url)
+    store_cache: dict[tuple[object, ...], ArtifactStore] = {}
     done = 0
     while max_jobs is None or done < max_jobs:
         if process_next_job(
@@ -178,6 +203,7 @@ def worker_main(
             queue_key=queue_key,
             registry=registry,
             timeout=brpop_timeout,
+            store_cache=store_cache,
         ):
             done += 1
 

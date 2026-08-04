@@ -4,6 +4,7 @@ import struct
 from huggingface_hub import HfApi, get_session, get_token, hf_hub_url
 from huggingface_hub.errors import NotASafetensorsRepoError
 
+from aibom_verifier.errors import NotSafetensorsError
 from aibom_verifier.hf._common import hub_errors
 from aibom_verifier.slots.artifact_store import ArtifactStore
 
@@ -65,7 +66,7 @@ def _fetch_metadata_dict(repo_id: str, sha: str, api: HfApi) -> dict:
     try:
         metadata = api.get_safetensors_metadata(repo_id, revision=sha)
     except NotASafetensorsRepoError as exc:
-        raise ValueError("not_safetensors") from exc
+        raise NotSafetensorsError() from exc
     except Exception as exc:
         with hub_errors(repo_id, f"safetensors metadata at revision={sha!r}"):
             raise exc
@@ -92,7 +93,8 @@ def list_tensor_names(
 ) -> list[str]:
     """Return the sorted list of tensor names for `repo_id`@`sha`.
 
-    Raises `ValueError("not_safetensors")` if the repo has no safetensors weights.
+    Raises :class:`~aibom_verifier.errors.NotSafetensorsError` if the repo has
+    no safetensors weights.
     """
     hf_api = api or HfApi()
     meta = _load_or_fetch_meta(repo_id, sha, store, hf_api)

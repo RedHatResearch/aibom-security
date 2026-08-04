@@ -10,13 +10,14 @@ import json
 from dataclasses import dataclass, field
 from functools import lru_cache
 from pathlib import Path
-from typing import Any, Literal, assert_never, cast
+from typing import Any, Literal, assert_never, cast, get_args
 
 import yaml
 
 from aibom_verifier.types import TestOutcome, TestStatus
 
 RequirementKind = Literal["status", "score"]
+_VALID_TEST_STATUSES = frozenset(get_args(TestStatus))
 
 _DEFAULT_RULES_PATH = Path(__file__).resolve().parent / "data" / "t1_default.yaml"
 
@@ -56,6 +57,9 @@ def _parse_requirement(raw: Any) -> Requirement:
         status = raw["status"]
         if not isinstance(status, str):
             raise ValueError(f"requirement 'status' must be a string: {raw!r}")
+        if status not in _VALID_TEST_STATUSES:
+            allowed = ", ".join(sorted(_VALID_TEST_STATUSES))
+            raise ValueError(f"requirement 'status' must be one of {allowed}: {raw!r}")
         return Requirement(
             upstream_test_id=upstream,
             kind="status",

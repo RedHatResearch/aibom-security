@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import os
 import uuid
+from contextlib import contextmanager
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from io import BytesIO
@@ -57,6 +58,8 @@ class BlobBackend(Protocol):
     def put(self, object_name: str, data: bytes) -> None: ...
 
     def get(self, object_name: str) -> bytes | None: ...
+
+    def exists(self, object_name: str) -> bool: ...
 
     def delete(self, object_name: str) -> None: ...
 
@@ -113,6 +116,9 @@ class InMemoryBlobBackend:
     def get(self, object_name: str) -> bytes | None:
         return self.objects.get(object_name)
 
+    def exists(self, object_name: str) -> bool:
+        return object_name in self.objects
+
     def delete(self, object_name: str) -> None:
         self.objects.pop(object_name, None)
 
@@ -168,7 +174,15 @@ class ProxyArtifactStore:
         return data
 
     def exists(self, key: str) -> bool:
-        return self._load(key) is not None
+        if self._ignore_cache:
+            return False
+        row = self._metadata.get(key)
+        if row is None:
+            return False
+        if not self._blobs.exists(row.blob_object):
+            return False
+        self._metadata.touch(key, datetime.now(UTC))
+        return True
 
     def get(self, key: str) -> bytes | None:
         return self._load(key)
@@ -218,14 +232,16 @@ class ProxyArtifactStore:
 
 
 class PsycopgMetadataBackend:
-    """Postgres metadata backend (psycopg)."""
+    """Postgres metadata backend (psycopg).
+
+    Holds one long-lived connection for the process lifetime (PoC; not a pool).
+    """
 
     def __init__(self, conninfo: str) -> None:
-        self._conninfo = conninfo
-        with psycopg.connect(conninfo) as conn:
-            conn.execute(SCHEMA_SQL)
-            conn.execute(SCHEMA_INDEX_SQL)
-            conn.commit()
+        self._conn = psycopg.connect(conninfo)
+        self._conn.execute(SCHEMA_SQL)
+        self._conn.execute(SCHEMA_INDEX_SQL)
+        self._conn.commit()
 
     @classmethod
     def from_env(cls) -> PsycopgMetadataBackend:
@@ -234,8 +250,19 @@ class PsycopgMetadataBackend:
             raise ValueError("AIBOM_PG_DSN is required for store=proxy")
         return cls(dsn)
 
+    @contextmanager
+    def _session(self, *, commit: bool = False):
+        """Yield the shared connection; roll back on error, optionally commit."""
+        try:
+            yield self._conn
+            if commit:
+                self._conn.commit()
+        except Exception:
+            self._conn.rollback()
+            raise
+
     def get(self, key: str) -> ArtifactMeta | None:
-        with psycopg.connect(self._conninfo) as conn:
+        with self._session() as conn:
             row = conn.execute(
                 "SELECT key, blob_object, size_bytes, created_at, last_accessed_at "
                 "FROM artifacts WHERE key = %s",
@@ -246,7 +273,7 @@ class PsycopgMetadataBackend:
         return _row_to_meta(row)
 
     def put(self, meta: ArtifactMeta) -> None:
-        with psycopg.connect(self._conninfo) as conn:
+        with self._session(commit=True) as conn:
             conn.execute(
                 """
                 INSERT INTO artifacts (key, blob_object, size_bytes, created_at, last_accessed_at)
@@ -264,23 +291,20 @@ class PsycopgMetadataBackend:
                     meta.last_accessed_at,
                 ),
             )
-            conn.commit()
 
     def touch(self, key: str, accessed_at: datetime) -> None:
-        with psycopg.connect(self._conninfo) as conn:
+        with self._session(commit=True) as conn:
             conn.execute(
                 "UPDATE artifacts SET last_accessed_at = %s WHERE key = %s",
                 (accessed_at, key),
             )
-            conn.commit()
 
     def delete(self, key: str) -> None:
-        with psycopg.connect(self._conninfo) as conn:
+        with self._session(commit=True) as conn:
             conn.execute("DELETE FROM artifacts WHERE key = %s", (key,))
-            conn.commit()
 
     def list_older_than(self, cutoff: datetime) -> list[ArtifactMeta]:
-        with psycopg.connect(self._conninfo) as conn:
+        with self._session() as conn:
             rows = conn.execute(
                 "SELECT key, blob_object, size_bytes, created_at, last_accessed_at "
                 "FROM artifacts WHERE last_accessed_at < %s",
@@ -360,6 +384,15 @@ class MinioBlobBackend:
         finally:
             response.close()
             response.release_conn()
+
+    def exists(self, object_name: str) -> bool:
+        try:
+            self._client.stat_object(self._bucket, object_name)
+        except S3Error as exc:
+            if exc.code in _MISSING_OBJECT_CODES:
+                return False
+            raise
+        return True
 
     def delete(self, object_name: str) -> None:
         self._client.remove_object(self._bucket, object_name)

@@ -33,7 +33,6 @@ def _skip_outcome(test_id: str, upstream: str, reason: str) -> TestOutcome:
 
 
 def _inputs_for(
-    test_id: str,
     *,
     target_repo: str,
     target_sha: str,
@@ -44,17 +43,18 @@ def _inputs_for(
     api: HfApi | None,
     extra_inputs: dict | None,
 ) -> dict:
-    if test_id in {"support_classify", "arch_hash"}:
-        return {"target_config": target_config, "base_config": base_config}
-    if test_id in {"block0_shapes", "block0_values"}:
-        return {
-            "target_repo": target_repo,
-            "target_sha": target_sha,
-            "base_repo": base_repo,
-            "base_sha": base_sha,
-            "api": api,
-        }
-    inputs = dict(extra_inputs or {})
+    # Pass the full standard bag; nodes ignore keys they do not use.
+    inputs = {
+        "target_repo": target_repo,
+        "target_sha": target_sha,
+        "base_repo": base_repo,
+        "base_sha": base_sha,
+        "target_config": target_config,
+        "base_config": base_config,
+        "api": api,
+    }
+    if extra_inputs:
+        inputs.update(extra_inputs)
     return inputs
 
 
@@ -174,7 +174,6 @@ def run_test_run(
                 outcome = _hybrid_skip(rule.test_id, unsatisfied, upstream)
         else:
             inputs = _inputs_for(
-                rule.test_id,
                 target_repo=target_repo,
                 target_sha=target_sha,
                 base_repo=resolved_base_repo,

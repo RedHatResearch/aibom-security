@@ -66,8 +66,9 @@ def test_sweep_store_filesystem_is_noop(tmp_path):
 
 
 def test_sweep_store_rejects_negative_max_age():
+    store = ProxyArtifactStore(InMemoryMetadataBackend(), InMemoryBlobBackend())
     with pytest.raises(ValueError, match="max_age_days"):
-        cache_sweep_mod.sweep_store(object(), max_age_days=-1)
+        cache_sweep_mod.sweep_store(store, max_age_days=-1)
 
 
 def test_cli_run_exits_0_and_reports_deleted(monkeypatch, capsys):

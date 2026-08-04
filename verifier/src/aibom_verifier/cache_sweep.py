@@ -8,10 +8,8 @@ def sweep_store(store: object, *, max_age_days: int) -> int:
 
     Proxies that implement ``sweep`` (e.g. :class:`ProxyArtifactStore`) delete
     metadata and blobs. Filesystem stores have no LAT metadata; this is a no-op
-    that returns ``0``.
+    that returns ``0``. Negative ``max_age_days`` is rejected by the store.
     """
-    if max_age_days < 0:
-        raise ValueError("max_age_days must be >= 0")
     sweep = getattr(store, "sweep", None)
     if not callable(sweep):
         return 0

@@ -2,7 +2,7 @@ import json
 
 import pytest
 
-from aibom_verifier.errors import CompareStartError
+from aibom_verifier.errors import CompareStartError, NotSafetensorsError
 from aibom_verifier.mapping.block0 import BLOCK0_PREFIX, REQUIRED_SUFFIXES
 from aibom_verifier.nodes import block0_shapes as block0_shapes_mod
 from aibom_verifier.nodes import block0_values as block0_values_mod
@@ -181,7 +181,7 @@ def test_shapes_fail_skips_values_and_verdict_is_incompatible(scenario):
 
 
 def test_not_safetensors_yields_insufficient_evidence(scenario):
-    scenario(list_tensor_names_error=ValueError("not_safetensors"))
+    scenario(list_tensor_names_error=NotSafetensorsError())
     store = InMemoryArtifactStore()
 
     result = run_compare(TARGET_REPO, base_repo=BASE_REPO, store=store, api=None)

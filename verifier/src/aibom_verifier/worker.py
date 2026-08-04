@@ -7,8 +7,7 @@ import sys
 from aibom_verifier.backends.compose_queue import worker_main
 
 
-def main(argv: list[str] | None = None) -> int:
-    _ = argv  # reserved for future flags; Compose uses env today
+def main() -> int:
     worker_main()
     return 0
 

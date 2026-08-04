@@ -112,7 +112,7 @@ def main(
         )
         return 1
 
-    print(json.dumps(outcome.to_dict(), indent=2))
+    print(json.dumps(outcome.to_dict()))
     return 0
 
 

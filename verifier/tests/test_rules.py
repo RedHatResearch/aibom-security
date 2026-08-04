@@ -115,6 +115,20 @@ def test_load_rules_rejects_non_mapping_requirement(tmp_path: Path):
         load_rules(path)
 
 
+def test_load_rules_rejects_invalid_status(tmp_path: Path):
+    path = tmp_path / "bad-status.yaml"
+    path.write_text(
+        "rules:\n"
+        "  - test_id: arch_hash\n"
+        "    requires:\n"
+        "      - upstream: support_classify\n"
+        "        status: nope\n",
+        encoding="utf-8",
+    )
+    with pytest.raises(ValueError, match="status"):
+        load_rules(path)
+
+
 def test_load_rules_maps_score_short_names(tmp_path: Path):
     path = tmp_path / "score.yaml"
     path.write_text(
