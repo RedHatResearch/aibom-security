@@ -148,9 +148,9 @@ uv run ty check                 # type check
 - Prefer documenting or exposing existing verifier outputs over inventing new public JSON field names without a grounded draft.
 - Keep this file usable by everyone on the repo: do not mention personal machines, home-directory paths, or other local repositories outside this workspace.
 - When presenting design choices, use a table with tradeoffs and how close each option is to the stated brief.
-- After each implementation task: run simplify, then code-review, fix findings, then continue to the next task.
+- Always: plan → implement → simplify → code-review → fix all findings (deep/critical, not rubber-stamp) → next task.
 - Before every push: run `uv run ruff check .`, `uv run ruff format --check .` (or format), `uv run ty check`, and `uv run pytest -m "not network"` locally; fix failures before pushing.
-- GitHub issue/PR comments are in the user’s voice; the agent is a tool only. Report blockers in chat first; only propose board comments when truly stuck and the user agrees.
+- GitHub issue/PR comments are for plans and short colleague-visible tracking notes only (Plan/Decision/Context/Stuck/Done). Do not post agent session prompts, Cursor startup copy-paste blocks, or other agentic scaffolding to issues. Keep those in chat. Report blockers in chat first.
 
 ## Learned Workspace Facts
 
@@ -159,6 +159,7 @@ uv run ty check                 # type check
 - PoC orchestration (proxy store, backends, Compose-related code) lives under `verifier/`; root `docker-compose.yml` may still sit at the repo root.
 - PoC entry is CLI-first: `aibom verify` uses the proxy and can submit work to Compose/SSH backends; cache cleanup is one `aibom cache-sweep` path (`--max-age-days 30`) also run by a Compose timer.
 - SSH-to-localhost demo uses a thin SSH backend (`ssh localhost` → `run-test` entrypoint); no Dask in M1.
+- Compose job queue is plain Redis list + JSON (`LPUSH`/`BRPOP`); no RQ.
 - Block-0 / first-layer checks use safetensors headers plus ranged tensor byte reads, not full model downloads; the two live detection tests stay boolean (float-threshold gating is an orchestrator seam for later tests).
 - Test dependencies are a small YAML/JSON rule list with forward walk; live T1→T2 gates on boolean pass; float `> 0.8` is proven on a stub only.
 - FR-8 inventing new lineage JSON fields is abandoned; current `VerificationResult` / `RunResult` output is enough for M1.
