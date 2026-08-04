@@ -245,3 +245,54 @@ def test_run_compare_start_error_returns_exit_1(monkeypatch, capsys, tmp_path):
     payload = json.loads(capsys.readouterr().out)
     assert payload["ok"] is False
     assert payload["error"] == "repo_not_found"
+
+
+def test_verify_help_documents_poc_flags_and_exit_codes():
+    parser = argparse.ArgumentParser(prog="aibom-verify")
+    cli.add_arguments(parser)
+    help_text = parser.format_help()
+
+    assert "--backend" in help_text
+    assert "--ignore-cache" in help_text
+    assert "--store" in help_text
+    assert cli.EXIT_CODE_EPILOG.strip() in help_text
+
+
+def test_completed_compare_with_test_error_still_exits_0(monkeypatch, capsys, tmp_path):
+    """Exit 0 means the compare finished; verdict/JSON carry non-confirming outcomes."""
+    args = _parse(["org/target-model", "--base", "org/base-model", "--cache-dir", str(tmp_path)])
+    fake = RunResult(
+        target=ModelRef(repo_id="org/target-model", revision="main", sha="tsha"),
+        base=ModelRef(repo_id="org/base-model", revision="main", sha="bsha"),
+        base_source="cli",
+        support_class="dense_supported",
+        tests=[
+            TestOutcome(test_id="resolve_refs", status="pass"),
+            TestOutcome(
+                test_id="block0_shapes",
+                status="error",
+                reason_codes=["hub_error"],
+            ),
+        ],
+        final_verdict="insufficient_evidence",
+        cache={"hits": [], "misses": []},
+    )
+    monkeypatch.setattr(cli, "run_compare", lambda *a, **k: fake)
+
+    assert cli.run(args) == 0
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["verdict"] == "insufficient_evidence"
+
+
+def test_invalid_store_config_returns_exit_1(monkeypatch, capsys, tmp_path):
+    args = _parse(["org/model", "--store", "proxy", "--cache-dir", str(tmp_path)])
+
+    def _raise(**kwargs):
+        raise ValueError("missing AIBOM_PG_DSN")
+
+    monkeypatch.setattr(cli, "build_artifact_store", _raise)
+
+    assert cli.run(args) == 1
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["ok"] is False
+    assert payload["error"] == "invalid_store"

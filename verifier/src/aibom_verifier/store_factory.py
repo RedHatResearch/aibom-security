@@ -12,9 +12,9 @@ from aibom_verifier.slots.proxy_store import ProxyArtifactStore
 DEFAULT_CACHE_DIR = ".cache/aibom-verifier"
 
 _STORE_HELP = (
-    "Artifact store backend (default: AIBOM_STORE or filesystem). "
-    "proxy needs AIBOM_PG_DSN and AIBOM_MINIO_* "
-    "(AIBOM_MINIO_ENDPOINT, AIBOM_MINIO_ACCESS_KEY, AIBOM_MINIO_SECRET_KEY; "
+    "Artifact store: filesystem (default, or AIBOM_STORE) or proxy "
+    "(Postgres metadata + MinIO blobs; needs AIBOM_PG_DSN and AIBOM_MINIO_* "
+    "— AIBOM_MINIO_ENDPOINT, AIBOM_MINIO_ACCESS_KEY, AIBOM_MINIO_SECRET_KEY; "
     "optional AIBOM_MINIO_BUCKET, AIBOM_MINIO_SECURE)."
 )
 

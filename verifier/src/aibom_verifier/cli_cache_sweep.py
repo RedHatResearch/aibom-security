@@ -9,7 +9,10 @@ from aibom_verifier.cache_sweep import sweep_store
 from aibom_verifier.store_factory import add_store_arguments, build_artifact_store
 
 NAME = "cache-sweep"
-HELP = "Delete stale cached artifacts by last-access time (proxy store only; filesystem is a no-op)"
+HELP = (
+    "Delete stale proxy-store artifacts by last-access time "
+    "(filesystem is a no-op). Compose sweeper calls this daily."
+)
 
 
 def add_arguments(parser: argparse.ArgumentParser) -> None:
@@ -18,12 +21,11 @@ def add_arguments(parser: argparse.ArgumentParser) -> None:
         "--max-age-days",
         type=int,
         default=30,
-        help="Delete entries with last_accessed_at older than this many days (default: 30)",
+        help="Delete proxy entries with last_accessed_at older than this many days (default: 30)",
     )
     add_store_arguments(
         parser,
-        cache_dir_help="Filesystem cache directory (ignored for store=proxy)",
-        store_help_suffix=" filesystem sweep is a no-op.",
+        cache_dir_help="Filesystem cache directory (ignored for --store proxy)",
     )
 
 
