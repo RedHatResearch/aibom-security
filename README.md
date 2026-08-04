@@ -35,6 +35,18 @@ docker build -t aibom-security .
 docker run --rm aibom-security verify meta-llama/Llama-3.2-1B --base someorg/some-finetune
 ```
 
+Architecture PoC stack (Postgres + MinIO + Redis + workers + sweeper).
+Local laptop only; published ports bind to `127.0.0.1`. Data is ephemeral
+(no named volumes). Container services use Docker DNS; host CLI uses
+`.env.example` (`localhost` published ports).
+
+```bash
+docker compose up -d --scale worker=2
+cp .env.example .env   # local-only defaults; do not commit secrets
+set -a && source .env && set +a   # required; copy alone does not set env
+uv run aibom verify org/model --base org/base --store proxy --backend compose
+```
+
 ## Development
 
 ```bash

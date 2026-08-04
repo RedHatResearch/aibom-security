@@ -1,0 +1,105 @@
+# Architecture PoC stack (local laptop only). See README for host verify steps.
+# Credentials are local-only defaults; data is ephemeral (no named volumes).
+
+x-proxy-env: &proxy-env
+  AIBOM_STORE: proxy
+  AIBOM_PG_DSN: postgresql://aibom:aibom@postgres:5432/aibom
+  AIBOM_MINIO_ENDPOINT: minio:9000
+  AIBOM_MINIO_ACCESS_KEY: minioadmin
+  AIBOM_MINIO_SECRET_KEY: minioadmin
+  AIBOM_MINIO_BUCKET: aibom-artifacts
+  AIBOM_MINIO_SECURE: "0"
+  AIBOM_REDIS_URL: redis://redis:6379/0
+
+x-app: &app
+  image: aibom-security:local
+  build: .
+
+services:
+  postgres:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: aibom
+      POSTGRES_PASSWORD: aibom
+      POSTGRES_DB: aibom
+    ports:
+      - "127.0.0.1:5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U aibom -d aibom"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  minio:
+    image: minio/minio:RELEASE.2025-04-22T22-12-26Z
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin
+    ports:
+      - "127.0.0.1:9000:9000"
+      - "127.0.0.1:9001:9001"
+
+  minio-init:
+    image: minio/mc:RELEASE.2025-04-16T18-13-26Z
+    depends_on:
+      - minio
+    restart: "no"
+    entrypoint: >
+      /bin/sh -c "
+      i=0;
+      until mc alias set local http://minio:9000 minioadmin minioadmin; do
+        i=$$((i+1));
+        if [ $$i -ge 60 ]; then
+          echo 'minio-init: MinIO not ready after 60s' >&2;
+          exit 1;
+        fi;
+        sleep 1;
+      done;
+      mc mb --ignore-existing local/aibom-artifacts;
+      "
+
+  redis:
+    image: redis:7
+    ports:
+      - "127.0.0.1:6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  worker:
+    <<: *app
+    restart: unless-stopped
+    entrypoint: ["python", "-m", "aibom_verifier.worker"]
+    environment:
+      <<: *proxy-env
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      minio-init:
+        condition: service_completed_successfully
+
+  sweeper:
+    <<: *app
+    restart: unless-stopped
+    # Daily loop; --store proxy + --max-age-days 30 are explicit for the PoC.
+    entrypoint:
+      - /bin/sh
+      - -c
+      - >-
+        while true; do
+        aibom cache-sweep --store proxy --max-age-days 30
+        || echo "cache-sweep failed: $$?" >&2;
+        sleep 86400;
+        done
+    environment:
+      <<: *proxy-env
+    depends_on:
+      postgres:
+        condition: service_healthy
+      minio-init:
+        condition: service_completed_successfully

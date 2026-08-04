@@ -2,6 +2,7 @@ import argparse
 import json
 
 from aibom_verifier import cli
+from aibom_verifier.backends.ssh_local import SshLocalBackend
 from aibom_verifier.types import ModelRef, RunResult, TestOutcome
 
 
@@ -32,6 +33,11 @@ def test_add_arguments_happy_path_all_options():
             "def456",
             "--cache-dir",
             "/tmp/cache",
+            "--store",
+            "proxy",
+            "--ignore-cache",
+            "--backend",
+            "ssh",
         ]
     )
 
@@ -40,6 +46,135 @@ def test_add_arguments_happy_path_all_options():
     assert args.revision_target == "abc123"
     assert args.revision_base == "def456"
     assert args.cache_dir == "/tmp/cache"
+    assert args.store == "proxy"
+    assert args.ignore_cache is True
+    assert args.backend == "ssh"
+
+
+def test_add_arguments_backend_defaults_to_local():
+    args = _parse(["org/model"])
+    assert args.backend == "local"
+
+
+def test_run_wires_ignore_cache_and_store_to_factory(monkeypatch, capsys):
+    args = _parse(
+        [
+            "org/target-model",
+            "--base",
+            "org/base-model",
+            "--store",
+            "proxy",
+            "--ignore-cache",
+        ]
+    )
+    captured: dict = {}
+
+    def _fake_build(**kwargs):
+        captured.update(kwargs)
+        return object()
+
+    fake = RunResult(
+        target=ModelRef(repo_id="org/target-model", revision="main", sha="tsha"),
+        base=ModelRef(repo_id="org/base-model", revision="main", sha="bsha"),
+        base_source="cli",
+        support_class="dense_supported",
+        tests=[TestOutcome(test_id="resolve_refs", status="pass")],
+        final_verdict="insufficient_evidence",
+        cache={"hits": [], "misses": []},
+    )
+    monkeypatch.setattr(cli, "build_artifact_store", _fake_build)
+    monkeypatch.setattr(cli, "run_compare", lambda *a, **k: fake)
+
+    assert cli.run(args) == 0
+    assert captured["store"] == "proxy"
+    assert captured["ignore_cache"] is True
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["verdict"] == "insufficient_evidence"
+
+
+def test_run_wires_ssh_backend(monkeypatch, tmp_path):
+    args = _parse(
+        [
+            "org/target-model",
+            "--base",
+            "org/base-model",
+            "--cache-dir",
+            str(tmp_path),
+            "--store",
+            "proxy",
+            "--ignore-cache",
+            "--backend",
+            "ssh",
+        ]
+    )
+    captured: dict = {}
+
+    def _fake_compare(*a, **kwargs):
+        captured.update(kwargs)
+        return RunResult(
+            target=ModelRef(repo_id="org/target-model", revision="main", sha="tsha"),
+            base=ModelRef(repo_id="org/base-model", revision="main", sha="bsha"),
+            base_source="cli",
+            support_class="dense_supported",
+            tests=[TestOutcome(test_id="resolve_refs", status="pass")],
+            final_verdict="insufficient_evidence",
+            cache={"hits": [], "misses": []},
+        )
+
+    monkeypatch.setattr(cli, "build_artifact_store", lambda **kwargs: object())
+    monkeypatch.setattr(cli, "run_compare", _fake_compare)
+    assert cli.run(args) == 0
+    backend = captured["backend"]
+    assert isinstance(backend, SshLocalBackend)
+    assert backend._store_dir == str(tmp_path)
+    assert backend._store == "proxy"
+    assert backend._ignore_cache is True
+
+
+def test_run_wires_compose_backend(monkeypatch, tmp_path):
+    args = _parse(
+        [
+            "org/target-model",
+            "--base",
+            "org/base-model",
+            "--cache-dir",
+            str(tmp_path),
+            "--ignore-cache",
+            "--backend",
+            "compose",
+        ]
+    )
+    captured: dict = {}
+    built: dict = {}
+
+    class FakeCompose:
+        def __init__(self, **kwargs):
+            built.update(kwargs)
+
+    def _fake_compare(*a, **kwargs):
+        captured.update(kwargs)
+        return RunResult(
+            target=ModelRef(repo_id="org/target-model", revision="main", sha="tsha"),
+            base=ModelRef(repo_id="org/base-model", revision="main", sha="bsha"),
+            base_source="cli",
+            support_class="dense_supported",
+            tests=[TestOutcome(test_id="resolve_refs", status="pass")],
+            final_verdict="insufficient_evidence",
+            cache={"hits": [], "misses": []},
+        )
+
+    monkeypatch.setattr(cli, "ComposeQueueBackend", FakeCompose)
+    monkeypatch.setattr(cli, "build_artifact_store", lambda **kwargs: object())
+    monkeypatch.setattr(cli, "run_compare", _fake_compare)
+    assert cli.run(args) == 0
+    assert isinstance(captured["backend"], FakeCompose)
+    assert built["store_dir"] == str(tmp_path)
+    assert built["ignore_cache"] is True
+
+
+def test_add_arguments_accepts_compose_backend():
+    args = _parse(["org/model", "--backend", "compose"])
+    assert args.backend == "compose"
 
 
 def test_run_prints_verification_result_json(monkeypatch, capsys, tmp_path):

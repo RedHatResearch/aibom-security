@@ -4,19 +4,18 @@ from __future__ import annotations
 
 import argparse
 import json
-import os
-from pathlib import Path
 
+from aibom_verifier.backends.compose_queue import ComposeQueueBackend
+from aibom_verifier.backends.ssh_local import SshLocalBackend
 from aibom_verifier.errors import CompareStartError
 from aibom_verifier.nodes.verdict_synthesize import verdict_message
 from aibom_verifier.planner import run_compare
-from aibom_verifier.slots.artifact_store import FilesystemArtifactStore
+from aibom_verifier.slots.execution_backend import ExecutionBackend
+from aibom_verifier.store_factory import add_store_arguments, build_artifact_store
 from aibom_verifier.types import POLICY_VERSION, RunResult, VerificationResult
 
 NAME = "verify"
 HELP = "Verify whether a model's declared base_model claim holds up against its weights"
-
-DEFAULT_CACHE_DIR = ".cache/aibom-verifier"
 
 
 def add_arguments(parser: argparse.ArgumentParser) -> None:
@@ -35,16 +34,22 @@ def add_arguments(parser: argparse.ArgumentParser) -> None:
     parser.add_argument(
         "--revision-base", default=None, help="Pin the base to a specific revision/commit SHA"
     )
-    parser.add_argument("--cache-dir", default=None, help="Override the local cache directory")
+    add_store_arguments(parser)
     parser.add_argument(
         "--ignore-cache",
         action="store_true",
         help="Skip cache reads (still write new artifacts)",
     )
-
-
-def _default_cache_dir() -> str:
-    return os.environ.get("AIBOM_CACHE_DIR", DEFAULT_CACHE_DIR)
+    parser.add_argument(
+        "--backend",
+        choices=["local", "ssh", "compose"],
+        default="local",
+        help=(
+            "Where detection tests run: local in-process (default), "
+            "ssh (ssh localhost → python -m aibom_verifier.run_test), or "
+            "compose (Redis list queue → worker; AIBOM_REDIS_URL)."
+        ),
+    )
 
 
 def _error_envelope(error_code: str, message: str) -> dict[str, object]:
@@ -71,12 +76,28 @@ def _to_verification_result(result: RunResult) -> VerificationResult:
     )
 
 
+def _build_backend(args: argparse.Namespace) -> ExecutionBackend | None:
+    if args.backend == "ssh":
+        return SshLocalBackend(
+            store_dir=args.cache_dir,
+            store=args.store,
+            ignore_cache=bool(args.ignore_cache),
+        )
+    if args.backend == "compose":
+        return ComposeQueueBackend(
+            store_dir=args.cache_dir,
+            store=args.store,
+            ignore_cache=bool(args.ignore_cache),
+        )
+    return None
+
+
 def run(args: argparse.Namespace) -> int:
     """Execute the ``verify`` subcommand and print a :class:`VerificationResult` as JSON."""
-    cache_dir = args.cache_dir if args.cache_dir is not None else _default_cache_dir()
-    store = FilesystemArtifactStore(
-        base_dir=Path(cache_dir),
-        ignore_cache=bool(getattr(args, "ignore_cache", False)),
+    store = build_artifact_store(
+        store=args.store,
+        cache_dir=args.cache_dir,
+        ignore_cache=bool(args.ignore_cache),
     )
     try:
         result = run_compare(
@@ -85,6 +106,7 @@ def run(args: argparse.Namespace) -> int:
             revision_target=args.revision_target,
             revision_base=args.revision_base,
             store=store,
+            backend=_build_backend(args),
         )
     except CompareStartError as exc:
         print(json.dumps(_error_envelope(exc.error_code, exc.message), indent=2))

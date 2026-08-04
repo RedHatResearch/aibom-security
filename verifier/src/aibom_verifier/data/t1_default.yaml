@@ -1,0 +1,16 @@
+# Order = forward-walk order. resolve_refs is bootstrap (not listed; always first).
+# Live T1: YAML status predicates + hybrid skip helpers for WHETHER to run.
+rules:
+  - test_id: support_classify
+  - test_id: arch_hash
+    requires:
+      - upstream: support_classify
+        status: pass
+  - test_id: block0_shapes
+    requires:
+      - upstream: arch_hash
+        status: pass
+  - test_id: block0_values
+    requires:
+      - upstream: block0_shapes
+        status: pass

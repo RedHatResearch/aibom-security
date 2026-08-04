@@ -3,14 +3,27 @@ import json
 from aibom_verifier.types import ModelRef, RunResult, TestOutcome
 
 
-def test_verify_subcommand_is_registered():
+def test_cache_sweep_subcommand_is_registered():
     from aibom.cli import build_parser
 
     parser = build_parser()
-    args = parser.parse_args(["verify", "org/model"])
+    args = parser.parse_args(["cache-sweep", "--max-age-days", "7"])
 
-    assert args.command == "verify"
-    assert args.target == "org/model"
+    assert args.command == "cache-sweep"
+    assert args.max_age_days == 7
+
+
+def test_main_dispatches_cache_sweep(monkeypatch, capsys):
+    from aibom.cli import main
+    from aibom_verifier import cli_cache_sweep as cache_sweep_cli
+
+    def _fake_run(args):
+        print(json.dumps({"deleted": 0, "max_age_days": args.max_age_days}))
+        return 0
+
+    monkeypatch.setattr(cache_sweep_cli, "run", _fake_run)
+    assert main(["cache-sweep", "--max-age-days", "0"]) == 0
+    assert json.loads(capsys.readouterr().out)["max_age_days"] == 0
 
 
 def test_main_dispatches_verify_to_the_verifier_package(monkeypatch, capsys, tmp_path):

@@ -34,8 +34,8 @@ Read the body, labels, milestone, and comments. Treat `Plan:` / `Decision:` / `C
 
 ```bash
 gh issue edit N --add-assignee @me \
-  --remove-label "status:ready" --remove-label "status:parked" \
-  --add-label "status:in-progress"
+  --remove-label "blocked" \
+  --add-label "in-progress"
 ```
 
 Open a **draft PR** early once there is a branch (link the issue with `Refs #N` in the PR body). That is the in-progress signal on GitHub.
@@ -53,17 +53,13 @@ gh issue comment N --body "Stuck: …"        # mirror/update the Stuck On field
 gh issue comment N --body "Done: …"         # what shipped / how to verify
 ```
 
-When blocked:
+When blocked or waiting on a human decision/review:
 
 ```bash
-gh issue edit N --remove-label "status:in-progress" --add-label "status:blocked"
+gh issue edit N --remove-label "in-progress" --add-label "blocked"
 ```
 
-When waiting on a human decision/review (no code merge yet):
-
-```bash
-gh issue edit N --remove-label "status:in-progress" --add-label "status:needs-review"
-```
+Say why in Stuck On / a `Stuck:` comment (hard block) or a `Context:` / `Decision:` comment (needs review).
 
 ### 4. Parent dashboard
 
@@ -80,38 +76,35 @@ If a parent/epic issue has a checklist (e.g. MVP requirements), check off the it
 
 | Kind | Done means | How to close |
 |---|---|---|
-| Feature / bug (code) | Tests land; PR merges | `Fixes #N` on merge, or close manually after merge; set `status:done` |
-| Research / SOTA | Findings promoted to wiki; issue links the page | `Done:` comment + wiki URL in body; `status:done`; close |
-| Planning / pitch / requirements | Text accepted; no code required | `Done:` or `Decision:` comment; `status:done`; close |
-| Needs a human call first | Waiting on review | `status:needs-review` until answered, then resume or close |
+| Feature / bug (code) | Tests land; PR merges | `Fixes #N` on merge, or close manually after merge |
+| Research / SOTA | Findings promoted to wiki; issue links the page | `Done:` comment + wiki URL in body; close |
+| Planning / pitch / requirements | Text accepted; no code required | `Done:` or `Decision:` comment; close |
+| Needs a human call first | Waiting on review | `blocked` until answered, then resume or close |
 
 ```bash
-gh issue edit N --remove-label "status:in-progress" --remove-label "status:blocked" \
-  --remove-label "status:needs-review" --add-label "status:done"
+gh issue edit N --remove-label "in-progress" --remove-label "blocked"
 gh issue close N --reason completed
 ```
 
 ### 7. Parking (icelog)
 
 ```bash
-gh issue edit N --add-label "icelog" --add-label "status:parked" \
-  --remove-label "status:in-progress" --remove-label "status:ready"
+gh issue edit N --add-label "icelog" \
+  --remove-label "in-progress" --remove-label "blocked"
 ```
 
 Also put the issue on the **Icebox** milestone. Do not implement parked issues without asking first.
 
 ## Status labels
 
-Exactly one `status:*` on active work when practical:
+At most one of these on an open issue:
 
 | Label | Meaning |
 |---|---|
-| `status:ready` | Triaged, available to pick up |
-| `status:in-progress` | Assignee and/or draft PR; actively working |
-| `status:blocked` | Cannot proceed; Stuck On + `Stuck:` say why |
-| `status:needs-review` | Waiting on human review or a decision |
-| `status:done` | Complete; issue should be closed |
-| `status:parked` | Frozen/deferred (`icelog` + Icebox) |
+| `in-progress` | Assignee and/or draft PR; actively working |
+| `blocked` | Cannot proceed, or waiting on human review/decision |
+
+No status label on an open issue = ready to pick up. Closed = done. Parked = `icelog` + Icebox.
 
 Type labels stay as today (`enhancement`, `bug`, `question`, `icelog`, …).
 
@@ -144,7 +137,30 @@ uv run ty check                 # type check
 - Always: every issue has a milestone; use the feature/bug/research issue form templates.
 - Always: features ship with a happy-path test; bug fixes ship with a regression test (fails before, passes after).
 - Always: follow the board protocol above when touching issues.
-- Ask first: force-pushing, rewriting shared history, picking up `Icebox` / `status:parked` items, pushing to remote, committing.
+- Ask first: force-pushing, rewriting shared history, picking up `Icebox` / `icelog` items, pushing to remote, committing.
 - Never: commit secrets/HF tokens, add `Co-authored-by` or any AI/agent attribution to commits or PRs.
 - Keep the README short and human; put agent/process guidance here (and in `CLAUDE.md`), not in the README.
 - Prefer plain, non-marketing prose in user-facing docs and GitHub issue copy; avoid AI-flavored taglines.
+
+## Learned User Preferences
+
+- When an issue has unclear scope or missing schema/docs, summarize current status and ask clarifying questions before implementing.
+- Prefer documenting or exposing existing verifier outputs over inventing new public JSON field names without a grounded draft.
+- Keep this file usable by everyone on the repo: do not mention personal machines, home-directory paths, or other local repositories outside this workspace.
+- When presenting design choices, use a table with tradeoffs and how close each option is to the stated brief.
+- After each implementation task: run simplify, then code-review, fix findings, then continue to the next task.
+- Before every push: run `uv run ruff check .`, `uv run ruff format --check .` (or format), `uv run ty check`, and `uv run pytest -m "not network"` locally; fix failures before pushing.
+- GitHub issue/PR comments are in the user’s voice; the agent is a tool only. Report blockers in chat first; only propose board comments when truly stuck and the user agrees.
+
+## Learned Workspace Facts
+
+- Run the CLI as `uv run aibom ...`; bare `aibom` is not on PATH by default in this uv workspace.
+- Milestone 1 includes the T1 verifier CLI plus an architecture-validation PoC (Compose stack, Postgres+MinIO result proxy, Compose worker replicas and SSH-to-localhost demos, 30-day cache sweeper). The stack may be throwaway later; prefer working prototype over polish. OpenShift AI / MetaCentrum stay documented upgrade paths on the same ExecutionBackend interface, not M1 demos.
+- PoC orchestration (proxy store, backends, Compose-related code) lives under `verifier/`; root `docker-compose.yml` may still sit at the repo root.
+- PoC entry is CLI-first: `aibom verify` uses the proxy and can submit work to Compose/SSH backends; cache cleanup is one `aibom cache-sweep` path (`--max-age-days 30`) also run by a Compose timer.
+- SSH-to-localhost demo uses a thin SSH backend (`ssh localhost` → `run-test` entrypoint); no Dask in M1.
+- Block-0 / first-layer checks use safetensors headers plus ranged tensor byte reads, not full model downloads; the two live detection tests stay boolean (float-threshold gating is an orchestrator seam for later tests).
+- Test dependencies are a small YAML/JSON rule list with forward walk; live T1→T2 gates on boolean pass; float `> 0.8` is proven on a stub only.
+- FR-8 inventing new lineage JSON fields is abandoned; current `VerificationResult` / `RunResult` output is enough for M1.
+- Reference smoke pair: `SultanR/SmolTulu-1.7b-Instruct` vs `HuggingFaceTB/SmolLM2-1.7B`.
+- `arch_hash` normalizes Transformers absent-vs-default config fields (for example `head_dim`, `mlp_bias`) before hashing.

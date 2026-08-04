@@ -10,7 +10,8 @@ ENV UV_COMPILE_BYTECODE=1 \
 
 WORKDIR /app
 COPY . .
-RUN uv sync --locked --no-dev
+# Workspace root has empty deps; sync workspace members (cli + verifier).
+RUN uv sync --locked --no-dev --all-packages
 
 # Same base distro + Python version as the builder — required so the venv's
 # interpreter path matches (see https://docs.astral.sh/uv/guides/integration/docker/).

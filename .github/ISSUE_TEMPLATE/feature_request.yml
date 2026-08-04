@@ -1,6 +1,6 @@
 name: Feature request
 description: A new capability to add to aibom-security
-labels: ["enhancement", "status:ready"]
+labels: ["enhancement"]
 body:
   - type: markdown
     attributes:
@@ -8,7 +8,7 @@ body:
         **Board habits** (see `AGENTS.md`): keep shared context on this issue.
         Comments use prefixes `Plan:` · `Context:` · `Decision:` · `Stuck:` · `Done:`.
         **What I Got Stuck On** is for durable blockers only.
-        Status labels: `status:ready` → `in-progress` → (`blocked` \| `needs-review`) → `done`.
+        Status labels: (none = ready) → `in-progress` → `blocked` → close when done.
 
   - type: textarea
     id: description
