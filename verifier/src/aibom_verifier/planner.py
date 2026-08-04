@@ -4,25 +4,15 @@ from __future__ import annotations
 
 from huggingface_hub import HfApi
 
-from aibom_verifier.nodes.arch_hash_gate import arch_hash_gate_node
-from aibom_verifier.nodes.block0_shapes import block0_shapes_node
-from aibom_verifier.nodes.block0_values import block0_values_node
-from aibom_verifier.nodes.resolve_refs import resolve_refs_node
-from aibom_verifier.nodes.support_classify import support_classify_node
 from aibom_verifier.orchestrator import run_test_run
+from aibom_verifier.registry import DEFAULT_REGISTRY
 from aibom_verifier.rules import load_rules
 from aibom_verifier.slots.artifact_store import ArtifactStore
 from aibom_verifier.slots.execution_backend import ExecutionBackend
 from aibom_verifier.slots.worker import NodeFn
 from aibom_verifier.types import RunResult
 
-DEFAULT_REGISTRY: dict[str, NodeFn] = {
-    "resolve_refs": resolve_refs_node,
-    "support_classify": support_classify_node,
-    "arch_hash": arch_hash_gate_node,
-    "block0_shapes": block0_shapes_node,
-    "block0_values": block0_values_node,
-}
+__all__ = ["DEFAULT_REGISTRY", "run_compare"]
 
 
 def run_compare(

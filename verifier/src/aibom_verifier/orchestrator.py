@@ -134,7 +134,7 @@ def run_test_run(
         api = HfApi()
     counting_store = CountingArtifactStore(store)
     exec_backend: ExecutionBackend = backend if backend is not None else LocalBackend(registry)
-    local_execution = isinstance(exec_backend, LocalBackend)
+    local_execution = bool(getattr(exec_backend, "keeps_api", False))
 
     resolve_fn = registry["resolve_refs"]
     resolve_outcome = resolve_fn(

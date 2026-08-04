@@ -23,7 +23,7 @@ import json
 import sys
 from collections.abc import Sequence
 
-from aibom_verifier.planner import DEFAULT_REGISTRY
+from aibom_verifier.registry import DEFAULT_REGISTRY
 from aibom_verifier.slots.worker import NodeFn, run_one_node
 from aibom_verifier.store_factory import add_store_arguments, build_artifact_store
 

@@ -41,6 +41,7 @@ def test_ssh_local_run_parses_outcome_json():
 
     def fake_run(argv, **kwargs):
         captured["argv"] = argv
+        captured["timeout"] = kwargs.get("timeout")
         return subprocess.CompletedProcess(
             args=argv,
             returncode=0,
@@ -57,6 +58,16 @@ def test_ssh_local_run_parses_outcome_json():
     assert captured["argv"][0] == "ssh"
     assert captured["argv"][1] == "localhost"
     assert "python -m aibom_verifier.run_test" in captured["argv"][2]
+    assert captured["timeout"] == 600
+
+
+def test_ssh_local_run_timeout_raises():
+    def fake_run(argv, **kwargs):
+        raise subprocess.TimeoutExpired(cmd=argv, timeout=kwargs.get("timeout", 1))
+
+    backend = SshLocalBackend(runner=fake_run, timeout=1)
+    with pytest.raises(RuntimeError, match="timed out"):
+        backend.run("stub", {}, InMemoryArtifactStore())
 
 
 def test_ssh_local_run_nonzero_exit_raises():

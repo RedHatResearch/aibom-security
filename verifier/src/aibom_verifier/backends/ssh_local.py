@@ -20,6 +20,9 @@ from aibom_verifier.types import TestOutcome, outcome_from_remote_dict
 
 RunFn = Callable[..., subprocess.CompletedProcess[str]]
 
+# Match ComposeQueueBackend client wait so hung ssh/run_test cannot hang forever.
+DEFAULT_SSH_TIMEOUT_SECONDS = 600
+
 
 class SshLocalBackend:
     """Run one node via ``ssh <host>`` invoking ``python -m aibom_verifier.run_test``."""
@@ -33,6 +36,7 @@ class SshLocalBackend:
         store: str | None = None,
         ignore_cache: bool = False,
         ssh_bin: str = "ssh",
+        timeout: int = DEFAULT_SSH_TIMEOUT_SECONDS,
         runner: RunFn | None = None,
     ) -> None:
         self._host = host
@@ -41,6 +45,7 @@ class SshLocalBackend:
         self._store = store
         self._ignore_cache = ignore_cache
         self._ssh_bin = ssh_bin
+        self._timeout = timeout
         self._runner: RunFn = runner or subprocess.run
 
     def build_argv(self, node_id: str, inputs: dict) -> list[str]:
@@ -58,12 +63,16 @@ class SshLocalBackend:
     def run(self, node_id: str, inputs: dict, store: ArtifactStore) -> TestOutcome:
         _ = store  # remotes rebuild from env / remote flags
         argv = self.build_argv(node_id, inputs)
-        completed = self._runner(
-            argv,
-            check=False,
-            capture_output=True,
-            text=True,
-        )
+        try:
+            completed = self._runner(
+                argv,
+                check=False,
+                capture_output=True,
+                text=True,
+                timeout=self._timeout,
+            )
+        except subprocess.TimeoutExpired as exc:
+            raise RuntimeError(f"ssh run_test timed out after {self._timeout}s") from exc
         if completed.returncode != 0:
             stderr = (completed.stderr or "").strip()
             raise RuntimeError(

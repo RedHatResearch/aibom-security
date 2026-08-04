@@ -32,6 +32,11 @@ class Worker(Protocol):
 
 
 class LocalWorker:
+    """In-process worker; keeps ``api`` on inputs (remotes strip it)."""
+
+    # Orchestrator uses this instead of isinstance so Protocol backends work.
+    keeps_api: bool = True
+
     def __init__(self, registry: dict[str, NodeFn]) -> None:
         self._registry = registry
 

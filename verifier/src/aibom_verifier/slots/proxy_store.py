@@ -238,7 +238,8 @@ class PsycopgMetadataBackend:
     """
 
     def __init__(self, conninfo: str) -> None:
-        self._conn = psycopg.connect(conninfo)
+        # connect_timeout avoids multi-minute OS hangs on a bad DSN / down Postgres.
+        self._conn = psycopg.connect(conninfo, connect_timeout=5)
         self._conn.execute(SCHEMA_SQL)
         self._conn.execute(SCHEMA_INDEX_SQL)
         self._conn.commit()
@@ -252,11 +253,17 @@ class PsycopgMetadataBackend:
 
     @contextmanager
     def _session(self, *, commit: bool = False):
-        """Yield the shared connection; roll back on error, optionally commit."""
+        """Yield the shared connection; always end the transaction.
+
+        Reads roll back so the long-lived connection is not left
+        idle-in-transaction after a cache miss.
+        """
         try:
             yield self._conn
             if commit:
                 self._conn.commit()
+            else:
+                self._conn.rollback()
         except Exception:
             self._conn.rollback()
             raise

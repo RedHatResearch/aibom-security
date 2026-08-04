@@ -18,7 +18,7 @@ from typing import Any
 
 from redis import Redis
 
-from aibom_verifier.planner import DEFAULT_REGISTRY
+from aibom_verifier.registry import DEFAULT_REGISTRY
 from aibom_verifier.slots.artifact_store import ArtifactStore
 from aibom_verifier.slots.worker import NodeFn, run_one_node, without_api
 from aibom_verifier.store_factory import build_artifact_store
