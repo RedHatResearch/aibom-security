@@ -176,8 +176,9 @@ def test_connect_redis_sets_socket_timeout_none():
     # from_url; assert the live connection object, not just kwargs.
     client = cq.connect_redis("redis://example:6379/1")
     conn = client.connection_pool.make_connection()
-    assert conn.socket_timeout is None
-    assert conn.socket_connect_timeout == cq._REDIS_CONNECT_TIMEOUT
+    # ConnectionInterface does not declare these attrs; Connection does.
+    assert getattr(conn, "socket_timeout", "missing") is None
+    assert getattr(conn, "socket_connect_timeout", "missing") == cq._REDIS_CONNECT_TIMEOUT
 
 
 def test_compose_queue_backend_raises_on_worker_error():

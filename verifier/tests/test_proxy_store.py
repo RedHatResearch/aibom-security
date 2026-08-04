@@ -109,7 +109,7 @@ def test_put_rolls_back_new_blob_if_metadata_fails(backends):
     meta, blobs = backends
 
     class BoomMeta(InMemoryMetadataBackend):
-        def put(self, row: ArtifactMeta) -> None:
+        def put(self, meta: ArtifactMeta) -> None:
             raise RuntimeError("pg down")
 
     store = ProxyArtifactStore(BoomMeta(), blobs)

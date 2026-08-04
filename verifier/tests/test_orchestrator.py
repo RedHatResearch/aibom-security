@@ -1,8 +1,10 @@
 """Orchestrator forward-walk + default rules (FR-B Task 2)."""
 
 import json
+from typing import cast
 
 import pytest
+from huggingface_hub import HfApi
 
 from aibom_verifier.mapping.block0 import BLOCK0_PREFIX, REQUIRED_SUFFIXES
 from aibom_verifier.nodes import block0_shapes as block0_shapes_mod
@@ -19,6 +21,8 @@ from aibom_verifier.slots.proxy_store import (
     ProxyArtifactStore,
 )
 from aibom_verifier.types import TestOutcome
+
+_DUMMY_API = cast(HfApi, object())
 
 REQUIRED_NAMES = [BLOCK0_PREFIX + suffix for suffix in REQUIRED_SUFFIXES]
 
@@ -377,7 +381,7 @@ def test_orchestrator_strips_api_for_non_local_backend():
             "probe": must_not_run,
         },
         backend=remote,
-        api=object(),  # type: ignore[arg-type]
+        api=_DUMMY_API,
         extra_inputs={"api": "should-strip", "keep": 1},
     )
     assert remote.last_inputs is not None
@@ -413,7 +417,7 @@ def test_orchestrator_local_backend_keeps_api():
             "support_classify": support,
             "probe": probe,
         },
-        api=object(),  # type: ignore[arg-type]
+        api=_DUMMY_API,
         extra_inputs={"api": "keep-me", "keep": 1},
     )
     assert seen is not None
@@ -433,7 +437,7 @@ def test_orchestrator_backend_raise_becomes_error_outcome():
         rules=[Rule(test_id="support_classify", requires=[])],
         registry={"resolve_refs": _bootstrap_resolve_refs},
         backend=BoomBackend(),
-        api=object(),  # type: ignore[arg-type]
+        api=_DUMMY_API,
     )
     outcome = next(t for t in result.tests if t.test_id == "support_classify")
     assert outcome.status == "error"

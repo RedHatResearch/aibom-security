@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import asdict, dataclass, field
-from typing import Any, Literal
+from typing import Any, Literal, cast
 
 Verdict = Literal[
     "verified_derivative",
@@ -88,7 +88,7 @@ def outcome_from_remote_dict(payload: object, *, context: str) -> TestOutcome:
     """Parse a remote ``TestOutcome`` dict; raise ``RuntimeError`` if invalid."""
     if not isinstance(payload, dict) or "test_id" not in payload or "status" not in payload:
         raise RuntimeError(f"{context} is not a TestOutcome object")
-    return TestOutcome.from_dict(payload)
+    return TestOutcome.from_dict(cast(dict[str, Any], payload))
 
 
 @dataclass

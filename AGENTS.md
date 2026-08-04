@@ -149,6 +149,7 @@ uv run ty check                 # type check
 - Keep this file usable by everyone on the repo: do not mention personal machines, home-directory paths, or other local repositories outside this workspace.
 - When presenting design choices, use a table with tradeoffs and how close each option is to the stated brief.
 - After each implementation task: run simplify, then code-review, fix findings, then continue to the next task.
+- Before every push: run `uv run ruff check .`, `uv run ruff format --check .` (or format), `uv run ty check`, and `uv run pytest -m "not network"` locally; fix failures before pushing.
 - GitHub issue/PR comments are in the user’s voice; the agent is a tool only. Report blockers in chat first; only propose board comments when truly stuck and the user agrees.
 
 ## Learned Workspace Facts
