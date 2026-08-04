@@ -69,6 +69,27 @@ class TestOutcome:
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
 
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> TestOutcome:
+        """Rebuild from :meth:`to_dict` / remote ``run_test`` JSON stdout."""
+        return cls(
+            test_id=data["test_id"],
+            status=data["status"],
+            compatibility=data.get("compatibility"),
+            scores=data.get("scores", {}),
+            reason_codes=data.get("reason_codes", []),
+            skipped_because=data.get("skipped_because"),
+            artifacts=data.get("artifacts", []),
+            detail=data.get("detail", {}),
+        )
+
+
+def outcome_from_remote_dict(payload: object, *, context: str) -> TestOutcome:
+    """Parse a remote ``TestOutcome`` dict; raise ``RuntimeError`` if invalid."""
+    if not isinstance(payload, dict) or "test_id" not in payload or "status" not in payload:
+        raise RuntimeError(f"{context} is not a TestOutcome object")
+    return TestOutcome.from_dict(payload)
+
 
 @dataclass
 class RunResult:

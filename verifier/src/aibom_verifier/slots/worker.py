@@ -1,10 +1,30 @@
 from collections.abc import Callable
 from typing import Protocol
 
+from huggingface_hub import HfApi
+
 from aibom_verifier.slots.artifact_store import ArtifactStore
 from aibom_verifier.types import TestOutcome
 
 NodeFn = Callable[[dict, ArtifactStore], TestOutcome]
+
+
+def without_api(inputs: dict) -> dict:
+    """Shallow copy of ``inputs`` without ``api`` (not JSON-serializable for remotes)."""
+    return {key: value for key, value in inputs.items() if key != "api"}
+
+
+def run_one_node(
+    node_id: str,
+    inputs: dict,
+    *,
+    store: ArtifactStore,
+    registry: dict[str, NodeFn],
+) -> TestOutcome:
+    """Strip ``api``, inject ``HfApi()``, run via :class:`LocalWorker`."""
+    cleaned = without_api(dict(inputs))
+    cleaned["api"] = HfApi()
+    return LocalWorker(registry).run(node_id, cleaned, store)
 
 
 class Worker(Protocol):

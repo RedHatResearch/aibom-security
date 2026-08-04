@@ -140,8 +140,13 @@ def test_cross_type_pair_is_unsupported_and_skips_downstream(scenario):
     result = run_compare(TARGET_REPO, base_repo=BASE_REPO, store=store, api=None)
 
     outcomes = _outcomes_by_id(result)
+    assert outcomes["support_classify"].status == "pass"
     assert outcomes["support_classify"].compatibility == "unsupported"
     assert outcomes["arch_hash"].status == "skip"
+    assert outcomes["arch_hash"].skipped_because == {
+        "upstream": "support_classify",
+        "reason": "unsupported",
+    }
     assert outcomes["block0_shapes"].status == "skip"
     assert outcomes["block0_values"].status == "skip"
     assert result.final_verdict == "unsupported"
