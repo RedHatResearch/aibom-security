@@ -20,7 +20,7 @@ HELP = "Verify whether a model's declared base_model claim holds up against its 
 EXIT_CODE_EPILOG = """\
 exit codes:
   0  compare completed (any verdict, including non-confirming)
-  1  Hub/start error (resolve failed, gated, bad store config, …)
+  1  start/config error (resolve failed, gated, bad store config, …)
 """
 
 
