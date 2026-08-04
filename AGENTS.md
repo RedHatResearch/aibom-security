@@ -10,7 +10,7 @@ When explaining why this work matters (docs, issues, pitch), lead with complianc
 
 ## Source of truth
 
-GitHub Issues and Milestones are the project whiteboard — for humans and agents. Plans, decisions, blockers, and progress live on the issue, not in chat-only memory or local scratch files.
+GitHub Issues and Milestones are the project whiteboard — for humans and agents. Concise plans, decisions, blockers, and progress live on the issue, not in chat-only memory or local scratch files.
 
 - https://github.com/RedHatResearch/aibom-security/milestones
 - This file is the rulebook (how to work). Issues are the board (what/why/status).
@@ -43,7 +43,7 @@ Open a **draft PR** early once there is a branch (link the issue with `Refs #N` 
 ### 3. Work and log (shared with colleagues)
 
 - **What I Got Stuck On** (issue body): durable blockers only — what is blocking and what would unblock it. Not a daily diary.
-- **Comments** (chronology everyone can scan):
+- **Comments** (short colleague-visible chronology): a few sentences or tight bullets. Prefer one `Decision:` / `Plan:` over essay threads. Long design stays rare on the board. Session prompts, agent scaffolding, approve rituals, and “next human action” lists stay in chat — not on the issue.
 
 ```bash
 gh issue comment N --body "Plan: …"
@@ -53,13 +53,13 @@ gh issue comment N --body "Stuck: …"        # mirror/update the Stuck On field
 gh issue comment N --body "Done: …"         # what shipped / how to verify
 ```
 
-When blocked or waiting on a human decision/review:
+When blocked or waiting on a human decision:
 
 ```bash
 gh issue edit N --remove-label "in-progress" --add-label "blocked"
 ```
 
-Say why in Stuck On / a `Stuck:` comment (hard block) or a `Context:` / `Decision:` comment (needs review).
+Say why in Stuck On / a `Stuck:` comment (hard block) or a short `Context:` / `Decision:` comment (needs a human call).
 
 ### 4. Parent dashboard
 
@@ -137,6 +137,8 @@ uv run ty check                 # type check
 - Always: every issue has a milestone; use the feature/bug/research issue form templates.
 - Always: features ship with a happy-path test; bug fixes ship with a regression test (fails before, passes after).
 - Always: follow the board protocol above when touching issues.
+- Always before pushing code: run `uv run ruff check .`, `uv run ruff format --check .` (or format), `uv run ty check`, and `uv run pytest -m "not network"` locally; fix failures first.
+- Match process to the task. Prefer a suitable Cursor skill (e.g. writing-plans, finishing-a-development-branch, simplify / code-review when shipping code, verify-before-done) over a fixed ritual every turn. When code changed: simplify, review deeply (not rubber-stamp), fix findings, and verify before calling done.
 - Ask first: force-pushing, rewriting shared history, picking up `Icebox` / `icelog` items, pushing to remote, committing.
 - Never: commit secrets/HF tokens, add `Co-authored-by` or any AI/agent attribution to commits or PRs.
 - Keep the README short and human; put agent/process guidance here (and in `CLAUDE.md`), not in the README.
@@ -148,9 +150,8 @@ uv run ty check                 # type check
 - Prefer documenting or exposing existing verifier outputs over inventing new public JSON field names without a grounded draft.
 - Keep this file usable by everyone on the repo: do not mention personal machines, home-directory paths, or other local repositories outside this workspace.
 - When presenting design choices, use a table with tradeoffs and how close each option is to the stated brief.
-- After each implementation task: run simplify, then code-review, fix findings, then continue to the next task.
-- Before every push: run `uv run ruff check .`, `uv run ruff format --check .` (or format), `uv run ty check`, and `uv run pytest -m "not network"` locally; fix failures before pushing.
-- GitHub issue/PR comments are in the user’s voice; the agent is a tool only. Report blockers in chat first; only propose board comments when truly stuck and the user agrees.
+- Fit process to the task (see Workflow skills bullet); do not run plan → implement → review on every turn.
+- Issue/PR comments: short Plan/Decision/Context/Stuck/Done only. No scaffolding, session prompts, or board-side approve / next-action rituals. Report blockers in chat first.
 
 ## Learned Workspace Facts
 
@@ -159,6 +160,7 @@ uv run ty check                 # type check
 - PoC orchestration (proxy store, backends, Compose-related code) lives under `verifier/`; root `docker-compose.yml` may still sit at the repo root.
 - PoC entry is CLI-first: `aibom verify` uses the proxy and can submit work to Compose/SSH backends; cache cleanup is one `aibom cache-sweep` path (`--max-age-days 30`) also run by a Compose timer.
 - SSH-to-localhost demo uses a thin SSH backend (`ssh localhost` → `run-test` entrypoint); no Dask in M1.
+- Compose job queue is plain Redis list + JSON (`LPUSH`/`BRPOP`); no RQ.
 - Block-0 / first-layer checks use safetensors headers plus ranged tensor byte reads, not full model downloads; the two live detection tests stay boolean (float-threshold gating is an orchestrator seam for later tests).
 - Test dependencies are a small YAML/JSON rule list with forward walk; live T1→T2 gates on boolean pass; float `> 0.8` is proven on a stub only.
 - FR-8 inventing new lineage JSON fields is abandoned; current `VerificationResult` / `RunResult` output is enough for M1.
