@@ -1,6 +1,6 @@
 name: Research / State of the Art
 description: An analytical, no-code investigation (competitor scan, standards review, feasibility study...)
-labels: ["question", "status:ready"]
+labels: ["question"]
 body:
   - type: markdown
     attributes:
@@ -8,8 +8,8 @@ body:
         **Board habits** (see `AGENTS.md`): keep shared context on this issue.
         Comments use prefixes `Plan:` · `Context:` · `Decision:` · `Stuck:` · `Done:`.
         **What I Got Stuck On** is for durable blockers only.
-        Close when findings are on the wiki (no PR required). Use `status:needs-review`
-        while waiting on a human call; `status:done` when closed.
+        Close when findings are on the wiki (no PR required). Use `blocked`
+        while waiting on a human call; close when done.
 
   - type: textarea
     id: description
