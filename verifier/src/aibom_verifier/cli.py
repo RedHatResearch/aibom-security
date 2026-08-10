@@ -4,14 +4,23 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
+from time import perf_counter_ns
+from uuid import uuid4
 
 from aibom_verifier.backends.compose_queue import ComposeQueueBackend
 from aibom_verifier.backends.ssh_local import SshLocalBackend
 from aibom_verifier.errors import CompareStartError
 from aibom_verifier.nodes.verdict_synthesize import verdict_message
+from aibom_verifier.observer import StderrJsonlObserver, safe_on_event
 from aibom_verifier.planner import run_compare
+from aibom_verifier.run_log import configure_logging, elapsed_ms, set_run_id
 from aibom_verifier.slots.execution_backend import ExecutionBackend
-from aibom_verifier.store_factory import add_store_arguments, build_artifact_store
+from aibom_verifier.store_factory import (
+    add_store_arguments,
+    build_artifact_store,
+    effective_store_kind,
+)
 from aibom_verifier.types import POLICY_VERSION, RunResult, VerificationResult
 
 NAME = "verify"
@@ -100,8 +109,55 @@ def _build_backend(args: argparse.Namespace) -> ExecutionBackend | None:
     return None
 
 
+_CLI_LOGGER = "aibom_verifier.cli"
+
+
+def _tests_summary(result: RunResult) -> dict[str, int]:
+    summary = {"pass": 0, "fail": 0, "skip": 0, "error": 0}
+    for outcome in result.tests:
+        if outcome.test_id == "resolve_refs":
+            continue
+        summary[outcome.status] += 1
+    return summary
+
+
+def _emit_run_failed(
+    observer: StderrJsonlObserver,
+    *,
+    started_ns: int,
+    error_code: str,
+    message: str,
+) -> int:
+    safe_on_event(
+        observer,
+        "run_failed",
+        logger=_CLI_LOGGER,
+        exit_code=1,
+        error_code=error_code,
+        message=message,
+        duration_ms=elapsed_ms(started_ns),
+    )
+    print(json.dumps(_error_envelope(error_code, message), indent=2))
+    return 1
+
+
 def run(args: argparse.Namespace) -> int:
     """Execute ``verify``: print JSON to stdout; exit codes in ``EXIT_CODE_EPILOG``."""
+    started_ns = perf_counter_ns()
+    set_run_id(str(uuid4()))
+    observer = StderrJsonlObserver()
+    log_level = os.environ.get("AIBOM_LOG_LEVEL", "INFO")
+
+    try:
+        configure_logging(log_level)
+    except ValueError as exc:
+        return _emit_run_failed(
+            observer,
+            started_ns=started_ns,
+            error_code="invalid_log_level",
+            message=str(exc),
+        )
+
     try:
         store = build_artifact_store(
             store=args.store,
@@ -109,8 +165,25 @@ def run(args: argparse.Namespace) -> int:
             ignore_cache=bool(args.ignore_cache),
         )
     except ValueError as exc:
-        print(json.dumps(_error_envelope("invalid_store", str(exc)), indent=2))
-        return 1
+        return _emit_run_failed(
+            observer,
+            started_ns=started_ns,
+            error_code="invalid_store",
+            message=str(exc),
+        )
+
+    safe_on_event(
+        observer,
+        "run_start",
+        logger=_CLI_LOGGER,
+        requested_target=args.target,
+        requested_base=args.base,
+        revision_target=args.revision_target,
+        revision_base=args.revision_base,
+        backend=args.backend,
+        store=effective_store_kind(args.store),
+        ignore_cache=bool(args.ignore_cache),
+    )
 
     try:
         result = run_compare(
@@ -120,10 +193,21 @@ def run(args: argparse.Namespace) -> int:
             revision_base=args.revision_base,
             store=store,
             backend=_build_backend(args),
+            observer=observer,
         )
     except CompareStartError as exc:
         print(json.dumps(_error_envelope(exc.error_code, exc.message), indent=2))
         return 1
+
+    safe_on_event(
+        observer,
+        "run_finished",
+        logger=_CLI_LOGGER,
+        verdict=result.final_verdict,
+        exit_code=0,
+        duration_ms=elapsed_ms(started_ns),
+        tests_summary=_tests_summary(result),
+    )
 
     public = _to_verification_result(result)
     print(json.dumps(public.to_dict(), indent=2))

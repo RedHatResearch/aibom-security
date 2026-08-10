@@ -1,6 +1,11 @@
-import json
-
 import pytest
+from hf_fakes import (
+    fake_fetch_tensor_bytes,
+    fake_list_tensor_names,
+    fake_load_config_json,
+    fake_resolve_commit,
+    fake_tensor_shapes,
+)
 
 from aibom_verifier.errors import CompareStartError, NotSafetensorsError
 from aibom_verifier.mapping.block0 import BLOCK0_PREFIX, REQUIRED_SUFFIXES
@@ -16,58 +21,6 @@ TARGET_REPO = "org/target"
 BASE_REPO = "org/base"
 TARGET_SHA = "tsha"
 BASE_SHA = "bsha"
-
-
-def _fake_resolve_commit(shas: dict[str, str]):
-    def _fn(repo_id: str, revision: str | None = None, *, api=None):
-        return shas[repo_id]
-
-    return _fn
-
-
-def _fake_load_config_json(configs: dict[str, dict]):
-    def _fn(repo_id: str, sha: str, store, *, api=None):
-        cache_key = f"config:{repo_id}:{sha}"
-        cached = store.get(cache_key)
-        if cached is not None:
-            return json.loads(cached)
-        store.put(cache_key, json.dumps(configs[repo_id]).encode("utf-8"))
-        return configs[repo_id]
-
-    return _fn
-
-
-def _fake_list_tensor_names(names_by_repo: dict):
-    def _fn(repo_id: str, sha: str, store, *, api=None):
-        names = names_by_repo[repo_id]
-        if isinstance(names, Exception):
-            raise names
-        cache_key = f"st_meta:{repo_id}:{sha}"
-        if store.get(cache_key) is None:
-            store.put(cache_key, json.dumps(names).encode("utf-8"))
-        return sorted(names)
-
-    return _fn
-
-
-def _fake_tensor_shapes(shapes_by_repo: dict[str, dict[str, list[int]]]):
-    def _fn(repo_id: str, sha: str, store, *, api=None):
-        return shapes_by_repo[repo_id]
-
-    return _fn
-
-
-def _fake_fetch_tensor_bytes(bytes_by_repo: dict[str, dict[str, bytes]]):
-    def _fn(repo_id: str, sha: str, tensor_name: str, store, *, api=None):
-        cache_key = f"st_tensor:{repo_id}:{sha}:{tensor_name}"
-        cached = store.get(cache_key)
-        if cached is not None:
-            return cached
-        data = bytes_by_repo[repo_id][tensor_name]
-        store.put(cache_key, data)
-        return data
-
-    return _fn
 
 
 @pytest.fixture
@@ -93,8 +46,8 @@ def scenario(monkeypatch):
             TARGET_REPO: {"model_type": target_model_type, **(target_config_extra or {})},
             BASE_REPO: {"model_type": base_model_type, **(base_config_extra or {})},
         }
-        monkeypatch.setattr(resolve_refs_mod, "resolve_commit", _fake_resolve_commit(shas))
-        monkeypatch.setattr(resolve_refs_mod, "load_config_json", _fake_load_config_json(configs))
+        monkeypatch.setattr(resolve_refs_mod, "resolve_commit", fake_resolve_commit(shas))
+        monkeypatch.setattr(resolve_refs_mod, "load_config_json", fake_load_config_json(configs))
 
         if list_tensor_names_error is not None:
             names_by_repo = {
@@ -107,7 +60,7 @@ def scenario(monkeypatch):
                 BASE_REPO: base_names if base_names is not None else REQUIRED_NAMES,
             }
         monkeypatch.setattr(
-            block0_shapes_mod, "list_tensor_names", _fake_list_tensor_names(names_by_repo)
+            block0_shapes_mod, "list_tensor_names", fake_list_tensor_names(names_by_repo)
         )
 
         default_shapes = {name: [4] for name in REQUIRED_NAMES}
@@ -115,7 +68,7 @@ def scenario(monkeypatch):
             TARGET_REPO: target_shapes if target_shapes is not None else default_shapes,
             BASE_REPO: base_shapes if base_shapes is not None else default_shapes,
         }
-        monkeypatch.setattr(block0_shapes_mod, "tensor_shapes", _fake_tensor_shapes(shapes_by_repo))
+        monkeypatch.setattr(block0_shapes_mod, "tensor_shapes", fake_tensor_shapes(shapes_by_repo))
 
         default_bytes = {name: b"identical-payload" for name in REQUIRED_NAMES}
         bytes_by_repo = {
@@ -123,7 +76,7 @@ def scenario(monkeypatch):
             BASE_REPO: base_tensor_bytes if base_tensor_bytes is not None else default_bytes,
         }
         monkeypatch.setattr(
-            block0_values_mod, "fetch_tensor_bytes", _fake_fetch_tensor_bytes(bytes_by_repo)
+            block0_values_mod, "fetch_tensor_bytes", fake_fetch_tensor_bytes(bytes_by_repo)
         )
 
     return _configure
