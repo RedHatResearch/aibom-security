@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from time import perf_counter_ns
 
 from huggingface_hub import HfApi
 
@@ -13,11 +14,15 @@ from aibom_verifier.nodes.verdict_synthesize import (
     support_gate_skip_reason,
     synthesize_final_verdict,
 )
+from aibom_verifier.observer import RunObserver, safe_on_event
 from aibom_verifier.rules import Requirement, Rule, requirement_satisfied, skip_reason_for
+from aibom_verifier.run_log import elapsed_ms
 from aibom_verifier.slots.artifact_store import ArtifactStore, CountingArtifactStore
 from aibom_verifier.slots.execution_backend import ExecutionBackend
 from aibom_verifier.slots.worker import NodeFn, without_api
-from aibom_verifier.types import ModelRef, RunResult, TestOutcome
+from aibom_verifier.types import CompareStartError, ModelRef, RunResult, TestOutcome
+
+_ORCHESTRATOR_LOGGER = "aibom_verifier.orchestrator"
 
 
 def _result_key(target_repo: str, target_sha: str, base_repo: str, base_sha: str) -> str:
@@ -67,6 +72,26 @@ def _live_gate_skip_reason(upstream_test_id: str, upstream: TestOutcome) -> str 
     if upstream_test_id == "block0_shapes":
         return shapes_gate_skip_reason(upstream)
     return None
+
+
+def _cache_delta(
+    store: CountingArtifactStore,
+    *,
+    start_hits: int,
+    start_misses: int,
+) -> dict[str, int]:
+    return {
+        "hits": len(store.hits) - start_hits,
+        "misses": len(store.misses) - start_misses,
+    }
+
+
+def _mark(store: CountingArtifactStore) -> tuple[int, int, int]:
+    return perf_counter_ns(), len(store.hits), len(store.misses)
+
+
+def _observe(observer: RunObserver | None, event: str, **fields: object) -> None:
+    safe_on_event(observer, event, logger=_ORCHESTRATOR_LOGGER, **fields)
 
 
 def _hybrid_skip(
@@ -121,6 +146,7 @@ def run_test_run(
     backend: ExecutionBackend | None = None,
     api: HfApi | None = None,
     extra_inputs: dict | None = None,
+    observer: RunObserver | None = None,
 ) -> RunResult:
     """Forward-walk ``rules`` after bootstrap ``resolve_refs``.
 
@@ -134,19 +160,31 @@ def run_test_run(
         api = HfApi()
     counting_store = CountingArtifactStore(store)
     exec_backend: ExecutionBackend = backend if backend is not None else LocalBackend(registry)
+    # Local logging (cache deltas / exception): in-process path only (keeps_api).
     local_execution = bool(getattr(exec_backend, "keeps_api", False))
 
     resolve_fn = registry["resolve_refs"]
-    resolve_outcome = resolve_fn(
-        {
-            "target_repo": target_repo,
-            "target_revision": revision_target,
-            "base_repo": base_repo,
-            "base_revision": revision_base,
-            "api": api,
-        },
-        counting_store,
-    )
+    resolve_start_ns, resolve_start_hits, resolve_start_misses = _mark(counting_store)
+    try:
+        resolve_outcome = resolve_fn(
+            {
+                "target_repo": target_repo,
+                "target_revision": revision_target,
+                "base_repo": base_repo,
+                "base_revision": revision_base,
+                "api": api,
+            },
+            counting_store,
+        )
+    except CompareStartError as exc:
+        _observe(
+            observer,
+            "resolve_failed",
+            error_code=exc.error_code,
+            message=exc.message,
+            duration_ms=elapsed_ms(resolve_start_ns),
+        )
+        raise
     tests: list[TestOutcome] = [resolve_outcome]
     outcomes: dict[str, TestOutcome] = {"resolve_refs": resolve_outcome}
 
@@ -159,6 +197,18 @@ def run_test_run(
 
     target_ref = ModelRef(repo_id=target_repo, revision=revision_target or "main", sha=target_sha)
     base_ref = ModelRef(repo_id=resolved_base_repo, revision=revision_base or "main", sha=base_sha)
+    resolve_fields: dict[str, object] = {
+        "target": target_ref.to_dict(),
+        "base": {**base_ref.to_dict(), "source": base_source},
+        "duration_ms": elapsed_ms(resolve_start_ns),
+    }
+    if local_execution:
+        resolve_fields["cache"] = _cache_delta(
+            counting_store,
+            start_hits=resolve_start_hits,
+            start_misses=resolve_start_misses,
+        )
+    _observe(observer, "resolve_ok", **resolve_fields)
 
     for rule in rules:
         blocked = _first_blocking_requirement(rule, outcomes)
@@ -172,6 +222,15 @@ def run_test_run(
                 )
             else:
                 outcome = _hybrid_skip(rule.test_id, unsatisfied, upstream)
+            skipped_because = outcome.skipped_because
+            assert skipped_because is not None
+            _observe(
+                observer,
+                "test_skipped",
+                test_id=outcome.test_id,
+                upstream=skipped_because["upstream"],
+                reason=skipped_because["reason"],
+            )
         else:
             inputs = _inputs_for(
                 target_repo=target_repo,
@@ -185,6 +244,8 @@ def run_test_run(
             )
             if not local_execution:
                 inputs = without_api(inputs)
+            _observe(observer, "test_started", test_id=rule.test_id, mode="execute")
+            test_start_ns, test_start_hits, test_start_misses = _mark(counting_store)
             try:
                 outcome = exec_backend.run(rule.test_id, inputs, counting_store)
             except Exception as exc:
@@ -199,6 +260,27 @@ def run_test_run(
                         "exception_type": type(exc).__name__,
                     },
                 )
+            finished_fields: dict[str, object] = {
+                "test_id": outcome.test_id,
+                "status": outcome.status,
+                "reason_codes": list(outcome.reason_codes),
+                "duration_ms": elapsed_ms(test_start_ns),
+            }
+            if local_execution:
+                finished_fields["cache"] = _cache_delta(
+                    counting_store,
+                    start_hits=test_start_hits,
+                    start_misses=test_start_misses,
+                )
+            if local_execution and "node_exception" in outcome.reason_codes:
+                _observe(
+                    observer,
+                    "exception",
+                    test_id=outcome.test_id,
+                    exception_type=outcome.detail.get("exception_type", "Exception"),
+                    message=outcome.detail.get("message", ""),
+                )
+            _observe(observer, "test_finished", **finished_fields)
 
         tests.append(outcome)
         outcomes[rule.test_id] = outcome

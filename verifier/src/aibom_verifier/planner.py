@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from huggingface_hub import HfApi
 
+from aibom_verifier.observer import RunObserver
 from aibom_verifier.orchestrator import run_test_run
 from aibom_verifier.registry import DEFAULT_REGISTRY
 from aibom_verifier.rules import load_rules
@@ -25,6 +26,7 @@ def run_compare(
     api: HfApi | None = None,
     node_overrides: dict[str, NodeFn] | None = None,
     backend: ExecutionBackend | None = None,
+    observer: RunObserver | None = None,
 ) -> RunResult:
     """Run the T1 gate chain and synthesize a ``RunResult``.
 
@@ -33,6 +35,7 @@ def run_compare(
 
     Cache bypass belongs on the ``store`` (construct with ``ignore_cache=True``).
     Default ``backend`` is in-process :class:`~aibom_verifier.backends.local.LocalBackend`.
+    Optional ``observer`` receives structured run events (``None`` = silent).
     """
     registry = {**DEFAULT_REGISTRY, **(node_overrides or {})}
     return run_test_run(
@@ -45,4 +48,5 @@ def run_compare(
         registry=registry,
         backend=backend,
         api=api,
+        observer=observer,
     )

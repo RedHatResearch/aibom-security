@@ -20,6 +20,7 @@ dev = [
 
 [tool.pytest.ini_options]
 testpaths = ["verifier/tests", "cli/tests"]
+pythonpath = ["verifier/tests"]
 addopts = "--import-mode=importlib"
 markers = ["network: tests that require Hugging Face Hub network access"]
 
@@ -32,4 +33,4 @@ src = ["verifier/src", "cli/src"]
 select = ["E", "F", "I", "UP", "B", "SIM"]
 
 [tool.ty.environment]
-root = ["./verifier/src", "./cli/src"]
+root = ["./verifier/src", "./cli/src", "./verifier/tests"]

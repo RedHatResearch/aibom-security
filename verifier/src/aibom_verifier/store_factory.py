@@ -23,6 +23,11 @@ def default_cache_dir() -> str:
     return os.environ.get("AIBOM_CACHE_DIR", DEFAULT_CACHE_DIR)
 
 
+def effective_store_kind(store: str | None = None) -> str:
+    """Return the effective store kind from CLI args or environment."""
+    return (store or os.environ.get("AIBOM_STORE") or "filesystem").lower()
+
+
 def add_store_arguments(
     parser: argparse.ArgumentParser,
     *,
@@ -56,7 +61,7 @@ def build_artifact_store(
     Proxy needs ``AIBOM_PG_DSN`` and ``AIBOM_MINIO_*`` (see ``ProxyArtifactStore.from_env``).
     ``cache_dir`` applies only to the filesystem store; proxy ignores it.
     """
-    kind = (store or os.environ.get("AIBOM_STORE") or "filesystem").lower()
+    kind = effective_store_kind(store)
     if kind == "proxy":
         return ProxyArtifactStore.from_env(ignore_cache=ignore_cache)
     if kind != "filesystem":
