@@ -38,7 +38,36 @@ gh issue edit N --add-assignee @me \
   --add-label "in-progress"
 ```
 
-Open a **draft PR** early once there is a branch (link the issue with `Refs #N` in the PR body). That is the in-progress signal on GitHub.
+Open a **draft PR** early once there is a branch. That is the in-progress signal on GitHub.
+
+**PR linking (required for agents):**
+
+| Stage | Issue keyword in body | PR milestone |
+|---|---|---|
+| Draft / WIP | `Refs #N` (does not close) | Same milestone as the issue |
+| Ready to merge (issue fully done in this PR) | `Fixes #N` / `Closes #N` | Keep the same milestone |
+| Multi-issue PR | `Fixes` only for issues this PR fully completes; `Refs` for partial | Primary issue’s milestone |
+
+Set the milestone on the **PR** (GitHub milestone field), not only in prose. Prefer `gh`:
+
+```bash
+gh pr create --draft \
+  --milestone "Milestone …" \
+  --title "…" \
+  --body "$(cat <<'EOF'
+## What & why
+Refs #N
+
+## Test plan
+…
+
+## Out of scope / follow-ups
+…
+EOF
+)"
+```
+
+Before marking ready / merge: switch `Refs #N` → `Fixes #N` when the issue is fully done in that PR; confirm the PR milestone still matches the issue.
 
 ### 3. Work and log (shared with colleagues)
 
@@ -69,8 +98,10 @@ If a parent/epic issue has a checklist (e.g. MVP requirements), check off the it
 
 - Branch: `<type>/<N>-<short-slug>` (see below).
 - Commits while WIP: `Refs #N` (does not close).
-- PR ready to merge: `Fixes #N` / `Closes #N` only when that issue is fully done in the PR.
+- Draft PR: `Refs #N` in the body **and** set the PR milestone to match the issue (see PR linking under Claim).
+- PR ready to merge: `Fixes #N` / `Closes #N` only when that issue is fully done in the PR; keep the milestone.
 - Ask before every commit and before opening/pushing a PR.
+- If merge used `Refs` only (issue stayed open): post `Done:`, clear `in-progress` / `blocked`, and close the issue manually.
 
 ### 6. Closeout — by issue kind
 

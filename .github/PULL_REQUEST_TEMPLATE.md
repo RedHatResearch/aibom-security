@@ -1,6 +1,7 @@
 ## What & why
 
-<!-- Link the issue this closes, e.g. Closes #12 -->
+<!-- Draft/WIP: Refs #N. Ready to merge and issue fully done in this PR: Fixes #N / Closes #N. -->
+<!-- Set the PR milestone to match the issue (gh pr create --milestone "…"). Do not rely on prose alone. -->
 
 ## Test plan
 
@@ -10,4 +11,4 @@
 
 ## Out of scope / follow-ups
 
-<!-- Anything deliberately deferred, and to which issue -->
+<!-- Anything deliberately deferred, and to which issue (file follow-ups before merge when known) -->
