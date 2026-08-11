@@ -61,6 +61,18 @@ gh issue edit N --remove-label "in-progress" --add-label "blocked"
 
 Say why in Stuck On / a `Stuck:` comment (hard block) or a short `Context:` / `Decision:` comment (needs a human call).
 
+### Board visuals (issues / PR bodies / comments)
+
+Use visuals when they clarify a **branch or contrast** that prose or a table would bury (gates, access taxonomy, rejector vs confirmer, two mechanisms). Skip decorative diagrams and do not backfill every deep-dive with the same load→score flowchart.
+
+| Prefer | Avoid |
+|---|---|
+| One small Mermaid flowchart for a non-obvious control path | Mermaid that only restates a numbered list |
+| Math (`$…$` / `$$…$$`) for real formulas in research notes | geoJSON / topoJSON / STL (irrelevant here) |
+| Tables for signal matrices and coverage | Large pasted screenshots when a fence would do |
+
+Keep Mermaid GitHub-safe: simple `flowchart`/`graph`, few nodes, avoid fancy Unicode (`≤`, `≫`) and reserved ids (`end`). Prefer editing the issue/comment in place when you authored it; otherwise paste a ready block for a human.
+
 ### 4. Parent dashboard
 
 If a parent/epic issue has a checklist (e.g. MVP requirements), check off the item when that child work is actually complete — don't check early.
@@ -152,6 +164,7 @@ uv run ty check                 # type check
 - When presenting design choices, use a table with tradeoffs and how close each option is to the stated brief.
 - Fit process to the task (see Workflow skills bullet); do not run plan → implement → review on every turn.
 - Issue/PR comments: short Plan/Decision/Context/Stuck/Done only. No scaffolding, session prompts, or board-side approve / next-action rituals. Report blockers in chat first.
+- Board Mermaid only when it earns its keep (branch/contrast); see Board visuals.
 
 ## Learned Workspace Facts
 
