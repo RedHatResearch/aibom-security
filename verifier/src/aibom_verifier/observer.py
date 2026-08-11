@@ -7,7 +7,7 @@ from typing import Protocol, TypedDict
 
 from aibom_verifier.run_log import emit
 
-_ERROR_EVENTS = {"run_failed", "resolve_failed", "exception"}
+_ERROR_EVENTS = {"run_failed", "resolve_failed", "exception", "sweep_failed"}
 
 
 class RunObserver(Protocol):
