@@ -24,8 +24,14 @@ import sys
 from collections.abc import Sequence
 
 from aibom_verifier.registry import DEFAULT_REGISTRY
-from aibom_verifier.slots.worker import NodeFn, run_one_node
+from aibom_verifier.slots.worker import NodeFn
 from aibom_verifier.store_factory import add_store_arguments, build_artifact_store
+from aibom_verifier.worker_log import (
+    RUN_TEST_LOGGER,
+    init_worker_logging,
+    resolve_run_id,
+    run_node_logged,
+)
 
 
 def build_run_test_argv(
@@ -86,6 +92,7 @@ def main(
     registry: dict[str, NodeFn] | None = None,
 ) -> int:
     """Run one node; print outcome JSON. ``registry`` is injectable for tests."""
+    observer = init_worker_logging(resolve_run_id())
     args = build_parser().parse_args(argv)
     try:
         raw = json.loads(args.inputs_json)
@@ -96,11 +103,13 @@ def main(
             cache_dir=args.cache_dir,
             ignore_cache=bool(args.ignore_cache),
         )
-        outcome = run_one_node(
+        outcome = run_node_logged(
             args.node_id,
             raw,
             store=store,
             registry=registry or DEFAULT_REGISTRY,
+            logger=RUN_TEST_LOGGER,
+            observer=observer,
         )
     except Exception as exc:
         print(

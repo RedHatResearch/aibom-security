@@ -8,11 +8,13 @@ import subprocess
 import pytest
 
 from aibom_verifier.backends.ssh_local import SshLocalBackend
+from aibom_verifier.run_log import set_run_id
 from aibom_verifier.slots.artifact_store import InMemoryArtifactStore
 from aibom_verifier.types import TestOutcome
 
 
 def test_ssh_local_argv_starts_with_ssh_localhost_and_run_test():
+    set_run_id("ssh-client-run-29")
     backend = SshLocalBackend(
         store_dir="/tmp/cache",
         store="filesystem",
@@ -23,6 +25,7 @@ def test_ssh_local_argv_starts_with_ssh_localhost_and_run_test():
     assert argv[0] == "ssh"
     assert argv[1] == "localhost"
     remote = argv[2]
+    assert remote.startswith("AIBOM_RUN_ID=ssh-client-run-29 ")
     assert "python -m aibom_verifier.run_test" in remote
     assert "--node-id block0_shapes" in remote
     assert "--store-dir /tmp/cache" in remote
@@ -32,6 +35,7 @@ def test_ssh_local_argv_starts_with_ssh_localhost_and_run_test():
 
 
 def test_ssh_local_run_parses_outcome_json():
+    set_run_id("ssh-client-run-29")
     outcome = TestOutcome(
         test_id="stub",
         status="pass",
@@ -57,11 +61,14 @@ def test_ssh_local_run_parses_outcome_json():
     assert result.detail == {"ok": True}
     assert captured["argv"][0] == "ssh"
     assert captured["argv"][1] == "localhost"
+    assert captured["argv"][2].startswith("AIBOM_RUN_ID=ssh-client-run-29 ")
     assert "python -m aibom_verifier.run_test" in captured["argv"][2]
     assert captured["timeout"] == 600
 
 
 def test_ssh_local_run_timeout_raises():
+    set_run_id("ssh-client-run-29")
+
     def fake_run(argv, **kwargs):
         raise subprocess.TimeoutExpired(cmd=argv, timeout=kwargs.get("timeout", 1))
 
@@ -71,6 +78,8 @@ def test_ssh_local_run_timeout_raises():
 
 
 def test_ssh_local_run_nonzero_exit_raises():
+    set_run_id("ssh-client-run-29")
+
     def fake_run(argv, **kwargs):
         return subprocess.CompletedProcess(
             args=argv,
@@ -85,6 +94,8 @@ def test_ssh_local_run_nonzero_exit_raises():
 
 
 def test_ssh_local_run_non_json_stdout_raises():
+    set_run_id("ssh-client-run-29")
+
     def fake_run(argv, **kwargs):
         return subprocess.CompletedProcess(
             args=argv,
@@ -99,6 +110,8 @@ def test_ssh_local_run_non_json_stdout_raises():
 
 
 def test_ssh_local_run_missing_test_id_raises():
+    set_run_id("ssh-client-run-29")
+
     def fake_run(argv, **kwargs):
         return subprocess.CompletedProcess(
             args=argv,
