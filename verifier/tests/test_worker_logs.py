@@ -183,12 +183,16 @@ def test_run_test_main_emits_run_test_logger_jsonl_with_env_run_id(
     assert "strip-me" not in captured.err
 
 
+def _raise_hub_down() -> object:
+    raise RuntimeError("hub down")
+
+
 def test_run_node_logged_hf_api_failure_still_emits_test_finished(
     capsys: pytest.CaptureFixture[str],
     tmp_path,
     monkeypatch: pytest.MonkeyPatch,
 ):
-    monkeypatch.setattr(worker_slot, "HfApi", lambda: (_ for _ in ()).throw(RuntimeError("hub down")))
+    monkeypatch.setattr(worker_slot, "HfApi", _raise_hub_down)
     monkeypatch.delenv("AIBOM_LOG_LEVEL", raising=False)
 
     job = {
