@@ -50,12 +50,23 @@ def run_node_logged(
     ob = observer or StderrJsonlObserver()
     safe_on_event(ob, "test_started", logger=logger, test_id=node_id, mode="execute")
     start_ns = perf_counter_ns()
-    outcome = run_one_node(
-        node_id,
-        inputs,
-        store=store,
-        registry=registry or DEFAULT_REGISTRY,
-    )
+    try:
+        outcome = run_one_node(
+            node_id,
+            inputs,
+            store=store,
+            registry=registry or DEFAULT_REGISTRY,
+        )
+    except Exception as exc:
+        outcome = TestOutcome(
+            test_id=node_id,
+            status="error",
+            reason_codes=["node_exception"],
+            detail={
+                "message": str(exc),
+                "exception_type": type(exc).__name__,
+            },
+        )
     finished_fields: dict[str, object] = {
         "test_id": outcome.test_id,
         "status": outcome.status,

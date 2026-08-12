@@ -183,6 +183,41 @@ def test_run_test_main_emits_run_test_logger_jsonl_with_env_run_id(
     assert "strip-me" not in captured.err
 
 
+def test_run_node_logged_hf_api_failure_still_emits_test_finished(
+    capsys: pytest.CaptureFixture[str],
+    tmp_path,
+    monkeypatch: pytest.MonkeyPatch,
+):
+    monkeypatch.setattr(worker_slot, "HfApi", lambda: (_ for _ in ()).throw(RuntimeError("hub down")))
+    monkeypatch.delenv("AIBOM_LOG_LEVEL", raising=False)
+
+    job = {
+        "job_id": "hf-fail",
+        "node_id": "stub_node",
+        "inputs": {"value": 1},
+        "store_config": cq._store_config(
+            store="filesystem",
+            store_dir=str(tmp_path),
+            ignore_cache=False,
+        ),
+        "run_id": _SHARED_RUN_ID,
+    }
+    payload = cq.process_job(job, registry=_stub_registry())
+    stderr_payloads = read_stderr_jsonl(capsys)
+
+    assert payload["ok"] is True
+    assert payload["outcome"]["status"] == "error"
+    assert payload["outcome"]["reason_codes"] == ["node_exception"]
+    assert [row["event"] for row in stderr_payloads] == [
+        "test_started",
+        "exception",
+        "test_finished",
+    ]
+    exception = stderr_payloads[1]
+    assert exception["message"] == "hub down"
+    assert exception["exception_type"] == "RuntimeError"
+
+
 def test_process_job_without_run_id_mints_worker_run_id(
     capsys: pytest.CaptureFixture[str],
     tmp_path,
