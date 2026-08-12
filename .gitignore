@@ -18,6 +18,9 @@ htmlcov/
 # Local cache used by the verifier at runtime
 .cache/
 
+# Agent / experiment scratch (never commit)
+.scratch/
+
 # Editors / OS
 .vscode/
 .idea/
