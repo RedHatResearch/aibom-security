@@ -14,6 +14,7 @@ import shlex
 import subprocess
 from collections.abc import Callable
 
+from aibom_verifier.run_log import get_run_id
 from aibom_verifier.run_test import build_run_test_argv
 from aibom_verifier.slots.artifact_store import ArtifactStore
 from aibom_verifier.types import TestOutcome, outcome_from_remote_dict
@@ -48,7 +49,7 @@ class SshLocalBackend:
         self._timeout = timeout
         self._runner: RunFn = runner or subprocess.run
 
-    def build_argv(self, node_id: str, inputs: dict) -> list[str]:
+    def build_argv(self, node_id: str, inputs: dict, *, run_id: str | None = None) -> list[str]:
         """Build ``ssh`` argv (inputs must already omit non-JSON ``api``)."""
         remote = build_run_test_argv(
             node_id,
@@ -58,7 +59,9 @@ class SshLocalBackend:
             store=self._store,
             ignore_cache=self._ignore_cache,
         )
-        return [self._ssh_bin, self._host, shlex.join(remote)]
+        effective_run_id = run_id or get_run_id()
+        remote_cmd = f"AIBOM_RUN_ID={shlex.quote(effective_run_id)} {shlex.join(remote)}"
+        return [self._ssh_bin, self._host, remote_cmd]
 
     def run(self, node_id: str, inputs: dict, store: ArtifactStore) -> TestOutcome:
         _ = store  # remotes rebuild from env / remote flags

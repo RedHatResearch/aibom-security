@@ -14,6 +14,7 @@ from aibom_verifier.backends.compose_queue import (
     process_next_job,
     worker_main,
 )
+from aibom_verifier.run_log import set_run_id
 from aibom_verifier.slots import worker as worker_slot
 from aibom_verifier.slots.artifact_store import InMemoryArtifactStore
 from aibom_verifier.types import TestOutcome
@@ -31,10 +32,15 @@ def _stub_registry():
     return {"stub_node": stub_node}
 
 
-def test_compose_queue_enqueue_worker_returns_outcome(tmp_path, monkeypatch):
+def test_compose_queue_enqueue_worker_returns_outcome(
+    tmp_path, monkeypatch, capsys: pytest.CaptureFixture[str]
+):
     client = fakeredis.FakeRedis(decode_responses=True)
     registry = _stub_registry()
     monkeypatch.setattr(worker_slot, "HfApi", lambda: object())
+    monkeypatch.delenv("AIBOM_LOG_LEVEL", raising=False)
+    client_run_id = "12345678-1234-5678-1234-567812345678"
+    set_run_id(client_run_id)
 
     thread = threading.Thread(
         target=lambda: worker_main(
@@ -66,6 +72,11 @@ def test_compose_queue_enqueue_worker_returns_outcome(tmp_path, monkeypatch):
     assert result.detail == {"echo": 7, "has_api": True}
     assert (tmp_path / "seen").read_bytes() == b"1"
 
+    stderr_payloads = [json.loads(line) for line in capsys.readouterr().err.splitlines() if line]
+    assert [row["event"] for row in stderr_payloads] == ["test_started", "test_finished"]
+    assert {row["run_id"] for row in stderr_payloads} == {client_run_id}
+    assert {row["logger"] for row in stderr_payloads} == {"aibom_verifier.worker"}
+
 
 def test_compose_queue_job_payload_omits_api_and_carries_store_config():
     raw = cq._encode_job(
@@ -77,6 +88,7 @@ def test_compose_queue_job_payload_omits_api_and_carries_store_config():
             store_dir="/cache",
             ignore_cache=True,
         ),
+        run_id="compose-queue-client-run",
     )
     job = json.loads(raw)
     assert job["node_id"] == "stub_node"
@@ -87,10 +99,12 @@ def test_compose_queue_job_payload_omits_api_and_carries_store_config():
         "store_dir": "/cache",
         "ignore_cache": True,
     }
+    assert job["run_id"] == "compose-queue-client-run"
     assert job["result_key"] == "aibom:result:j1"
 
 
 def test_compose_queue_timeout_raises():
+    set_run_id("compose-queue-client-run")
     client = fakeredis.FakeRedis(decode_responses=True)
     backend = ComposeQueueBackend(client=client, timeout=1)
     with pytest.raises(RuntimeError, match="timed out"):
@@ -111,6 +125,7 @@ def test_process_next_job_pushes_error_envelope(monkeypatch):
             node_id="x",
             inputs={},
             store_config={},
+            run_id="compose-queue-client-run",
         ),
     )
     assert process_next_job(client, timeout=1) is True
@@ -130,6 +145,7 @@ def test_process_next_job_poison_json_keeps_looping():
 
 
 def test_compose_queue_backend_raises_on_non_json_result():
+    set_run_id("compose-queue-client-run")
     client = fakeredis.FakeRedis(decode_responses=True)
 
     def bad_result_worker() -> None:
@@ -182,6 +198,7 @@ def test_connect_redis_sets_socket_timeout_none():
 
 
 def test_compose_queue_backend_raises_on_worker_error():
+    set_run_id("compose-queue-client-run")
     client = fakeredis.FakeRedis(decode_responses=True)
 
     def fail_worker() -> None:

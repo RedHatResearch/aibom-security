@@ -19,10 +19,17 @@ from typing import Any
 from redis import Redis
 
 from aibom_verifier.registry import DEFAULT_REGISTRY
+from aibom_verifier.run_log import get_run_id
 from aibom_verifier.slots.artifact_store import ArtifactStore
-from aibom_verifier.slots.worker import NodeFn, run_one_node, without_api
+from aibom_verifier.slots.worker import NodeFn, without_api
 from aibom_verifier.store_factory import build_artifact_store
 from aibom_verifier.types import TestOutcome, outcome_from_remote_dict
+from aibom_verifier.worker_log import (
+    WORKER_LOGGER,
+    init_worker_logging,
+    resolve_run_id,
+    run_node_logged,
+)
 
 DEFAULT_REDIS_URL = "redis://localhost:6379/0"
 DEFAULT_QUEUE_KEY = "aibom:jobs"
@@ -79,6 +86,7 @@ def _encode_job(
     node_id: str,
     inputs: dict,
     store_config: Mapping[str, Any],
+    run_id: str,
 ) -> str:
     return json.dumps(
         {
@@ -87,6 +95,7 @@ def _encode_job(
             "inputs": without_api(inputs),
             "store_config": dict(store_config),
             "result_key": result_list_key(job_id),
+            "run_id": run_id,
         }
     )
 
@@ -136,12 +145,20 @@ def process_job(
     store_cache: dict[tuple[object, ...], ArtifactStore] | None = None,
 ) -> dict[str, Any]:
     """Run one decoded job; return the result envelope (does not touch Redis)."""
+    raw_run_id = job.get("run_id")
+    job_run_id: str | None = None
+    if raw_run_id is not None:
+        job_run_id = str(raw_run_id).strip() or None
+    run_id = resolve_run_id(job_run_id)
+    observer = init_worker_logging(run_id)
     store = _store_for_job(job.get("store_config") or {}, store_cache)
-    outcome = run_one_node(
+    outcome = run_node_logged(
         job["node_id"],
         dict(job.get("inputs") or {}),
         store=store,
         registry=registry or DEFAULT_REGISTRY,
+        logger=WORKER_LOGGER,
+        observer=observer,
     )
     return {"ok": True, "outcome": outcome.to_dict()}
 
@@ -242,6 +259,7 @@ class ComposeQueueBackend:
                 store_dir=self._store_dir,
                 ignore_cache=self._ignore_cache,
             ),
+            run_id=get_run_id(),
         )
         self._client.lpush(self._queue_key, job)
         item = self._client.brpop(result_key, timeout=self._timeout)
