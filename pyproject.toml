@@ -48,3 +48,6 @@ select = ["E", "F", "I", "UP", "B", "SIM"]
 
 [tool.ty.environment]
 root = ["./verifier/src", "./cli/src", "./verifier/tests"]
+
+[tool.ty.src]
+include = ["verifier/src", "cli/src", "verifier/tests"]
