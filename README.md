@@ -16,6 +16,7 @@ Monorepo — each top-level directory is an independently buildable component.
 aibom-security/
 ├── cli/         # the `aibom` umbrella command
 ├── verifier/    # aibom_verifier: the provenance verification pipeline
+├── smokes/      # survey runnable checks (#26); not product / not CI
 └── pyproject.toml   # uv workspace root
 ```
 

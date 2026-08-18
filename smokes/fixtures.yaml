@@ -1,0 +1,26 @@
+# Shared Hub pairs for smokes and #26 fixture tables.
+# See https://github.com/RedHatResearch/aibom-security/issues/26
+
+pairs:
+  positive_dense:
+    ref: HuggingFaceTB/SmolLM2-1.7B
+    sus: SultanR/SmolTulu-1.7b-Instruct
+  vocab_drift:
+    ref: meta-llama/Llama-3.2-1B
+    sus: dphn/Dolphin3.0-Llama3.2-1B
+  unrelated_cross_family:
+    ref: HuggingFaceTB/SmolLM2-1.7B
+    sus: meta-llama/Llama-3.2-1B
+
+deferred:
+  moe:
+    note: feeds #17; cloud/larger machine
+    ref: allenai/OLMoE-1B-7B-0125
+    sus: allenai/OLMoE-1B-7B-0125-Instruct
+  dense_qwen3:
+    note: verify Hub ids before enabling
+    ref: Qwen/Qwen3-0.6B
+    sus: Qwen/Qwen3-0.6B-Instruct
+  tiny_smoke:
+    ref: HuggingFaceTB/SmolLM2-135M
+    sus: HuggingFaceTB/SmolLM2-135M-Instruct

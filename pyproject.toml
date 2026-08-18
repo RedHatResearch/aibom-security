@@ -17,6 +17,16 @@ dev = [
     "ty>=0.0.65",
     "fakeredis>=2.26",
 ]
+smokes = [
+    "huggingface_hub>=0.34",
+    "ml_dtypes>=0.5",
+    "numpy>=2.0",
+    "pyyaml>=6.0",
+    "safetensors>=0.5",
+    "scipy>=1.14",
+    "torch>=2.5",
+    "transformers>=4.50",
+]
 
 [tool.pytest.ini_options]
 testpaths = ["verifier/tests", "cli/tests"]

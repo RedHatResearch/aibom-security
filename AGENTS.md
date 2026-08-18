@@ -174,6 +174,24 @@ uv run ruff format .            # format
 uv run ty check                 # type check
 ```
 
+## Smokes (#26 / #17 survey)
+
+`smokes/<topic>/` holds **our** runnable checks for the fingerprint survey — reimplementations and probes, not the product verifier. Index: [`smokes/README.md`](smokes/README.md). Shared Hub pairs: [`smokes/fixtures.yaml`](smokes/fixtures.yaml).
+
+| Put here | Put in `.scratch/` | Put in `verifier/` |
+|---|---|---|
+| Our smoke scripts + topic README | Clones of upstream tools (GhostSpec, HuRef repo, MPK, …) | Shipped tests and verify nodes |
+
+```bash
+uv sync --all-packages
+uv run --group smokes python smokes/<topic>/smoke.py
+```
+
+- Not CI; needs HF network and multi-GB downloads for dense models.
+- Each topic README links paper, #26 (or #17) note, and run command.
+- When a smoke graduates into the verifier, move logic to `verifier/` and keep the smoke as a thin wrapper or delete it.
+- Issue deep-dive **Fixture / smoke** sections should link `smokes/<topic>/` when our code exists.
+
 ## Workflow (always / ask / never)
 
 - Always: feature branch + PR for code. Never push to `main` directly.
@@ -206,6 +224,7 @@ uv run ty check                 # type check
 - SSH-to-localhost demo uses a thin SSH backend (`ssh localhost` → `run-test` entrypoint); no Dask in M1.
 - Compose job queue is plain Redis list + JSON (`LPUSH`/`BRPOP`); no RQ.
 - Block-0 / first-layer checks use safetensors headers plus ranged tensor byte reads, not full model downloads; the two live detection tests stay boolean (float-threshold gating is an orchestrator seam for later tests).
+- Survey runnable checks live under `smokes/<topic>/` (see **Smokes** section). External tool clones: `.scratch/<tool>/`.
 - Test dependencies are a small YAML/JSON rule list with forward walk; live T1→T2 gates on boolean pass; float `> 0.8` is proven on a stub only.
 - FR-8 inventing new lineage JSON fields is abandoned; current `VerificationResult` / `RunResult` output is enough for M1.
 - Reference smoke pair: `SultanR/SmolTulu-1.7b-Instruct` vs `HuggingFaceTB/SmolLM2-1.7B`.
