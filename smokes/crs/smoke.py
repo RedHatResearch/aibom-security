@@ -151,9 +151,7 @@ def compute_lineage(reference: ModelCRS, suspect: ModelCRS) -> dict:
         }
 
     t0 = time.perf_counter()
-    ref_s_values = [
-        layer.branches[name].s for layer in reference.layers for name in BRANCH_NAMES
-    ]
+    ref_s_values = [layer.branches[name].s for layer in reference.layers for name in BRANCH_NAMES]
     tau_s = min(ref_s_values)
 
     layer_count = reference.config.num_layers
