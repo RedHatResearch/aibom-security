@@ -7,31 +7,28 @@ from __future__ import annotations
 
 import argparse
 import json
+import sys
 import time
 from dataclasses import dataclass
 from pathlib import Path
 
 import numpy as np
-import torch
-from huggingface_hub import hf_hub_download, snapshot_download
-from safetensors import safe_open
 from scipy.optimize import linear_sum_assignment
 
+ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT))
+
+from _lib.hub import (  # noqa: E402
+    ModelConfig,
+    crs_layer_tensor_names,
+    expand_kv_heads,
+    load_config,
+    load_tensors,
+    parse_model_config,
+)
+from _lib.pairs import default_pairs  # noqa: E402
+
 BRANCH_NAMES = ("mlp", "qk", "vo")
-
-
-@dataclass(frozen=True)
-class ModelConfig:
-    repo_id: str
-    hidden_size: int
-    num_layers: int
-    num_attention_heads: int
-    num_key_value_heads: int
-    intermediate_size: int
-
-    @property
-    def head_dim(self) -> int:
-        return self.hidden_size // self.num_attention_heads
 
 
 @dataclass
@@ -52,30 +49,6 @@ class ModelCRS:
     load_seconds: float
 
 
-def load_config(repo_id: str, cache_dir: Path | None) -> ModelConfig:
-    config_path = hf_hub_download(repo_id, filename="config.json", cache_dir=cache_dir)
-    with open(config_path) as f:
-        raw = json.load(f)
-    return ModelConfig(
-        repo_id=repo_id,
-        hidden_size=raw["hidden_size"],
-        num_layers=raw["num_hidden_layers"],
-        num_attention_heads=raw["num_attention_heads"],
-        num_key_value_heads=raw.get("num_key_value_heads", raw["num_attention_heads"]),
-        intermediate_size=raw["intermediate_size"],
-    )
-
-
-def _expand_kv_heads(weight: np.ndarray, n_heads: int, n_kv_heads: int, head_dim: int) -> np.ndarray:
-    """Repeat KV heads to match Q/O head count (GhostSpec-style GQA handling)."""
-    if n_kv_heads == n_heads:
-        return weight
-    n_rep = n_heads // n_kv_heads
-    blocks = weight.reshape(n_kv_heads, head_dim, weight.shape[1])
-    expanded = np.repeat(blocks, n_rep, axis=0)
-    return expanded.reshape(n_heads * head_dim, weight.shape[1])
-
-
 def trace_concentration(matrix: np.ndarray) -> float:
     fro = np.linalg.norm(matrix, ord="fro")
     if fro == 0.0:
@@ -90,10 +63,7 @@ def centered_signature(matrix: np.ndarray) -> tuple[np.ndarray, float]:
     residual = matrix - trace_mean * np.eye(d, dtype=matrix.dtype)
     flat = residual.ravel()
     norm = np.linalg.norm(flat)
-    if norm == 0.0:
-        phi = np.zeros_like(flat)
-    else:
-        phi = flat / norm
+    phi = np.zeros_like(flat) if norm == 0.0 else flat / norm
     return phi, s
 
 
@@ -102,56 +72,20 @@ def branch_product_mlp(down: np.ndarray, up: np.ndarray) -> np.ndarray:
 
 
 def branch_product_qk(q: np.ndarray, k: np.ndarray, cfg: ModelConfig) -> np.ndarray:
-    k_exp = _expand_kv_heads(k, cfg.num_attention_heads, cfg.num_key_value_heads, cfg.head_dim)
+    k_exp = expand_kv_heads(k, cfg.num_attention_heads, cfg.num_key_value_heads, cfg.head_dim)
     return q @ k_exp.T
 
 
 def branch_product_vo(o: np.ndarray, v: np.ndarray, cfg: ModelConfig) -> np.ndarray:
-    v_exp = _expand_kv_heads(v, cfg.num_attention_heads, cfg.num_key_value_heads, cfg.head_dim)
+    v_exp = expand_kv_heads(v, cfg.num_attention_heads, cfg.num_key_value_heads, cfg.head_dim)
     return o @ v_exp
-
-
-def _tensor_names_for_layer(layer_idx: int) -> list[str]:
-    prefix = f"model.layers.{layer_idx}"
-    return [
-        f"{prefix}.self_attn.q_proj.weight",
-        f"{prefix}.self_attn.k_proj.weight",
-        f"{prefix}.self_attn.v_proj.weight",
-        f"{prefix}.self_attn.o_proj.weight",
-        f"{prefix}.mlp.gate_proj.weight",
-        f"{prefix}.mlp.up_proj.weight",
-        f"{prefix}.mlp.down_proj.weight",
-    ]
 
 
 def load_model_crs(repo_id: str, cache_dir: Path | None) -> ModelCRS:
     t0 = time.perf_counter()
-    cfg = load_config(repo_id, cache_dir)
-    model_dir = snapshot_download(
-        repo_id,
-        allow_patterns=["*.safetensors", "model.safetensors.index.json"],
-        cache_dir=cache_dir,
-    )
-    model_path = Path(model_dir)
-
-    shard_files = sorted(model_path.glob("*.safetensors"))
-    if not shard_files:
-        raise FileNotFoundError(f"No safetensors shards in {model_dir}")
-
-    needed: set[str] = set()
-    for layer_idx in range(cfg.num_layers):
-        needed.update(_tensor_names_for_layer(layer_idx))
-
-    tensors: dict[str, np.ndarray] = {}
-    for shard in shard_files:
-        with safe_open(shard, framework="pt") as handle:
-            for name in handle.keys():
-                if name in needed:
-                    tensors[name] = handle.get_tensor(name).to(dtype=torch.float32).numpy()
-
-    missing = needed - tensors.keys()
-    if missing:
-        raise KeyError(f"Missing tensors for {repo_id}: {sorted(missing)[:5]} ...")
+    raw = load_config(repo_id, cache_dir)
+    cfg = parse_model_config(repo_id, raw)
+    tensors = load_tensors(repo_id, crs_layer_tensor_names(cfg.num_layers), cache_dir=cache_dir)
 
     layers: list[LayerBranches] = []
     for layer_idx in range(cfg.num_layers):
@@ -174,8 +108,7 @@ def load_model_crs(repo_id: str, cache_dir: Path | None) -> ModelCRS:
             branches[name] = BranchSignature(phi=phi, s=s)
         layers.append(LayerBranches(branches=branches))
 
-    load_seconds = time.perf_counter() - t0
-    return ModelCRS(config=cfg, layers=layers, load_seconds=load_seconds)
+    return ModelCRS(config=cfg, layers=layers, load_seconds=time.perf_counter() - t0)
 
 
 def compatibility(a: ModelCRS, b: ModelCRS) -> tuple[bool, str]:
@@ -218,7 +151,6 @@ def compute_lineage(reference: ModelCRS, suspect: ModelCRS) -> dict:
         }
 
     t0 = time.perf_counter()
-
     ref_s_values = [
         layer.branches[name].s for layer in reference.layers for name in BRANCH_NAMES
     ]
@@ -254,20 +186,19 @@ def compute_lineage(reference: ModelCRS, suspect: ModelCRS) -> dict:
             aligned_scores.append(dot)
 
     lineage_score = float(np.mean(aligned_scores))
-    compute_seconds = time.perf_counter() - t0
-
     identity_score = float(np.mean([raw_dots[i, i] for i in range(layer_count)]))
 
+    per_branch_mean = {name: float(np.mean(vals)) for name, vals in per_branch_aligned.items()}
     return {
         "compatible": True,
         "reason": reason,
         "lineage_score": lineage_score,
         "identity_alignment_score": identity_score,
-        "per_branch_mean": {name: float(np.mean(vals)) for name, vals in per_branch_aligned.items()},
+        "per_branch_mean": per_branch_mean,
         "permutation": permutation,
         "permutation_is_identity": permutation == {i: i for i in range(layer_count)},
         "tau_s": tau_s,
-        "compute_seconds": compute_seconds,
+        "compute_seconds": time.perf_counter() - t0,
     }
 
 
@@ -306,30 +237,12 @@ def main() -> None:
     parser.add_argument("--cache-dir", type=Path, default=None)
     args = parser.parse_args()
 
-    pairs = [
-        (
-            "positive",
-            "HuggingFaceTB/SmolLM2-1.7B",
-            "SultanR/SmolTulu-1.7b-Instruct",
-        ),
-        (
-            "vocab_drift",
-            "meta-llama/Llama-3.2-1B",
-            "dphn/Dolphin3.0-Llama3.2-1B",
-        ),
-        (
-            "negative",
-            "HuggingFaceTB/SmolLM2-1.7B",
-            "meta-llama/Llama-3.2-1B",
-        ),
-    ]
-
     ref_cache: dict[str, ModelCRS] = {}
     sus_cache: dict[str, ModelCRS] = {}
     results: list[dict] = []
 
     total_start = time.perf_counter()
-    for label, ref_repo, sus_repo in pairs:
+    for label, ref_repo, sus_repo in default_pairs():
         print(f"\n=== {label}: {ref_repo} vs {sus_repo} ===")
         outcome = run_pair(ref_repo, sus_repo, label, args.cache_dir, ref_cache, sus_cache)
         results.append(outcome)
@@ -347,8 +260,7 @@ def main() -> None:
             f"sus={outcome['sus_load_seconds']:.1f}"
         )
 
-    total_seconds = time.perf_counter() - total_start
-    print(f"\nTotal wall time: {total_seconds:.1f}s")
+    print(f"\nTotal wall time: {time.perf_counter() - total_start:.1f}s")
     print(json.dumps(results, indent=2, default=float))
 
 

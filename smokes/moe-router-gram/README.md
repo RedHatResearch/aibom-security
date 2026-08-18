@@ -8,7 +8,7 @@ Cosine similarity of MoE `mlp.gate.weight` row Gram matrices; Hungarian expert a
 ## Run
 
 ```bash
-uv sync --all-packages
+uv sync --all-packages --group smokes
 uv run --group smokes python smokes/moe-router-gram/smoke.py
 ```
 

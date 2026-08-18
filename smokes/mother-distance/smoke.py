@@ -32,7 +32,7 @@ def ku_sum(tensors: dict[str, np.ndarray]) -> tuple[float, int]:
     sq = square_tensors(tensors)
     if not sq:
         return 0.0, 0
-    return float(sum(float(kurtosis(w.ravel(), fisher=False)) for w in sq.values())), len(sq)
+    return float(sum(float(kurtosis(w.ravel(), fisher=True)) for w in sq.values())), len(sq)
 
 
 def l_ft(a: dict[str, np.ndarray], b: dict[str, np.ndarray]) -> tuple[float, int]:

@@ -18,6 +18,7 @@ dev = [
     "fakeredis>=2.26",
 ]
 smokes = [
+    "aibom-verifier",
     "huggingface_hub>=0.34",
     "ml_dtypes>=0.5",
     "numpy>=2.0",
@@ -27,6 +28,9 @@ smokes = [
     "torch>=2.5",
     "transformers>=4.50",
 ]
+
+[tool.uv.sources]
+aibom-verifier = { workspace = true }
 
 [tool.pytest.ini_options]
 testpaths = ["verifier/tests", "cli/tests"]

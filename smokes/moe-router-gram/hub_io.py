@@ -6,12 +6,11 @@ from dataclasses import dataclass
 
 import ml_dtypes  # noqa: F401
 import numpy as np
+from config import CACHE_DIR, GATE_SUFFIX
 from huggingface_hub import HfApi
 
 from aibom_verifier.hf.safetensors_io import fetch_tensor_bytes, list_tensor_names
 from aibom_verifier.slots.artifact_store import FilesystemArtifactStore
-
-from config import CACHE_DIR, GATE_SUFFIX
 
 _LAYER_RE = re.compile(r"model\.layers\.(\d+)\.mlp\.gate\.weight$")
 _ITEMSIZE = {"BF16": 2, "F16": 2, "F32": 4, "F64": 8}

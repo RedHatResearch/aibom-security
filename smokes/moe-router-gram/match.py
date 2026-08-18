@@ -1,9 +1,8 @@
 from __future__ import annotations
 
 import numpy as np
-from scipy.optimize import linear_sum_assignment
-
 from gram import cosine_gram, row_normalize, upper_tri_cosine
+from scipy.optimize import linear_sum_assignment
 
 
 def hungarian_perm(Wa: np.ndarray, Wb: np.ndarray) -> np.ndarray:

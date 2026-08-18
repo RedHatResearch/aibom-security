@@ -14,9 +14,9 @@ pairs:
 
 deferred:
   moe:
-    note: feeds #17; cloud/larger machine
-    ref: allenai/OLMoE-1B-7B-0125
-    sus: allenai/OLMoE-1B-7B-0125-Instruct
+    note: feeds #17; matches smokes/moe-router-gram/config.py
+    ref: allenai/OLMoE-1B-7B-0924
+    sus: allenai/OLMoE-1B-7B-0924-SFT
   dense_qwen3:
     note: verify Hub ids before enabling
     ref: Qwen/Qwen3-0.6B

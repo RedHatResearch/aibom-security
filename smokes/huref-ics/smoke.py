@@ -20,6 +20,7 @@ sys.path.insert(0, str(ROOT))
 from _lib.hub import (  # noqa: E402
     attn_tensor_names,
     embed_name,
+    expand_kv_heads,
     load_config,
     load_tensors,
     mlp_tensor_names,
@@ -35,25 +36,26 @@ CORPUS = (
 )
 
 
-def expand_kv(k: np.ndarray, n_heads: int, n_kv: int, head_dim: int) -> np.ndarray:
-    if n_kv == n_heads:
-        return k
-    n_rep = n_heads // n_kv
-    blocks = k.reshape(n_kv, head_dim, k.shape[1])
-    return np.repeat(blocks, n_rep, axis=0).reshape(n_heads * head_dim, k.shape[1])
-
-
-def rare_token_ids(tokenizer, k: int) -> np.ndarray:
-    counts: Counter[int] = Counter()
+def aligned_rare_token_ids(
+    ref_tok: AutoTokenizer,
+    sus_tok: AutoTokenizer,
+    k: int,
+) -> tuple[np.ndarray, np.ndarray]:
+    """Map the same corpus words to each model's token id (cross-vocab safe)."""
+    counts: Counter[tuple[int, int]] = Counter()
     for word in CORPUS.split():
-        ids = tokenizer.encode(word, add_special_tokens=False)
-        for tid in ids:
-            counts[tid] += 1
-    ranked = sorted(counts.keys(), key=lambda t: counts[t])
-    if len(ranked) < k:
-        extra = [i for i in range(tokenizer.vocab_size) if i not in counts][-k:]
-        ranked = (ranked + extra)[:k]
-    return np.asarray(ranked[-k:], dtype=np.int64)
+        ref_ids = ref_tok.encode(word, add_special_tokens=False)
+        sus_ids = sus_tok.encode(word, add_special_tokens=False)
+        if len(ref_ids) == 1 and len(sus_ids) == 1:
+            counts[(ref_ids[0], sus_ids[0])] += 1
+    if not counts:
+        raise RuntimeError("no shared single-token corpus words")
+    ranked = sorted(counts.keys(), key=lambda pair: counts[pair])
+    pairs = ranked[-min(k, len(ranked)) :]
+    return (
+        np.asarray([p[0] for p in pairs], dtype=np.int64),
+        np.asarray([p[1] for p in pairs], dtype=np.int64),
+    )
 
 
 def invariant_stack(
@@ -71,12 +73,11 @@ def invariant_stack(
     k = tensors[f"model.layers.{layer}.self_attn.k_proj.weight"]
     v = tensors[f"model.layers.{layer}.self_attn.v_proj.weight"]
     o = tensors[f"model.layers.{layer}.self_attn.o_proj.weight"]
-    gate = tensors[f"model.layers.{layer}.mlp.gate_proj.weight"]
     up = tensors[f"model.layers.{layer}.mlp.up_proj.weight"]
     down = tensors[f"model.layers.{layer}.mlp.down_proj.weight"]
 
-    k_exp = expand_kv(k, n_heads, n_kv, head_dim)
-    v_exp = expand_kv(v, n_heads, n_kv, head_dim)
+    k_exp = expand_kv_heads(k, n_heads, n_kv, head_dim)
+    v_exp = expand_kv_heads(v, n_heads, n_kv, head_dim)
 
     ma = x @ (q.T @ k_exp) @ x.T
     mb = x @ (v_exp.T @ o) @ x.T
@@ -87,9 +88,8 @@ def invariant_stack(
 def ics(a: np.ndarray, b: np.ndarray) -> float:
     if a.shape != b.shape:
         raise ValueError(f"shape mismatch {a.shape} vs {b.shape}")
-    channels = a.shape[0]
     flat_a, flat_b = [], []
-    for c in range(channels):
+    for c in range(a.shape[0]):
         xa = a[c].astype(np.float64)
         xb = b[c].astype(np.float64)
         xa = (xa - xa.mean()) / (xa.std() or 1.0)
@@ -101,7 +101,7 @@ def ics(a: np.ndarray, b: np.ndarray) -> float:
     return float(np.dot(va, vb) / (np.linalg.norm(va) * np.linalg.norm(vb)) * 100.0)
 
 
-def extract(repo_id: str, cache_dir: Path | None) -> np.ndarray:
+def extract(repo_id: str, token_ids: np.ndarray, cache_dir: Path | None) -> np.ndarray:
     cfg = load_config(repo_id, cache_dir)
     n_layers = cfg["num_hidden_layers"]
     n_heads = cfg["num_attention_heads"]
@@ -110,8 +110,6 @@ def extract(repo_id: str, cache_dir: Path | None) -> np.ndarray:
     names = attn_tensor_names(n_layers) | mlp_tensor_names(n_layers) | {embed_name()}
     tensors = load_tensors(repo_id, names, cache_dir=cache_dir)
     embed = tensors[embed_name()]
-    tokenizer = AutoTokenizer.from_pretrained(repo_id)
-    token_ids = rare_token_ids(tokenizer, K)
     blocks = []
     for layer in range(n_layers - LAYERS, n_layers):
         blocks.append(
@@ -128,8 +126,12 @@ def extract(repo_id: str, cache_dir: Path | None) -> np.ndarray:
     return np.concatenate(blocks, axis=0)
 
 
-def compare(ref: str, sus: str, cache_dir: Path | None) -> float:
-    return ics(extract(ref, cache_dir), extract(sus, cache_dir))
+def compare(ref: str, sus: str, cache_dir: Path | None) -> tuple[float, int]:
+    ref_tok = AutoTokenizer.from_pretrained(ref)
+    sus_tok = AutoTokenizer.from_pretrained(sus)
+    ref_ids, sus_ids = aligned_rare_token_ids(ref_tok, sus_tok, K)
+    score = ics(extract(ref, ref_ids, cache_dir), extract(sus, sus_ids, cache_dir))
+    return score, len(ref_ids)
 
 
 def main() -> None:
@@ -141,8 +143,8 @@ def main() -> None:
     for label, ref, sus in default_pairs():
         print(f"\n=== {label}: {ref} vs {sus} ===")
         t1 = time.perf_counter()
-        score = compare(ref, sus, args.cache_dir)
-        print(f"  ICS = {score:.2f}  ({time.perf_counter() - t1:.1f}s)")
+        score, n_tokens = compare(ref, sus, args.cache_dir)
+        print(f"  ICS = {score:.2f}  tokens={n_tokens}  ({time.perf_counter() - t1:.1f}s)")
     print(f"\nTotal {time.perf_counter() - t0:.1f}s")
 
 

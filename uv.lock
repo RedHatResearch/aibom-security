@@ -38,6 +38,7 @@ dev = [
     { name = "ty" },
 ]
 smokes = [
+    { name = "aibom-verifier" },
     { name = "huggingface-hub" },
     { name = "ml-dtypes" },
     { name = "numpy" },
@@ -58,6 +59,7 @@ dev = [
     { name = "ty", specifier = ">=0.0.65" },
 ]
 smokes = [
+    { name = "aibom-verifier", editable = "verifier" },
     { name = "huggingface-hub", specifier = ">=0.34" },
     { name = "ml-dtypes", specifier = ">=0.5" },
     { name = "numpy", specifier = ">=2.0" },
