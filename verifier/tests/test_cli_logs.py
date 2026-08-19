@@ -334,6 +334,30 @@ def test_real_resolve_fail_emits_run_start_then_resolve_failed(
     assert "run_finished" not in {payload["event"] for payload in stderr_payloads}
 
 
+def test_cli_log_file_tee_does_not_change_stdout(
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+    tmp_path,
+):
+    log_file = tmp_path / "verify.jsonl"
+    monkeypatch.setenv("AIBOM_LOG_FILE", str(log_file))
+    monkeypatch.delenv("AIBOM_LOG_LEVEL", raising=False)
+    monkeypatch.delenv("AIBOM_STORE", raising=False)
+    args = _parse([TARGET_REPO, "--cache-dir", str(tmp_path / "cache")])
+    _configure_real_happy_path(monkeypatch)
+
+    assert cli.run(args) == 0
+
+    captured = capsys.readouterr()
+    stdout_payload = json.loads(captured.out)
+    assert stdout_payload["target"] == TARGET_REPO
+    file_payloads = [json.loads(line) for line in log_file.read_text().splitlines() if line]
+    stderr_payloads = [json.loads(line) for line in captured.err.splitlines() if line]
+    assert file_payloads == stderr_payloads
+    assert [payload["event"] for payload in file_payloads][0] == "run_start"
+    assert [payload["event"] for payload in file_payloads][-1] == "run_finished"
+
+
 def test_cli_observer_self_failure_still_prints_stdout(
     monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ):

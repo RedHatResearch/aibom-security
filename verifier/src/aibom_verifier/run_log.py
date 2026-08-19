@@ -4,7 +4,9 @@ from __future__ import annotations
 
 import json
 import logging
+import os
 import sys
+from contextlib import suppress
 from contextvars import ContextVar
 from datetime import UTC, datetime
 from time import perf_counter_ns
@@ -55,7 +57,7 @@ def elapsed_ms(start_ns: int) -> int:
 
 
 def emit(event: str, *, logger: str, level: str, **fields: object) -> None:
-    """Write one JSONL event to stderr; swallow encode/IO failures."""
+    """Write one JSONL event to stderr and optional AIBOM_LOG_FILE; swallow encode/IO failures."""
     validated_level = validate_log_level(level)
     if _LOG_LEVELS[validated_level] < _configured_level:
         return
@@ -76,6 +78,17 @@ def emit(event: str, *, logger: str, level: str, **fields: object) -> None:
         }
     )
     try:
-        sys.stderr.write(json.dumps(payload) + "\n")
-    except (OSError, TypeError, ValueError):
+        line = json.dumps(payload) + "\n"
+    except (TypeError, ValueError):
         return
+    with suppress(OSError):
+        sys.stderr.write(line)
+    _tee_log_file(line)
+
+
+def _tee_log_file(line: str) -> None:
+    path = os.environ.get("AIBOM_LOG_FILE", "").strip()
+    if not path:
+        return
+    with suppress(OSError), open(path, "a", encoding="utf-8") as handle:
+        handle.write(line)
