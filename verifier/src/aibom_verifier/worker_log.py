@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import os
 from time import perf_counter_ns
-from uuid import uuid4
 
 from aibom_verifier.observer import StderrJsonlObserver, safe_on_event
 from aibom_verifier.registry import DEFAULT_REGISTRY
@@ -15,17 +14,6 @@ from aibom_verifier.types import TestOutcome
 
 WORKER_LOGGER = "aibom_verifier.worker"
 RUN_TEST_LOGGER = "aibom_verifier.run_test"
-
-
-def resolve_run_id(job_run_id: str | None = None) -> str:
-    if job_run_id is not None:
-        job_run_id = job_run_id.strip()
-    if job_run_id:
-        return job_run_id
-    env = os.environ.get("AIBOM_RUN_ID", "").strip()
-    if env:
-        return env
-    return str(uuid4())
 
 
 def init_worker_logging(run_id: str) -> StderrJsonlObserver:

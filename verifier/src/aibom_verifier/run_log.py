@@ -10,6 +10,7 @@ from contextlib import suppress
 from contextvars import ContextVar
 from datetime import UTC, datetime
 from time import perf_counter_ns
+from uuid import uuid4
 
 from aibom_verifier import __version__
 from aibom_verifier.types import POLICY_VERSION
@@ -38,6 +39,14 @@ def get_run_id() -> str:
     if run_id is None:
         raise RuntimeError("run_id is not set")
     return run_id
+
+
+def resolve_run_id(explicit: str | None = None) -> str:
+    for candidate in (explicit, os.environ.get("AIBOM_RUN_ID")):
+        stripped = (candidate or "").strip()
+        if stripped:
+            return stripped
+    return str(uuid4())
 
 
 def validate_log_level(level: str) -> str:

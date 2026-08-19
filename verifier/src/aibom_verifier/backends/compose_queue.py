@@ -19,7 +19,7 @@ from typing import Any
 from redis import Redis
 
 from aibom_verifier.registry import DEFAULT_REGISTRY
-from aibom_verifier.run_log import get_run_id
+from aibom_verifier.run_log import get_run_id, resolve_run_id
 from aibom_verifier.slots.artifact_store import ArtifactStore
 from aibom_verifier.slots.worker import NodeFn, without_api
 from aibom_verifier.store_factory import build_artifact_store
@@ -27,7 +27,6 @@ from aibom_verifier.types import TestOutcome, outcome_from_remote_dict
 from aibom_verifier.worker_log import (
     WORKER_LOGGER,
     init_worker_logging,
-    resolve_run_id,
     run_node_logged,
 )
 

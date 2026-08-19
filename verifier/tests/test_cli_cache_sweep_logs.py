@@ -64,6 +64,7 @@ def _assert_envelope(payload: dict[str, object]) -> None:
 def test_sweep_happy_path_emits_sweep_start_then_sweep_finished_with_shared_run_id(
     monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], tmp_path
 ):
+    monkeypatch.delenv("AIBOM_RUN_ID", raising=False)
     monkeypatch.delenv("AIBOM_LOG_LEVEL", raising=False)
     args = _parse(["--cache-dir", str(tmp_path)])
 
@@ -81,9 +82,23 @@ def test_sweep_happy_path_emits_sweep_start_then_sweep_finished_with_shared_run_
     assert len(run_ids) == 1
 
 
+def test_sweep_honors_aibom_run_id(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], tmp_path
+):
+    monkeypatch.setenv("AIBOM_RUN_ID", "sweep-pipeline-run")
+    monkeypatch.delenv("AIBOM_LOG_LEVEL", raising=False)
+    args = _parse(["--cache-dir", str(tmp_path)])
+
+    assert sweep_cli.run(args) == 0
+
+    stderr_payloads = read_stderr_jsonl(capsys)
+    assert {str(payload["run_id"]) for payload in stderr_payloads} == {"sweep-pipeline-run"}
+
+
 def test_sweep_finished_fields_and_stdout_shape_with_proxy_store(
     monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ):
+    monkeypatch.delenv("AIBOM_RUN_ID", raising=False)
     monkeypatch.delenv("AIBOM_LOG_LEVEL", raising=False)
     proxy = _aged_proxy(age=timedelta(days=40))
     monkeypatch.setattr(sweep_cli, "build_artifact_store", lambda **kw: proxy)
@@ -117,6 +132,7 @@ def test_negative_max_age_days_emits_single_sweep_failed_and_preserves_stdout_er
     monkeypatch: pytest.MonkeyPatch,
     capsys: pytest.CaptureFixture[str],
 ):
+    monkeypatch.delenv("AIBOM_RUN_ID", raising=False)
     monkeypatch.delenv("AIBOM_LOG_LEVEL", raising=False)
     monkeypatch.setattr(
         sweep_cli,
@@ -148,6 +164,7 @@ def test_invalid_log_level_emits_sweep_failed_and_exits_1(
     monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ):
     monkeypatch.setenv("AIBOM_LOG_LEVEL", "TRACE")
+    monkeypatch.delenv("AIBOM_RUN_ID", raising=False)
     monkeypatch.setattr(
         sweep_cli,
         "build_artifact_store",
@@ -174,6 +191,7 @@ def test_error_log_level_suppresses_info_events_for_successful_run(
     monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], tmp_path
 ):
     monkeypatch.delenv("AIBOM_LOG_LEVEL", raising=False)
+    monkeypatch.delenv("AIBOM_RUN_ID", raising=False)
     info_args = _parse(["--cache-dir", str(tmp_path)])
     assert sweep_cli.run(info_args) == 0
     info_payloads = read_stderr_jsonl(capsys)
@@ -196,6 +214,7 @@ def test_secrets_are_never_logged_in_sweep_events(
     monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ):
     monkeypatch.delenv("AIBOM_LOG_LEVEL", raising=False)
+    monkeypatch.delenv("AIBOM_RUN_ID", raising=False)
     monkeypatch.setenv("AIBOM_PG_DSN", "postgresql://sweeper:S3cr3tPass@db.internal:5432/aibom")
     monkeypatch.setenv("AIBOM_MINIO_ACCESS_KEY", "AKIAFAKEACCESSKEYID")
     monkeypatch.setenv("AIBOM_MINIO_SECRET_KEY", "fake-minio-secret-value")

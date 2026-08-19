@@ -1,5 +1,6 @@
 import json
 from datetime import datetime
+from uuid import UUID
 
 import pytest
 from hf_fakes import read_stderr_jsonl
@@ -11,6 +12,7 @@ from aibom_verifier.run_log import (
     configure_logging,
     emit,
     get_run_id,
+    resolve_run_id,
     set_run_id,
     validate_log_level,
 )
@@ -33,6 +35,18 @@ def test_set_and_get_run_id():
     set_run_id("run-123")
 
     assert get_run_id() == "run-123"
+
+
+def test_resolve_run_id_prefers_explicit_then_env_then_uuid(
+    monkeypatch: pytest.MonkeyPatch,
+):
+    monkeypatch.setenv("AIBOM_RUN_ID", "env-run")
+    assert resolve_run_id("  explicit-run  ") == "explicit-run"
+    assert resolve_run_id("   ") == "env-run"
+    assert resolve_run_id(None) == "env-run"
+    monkeypatch.delenv("AIBOM_RUN_ID", raising=False)
+    minted = resolve_run_id()
+    UUID(minted)
 
 
 @pytest.mark.parametrize("level", ["DEBUG", "INFO", "WARNING", "ERROR"])
