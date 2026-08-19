@@ -66,7 +66,10 @@ PoC orchestration code lives in this package; root `docker-compose.yml` builds t
 
 - **stdout** — `VerificationResult` JSON (pipeline/consumer parse target).
 - **stderr** — JSONL telemetry (`run_id`, events). Do not move JSONL to stdout.
-- Pipeline integration: epic #42 (logs), #43 (orchestration) on milestone **M1.2 — Pipeline telemetry & ops**.
+- Optional `AIBOM_LOG_FILE` tees the same JSONL (best-effort; write failures do not fail verify).
+- Host CLI honors `AIBOM_RUN_ID` when set; otherwise mints a UUID.
+- Compose worker JSONL is on container stderr (`json-file` driver). Collect with `docker compose logs --no-log-prefix worker`.
+- See #42 for pipeline telemetry scope; #43 for orchestration (M1.2).
 
 ## Smokes vs verifier
 

@@ -6,7 +6,6 @@ import argparse
 import json
 import os
 from time import perf_counter_ns
-from uuid import uuid4
 
 from aibom_verifier.backends.compose_queue import ComposeQueueBackend
 from aibom_verifier.backends.ssh_local import SshLocalBackend
@@ -14,7 +13,7 @@ from aibom_verifier.errors import CompareStartError
 from aibom_verifier.nodes.verdict_synthesize import verdict_message
 from aibom_verifier.observer import StderrJsonlObserver, safe_on_event
 from aibom_verifier.planner import run_compare
-from aibom_verifier.run_log import configure_logging, elapsed_ms, set_run_id
+from aibom_verifier.run_log import configure_logging, elapsed_ms, resolve_run_id, set_run_id
 from aibom_verifier.slots.execution_backend import ExecutionBackend
 from aibom_verifier.store_factory import (
     add_store_arguments,
@@ -144,7 +143,7 @@ def _emit_run_failed(
 def run(args: argparse.Namespace) -> int:
     """Execute ``verify``: print JSON to stdout; exit codes in ``EXIT_CODE_EPILOG``."""
     started_ns = perf_counter_ns()
-    set_run_id(str(uuid4()))
+    set_run_id(resolve_run_id())
     observer = StderrJsonlObserver()
     log_level = os.environ.get("AIBOM_LOG_LEVEL", "INFO")
 

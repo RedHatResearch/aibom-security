@@ -48,6 +48,11 @@ set -a && source .env && set +a   # required; copy alone does not set env
 uv run aibom verify org/model --base org/base --store proxy --backend compose
 ```
 
+Worker JSONL telemetry is on container stderr. Collect it with
+`docker compose logs --no-log-prefix worker`. The host CLI honors
+`AIBOM_RUN_ID` when set; optional `AIBOM_LOG_FILE` tees the same JSONL
+to a file (best-effort; write failures do not fail verify).
+
 ## Development
 
 ```bash

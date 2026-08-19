@@ -24,12 +24,12 @@ import sys
 from collections.abc import Sequence
 
 from aibom_verifier.registry import DEFAULT_REGISTRY
+from aibom_verifier.run_log import resolve_run_id
 from aibom_verifier.slots.worker import NodeFn
 from aibom_verifier.store_factory import add_store_arguments, build_artifact_store
 from aibom_verifier.worker_log import (
     RUN_TEST_LOGGER,
     init_worker_logging,
-    resolve_run_id,
     run_node_logged,
 )
 

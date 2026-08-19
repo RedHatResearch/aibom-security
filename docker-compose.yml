@@ -73,6 +73,11 @@ services:
     <<: *app
     restart: unless-stopped
     entrypoint: ["python", "-m", "aibom_verifier.worker"]
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
     environment:
       <<: *proxy-env
     depends_on:

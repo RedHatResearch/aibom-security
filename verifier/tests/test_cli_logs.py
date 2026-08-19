@@ -110,6 +110,7 @@ def test_invalid_log_level_emits_run_failed_and_skips_store_build(
 ):
     args = _parse(["org/target-model"])
     monkeypatch.setenv("AIBOM_LOG_LEVEL", "TRACE")
+    monkeypatch.delenv("AIBOM_RUN_ID", raising=False)
     monkeypatch.setattr(
         cli,
         "build_artifact_store",
@@ -139,6 +140,7 @@ def test_runtime_store_failure_emits_run_failed_without_run_start(
 ):
     args = _parse(["org/target-model", "--store", "proxy"])
     monkeypatch.delenv("AIBOM_LOG_LEVEL", raising=False)
+    monkeypatch.delenv("AIBOM_RUN_ID", raising=False)
 
     def _raise_store_error(**kwargs):
         raise ValueError("missing AIBOM_PG_DSN")
@@ -167,6 +169,7 @@ def test_real_happy_path_emits_full_sequence_and_public_stdout(
     tmp_path,
 ):
     args = _parse([TARGET_REPO, "--cache-dir", str(tmp_path)])
+    monkeypatch.delenv("AIBOM_RUN_ID", raising=False)
     monkeypatch.delenv("AIBOM_LOG_LEVEL", raising=False)
     monkeypatch.delenv("AIBOM_STORE", raising=False)
     _configure_real_happy_path(monkeypatch)
@@ -247,6 +250,24 @@ def test_real_happy_path_emits_full_sequence_and_public_stdout(
     )
 
 
+def test_cli_honors_aibom_run_id_on_every_line(
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+    tmp_path,
+):
+    monkeypatch.setenv("AIBOM_RUN_ID", "pipeline-run-42")
+    monkeypatch.delenv("AIBOM_LOG_LEVEL", raising=False)
+    monkeypatch.delenv("AIBOM_STORE", raising=False)
+    args = _parse([TARGET_REPO, "--cache-dir", str(tmp_path)])
+    _configure_real_happy_path(monkeypatch)
+
+    assert cli.run(args) == 0
+
+    stderr_payloads = _read_stderr_lines(capsys)
+    assert stderr_payloads
+    assert {payload["run_id"] for payload in stderr_payloads} == {"pipeline-run-42"}
+
+
 def test_success_emits_run_start_and_run_finished_and_forwards_observer(
     monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ):
@@ -255,6 +276,7 @@ def test_success_emits_run_start_and_run_finished_and_forwards_observer(
     captured_compare: dict[str, object] = {}
     monkeypatch.setenv("AIBOM_STORE", "proxy")
     monkeypatch.delenv("AIBOM_LOG_LEVEL", raising=False)
+    monkeypatch.delenv("AIBOM_RUN_ID", raising=False)
     monkeypatch.setattr(cli, "build_artifact_store", lambda **kwargs: fake_store)
 
     def _fake_compare(*compare_args, **compare_kwargs):
@@ -288,6 +310,7 @@ def test_error_log_level_suppresses_info_events_for_successful_run(
 ):
     args = _parse(["org/target-model", "--base", "org/base-model"])
     monkeypatch.setenv("AIBOM_LOG_LEVEL", "ERROR")
+    monkeypatch.delenv("AIBOM_RUN_ID", raising=False)
     monkeypatch.setattr(cli, "build_artifact_store", lambda **kwargs: object())
     monkeypatch.setattr(cli, "run_compare", lambda *a, **k: _fake_run_result())
 
@@ -307,6 +330,7 @@ def test_real_resolve_fail_emits_run_start_then_resolve_failed(
 ):
     args = _parse([TARGET_REPO, "--base", BASE_REPO, "--cache-dir", str(tmp_path)])
     monkeypatch.delenv("AIBOM_LOG_LEVEL", raising=False)
+    monkeypatch.delenv("AIBOM_RUN_ID", raising=False)
 
     def _raise_resolve(repo_id: str, revision: str | None = None, *, api=None):
         raise CompareStartError("gated_unauthenticated", "no access")
@@ -334,11 +358,36 @@ def test_real_resolve_fail_emits_run_start_then_resolve_failed(
     assert "run_finished" not in {payload["event"] for payload in stderr_payloads}
 
 
+def test_cli_log_file_tee_does_not_change_stdout(
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+    tmp_path,
+):
+    log_file = tmp_path / "verify.jsonl"
+    monkeypatch.setenv("AIBOM_LOG_FILE", str(log_file))
+    monkeypatch.delenv("AIBOM_LOG_LEVEL", raising=False)
+    monkeypatch.delenv("AIBOM_STORE", raising=False)
+    args = _parse([TARGET_REPO, "--cache-dir", str(tmp_path / "cache")])
+    _configure_real_happy_path(monkeypatch)
+
+    assert cli.run(args) == 0
+
+    captured = capsys.readouterr()
+    stdout_payload = json.loads(captured.out)
+    assert stdout_payload["target"] == TARGET_REPO
+    file_payloads = [json.loads(line) for line in log_file.read_text().splitlines() if line]
+    stderr_payloads = [json.loads(line) for line in captured.err.splitlines() if line]
+    assert file_payloads == stderr_payloads
+    assert [payload["event"] for payload in file_payloads][0] == "run_start"
+    assert [payload["event"] for payload in file_payloads][-1] == "run_finished"
+
+
 def test_cli_observer_self_failure_still_prints_stdout(
     monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ):
     args = _parse(["org/target-model", "--base", "org/base-model"])
     monkeypatch.delenv("AIBOM_LOG_LEVEL", raising=False)
+    monkeypatch.delenv("AIBOM_RUN_ID", raising=False)
     monkeypatch.setattr(cli, "build_artifact_store", lambda **kwargs: object())
     monkeypatch.setattr(cli, "run_compare", lambda *a, **k: _fake_run_result())
 

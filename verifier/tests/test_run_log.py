@@ -1,4 +1,6 @@
+import json
 from datetime import datetime
+from uuid import UUID
 
 import pytest
 from hf_fakes import read_stderr_jsonl
@@ -10,6 +12,7 @@ from aibom_verifier.run_log import (
     configure_logging,
     emit,
     get_run_id,
+    resolve_run_id,
     set_run_id,
     validate_log_level,
 )
@@ -20,10 +23,30 @@ def _read_stderr_lines(capsys: pytest.CaptureFixture[str]) -> list[dict[str, obj
     return read_stderr_jsonl(capsys, expect_empty_stdout=True)
 
 
+class _BrokenStderr:
+    def write(self, _: str) -> int:
+        raise OSError("disk full")
+
+    def flush(self) -> None:
+        return None
+
+
 def test_set_and_get_run_id():
     set_run_id("run-123")
 
     assert get_run_id() == "run-123"
+
+
+def test_resolve_run_id_prefers_explicit_then_env_then_uuid(
+    monkeypatch: pytest.MonkeyPatch,
+):
+    monkeypatch.setenv("AIBOM_RUN_ID", "env-run")
+    assert resolve_run_id("  explicit-run  ") == "explicit-run"
+    assert resolve_run_id("   ") == "env-run"
+    assert resolve_run_id(None) == "env-run"
+    monkeypatch.delenv("AIBOM_RUN_ID", raising=False)
+    minted = resolve_run_id()
+    UUID(minted)
 
 
 @pytest.mark.parametrize("level", ["DEBUG", "INFO", "WARNING", "ERROR"])
@@ -123,20 +146,78 @@ def test_emit_keeps_envelope_keys_over_field_kwargs(capsys: pytest.CaptureFixtur
     assert payloads[0]["backend"] == "local"
 
 
+def test_emit_tees_jsonl_to_aibom_log_file(
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+    tmp_path,
+):
+    log_file = tmp_path / "aibom.jsonl"
+    monkeypatch.setenv("AIBOM_LOG_FILE", str(log_file))
+    set_run_id("run-file-tee")
+    configure_logging("INFO")
+
+    emit("run_start", logger="aibom_verifier.cli", level="INFO", backend="local")
+
+    payloads = _read_stderr_lines(capsys)
+    file_payloads = [json.loads(line) for line in log_file.read_text().splitlines() if line]
+    assert payloads == file_payloads
+    assert file_payloads[0]["event"] == "run_start"
+    assert file_payloads[0]["run_id"] == "run-file-tee"
+
+
+def test_emit_swallows_log_file_write_errors(
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+    tmp_path,
+):
+    monkeypatch.setenv("AIBOM_LOG_FILE", str(tmp_path))  # directory, not a file
+    set_run_id("run-file-io")
+    configure_logging("INFO")
+
+    emit("run_start", logger="aibom_verifier.cli", level="INFO", backend="local")
+
+    payloads = _read_stderr_lines(capsys)
+    assert [payload["event"] for payload in payloads] == ["run_start"]
+
+
+def test_emit_skips_file_tee_when_log_file_unset(
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+    tmp_path,
+):
+    monkeypatch.delenv("AIBOM_LOG_FILE", raising=False)
+    monkeypatch.chdir(tmp_path)
+    set_run_id("run-no-file")
+    configure_logging("INFO")
+
+    emit("run_start", logger="aibom_verifier.cli", level="INFO", backend="local")
+
+    _read_stderr_lines(capsys)
+    assert list(tmp_path.iterdir()) == []
+
+
 def test_emit_swallows_stderr_write_errors(monkeypatch: pytest.MonkeyPatch):
     set_run_id("run-io-error")
     configure_logging("INFO")
-
-    class BrokenStderr:
-        def write(self, _: str) -> int:
-            raise OSError("disk full")
-
-        def flush(self) -> None:
-            return None
-
-    monkeypatch.setattr("sys.stderr", BrokenStderr())
+    monkeypatch.setattr("sys.stderr", _BrokenStderr())
 
     emit("run_start", logger="aibom_verifier.cli", level="INFO", backend="local")
+
+
+def test_emit_tees_log_file_after_stderr_write_error(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path,
+):
+    log_file = tmp_path / "after-stderr-fail.jsonl"
+    monkeypatch.setenv("AIBOM_LOG_FILE", str(log_file))
+    set_run_id("run-stderr-fail-tee")
+    configure_logging("INFO")
+    monkeypatch.setattr("sys.stderr", _BrokenStderr())
+    emit("run_start", logger="aibom_verifier.cli", level="INFO", backend="local")
+
+    file_payloads = [json.loads(line) for line in log_file.read_text().splitlines() if line]
+    assert [payload["event"] for payload in file_payloads] == ["run_start"]
+    assert file_payloads[0]["run_id"] == "run-stderr-fail-tee"
 
 
 def test_stderr_jsonl_observer_maps_catalog_events_to_levels(capsys: pytest.CaptureFixture[str]):
