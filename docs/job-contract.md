@@ -166,5 +166,6 @@ When `--base` was not passed, `base` may be `null` because resolve never complet
 ## References
 
 - Structured logging: GitHub issue #42
-- Redis Compose PoC (internal fan-out): root `docker-compose.yml`, `verifier/AGENTS.md`
+- Local Compose PoC: [docs/poc-compose.md](poc-compose.md)
+- Redis Compose stack (internal fan-out): root `docker-compose.yml`, `verifier/AGENTS.md`
 

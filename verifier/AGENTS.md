@@ -42,7 +42,7 @@ Host proxy env: root `.env.example`. Container services use Docker DNS (`postgre
 
 ## Architecture PoC (throwaway-ok)
 
-Prefer working prototype over polish. Stack may be thrown away later.
+Prefer working prototype over polish. Stack may be thrown away later. Runnable laptop steps: [docs/poc-compose.md](../docs/poc-compose.md).
 
 - Postgres + MinIO proxy store; 30-day LAT cache sweep (`aibom cache-sweep --max-age-days 30`), also run by a Compose sweeper timer.
 - PoC entry is CLI-first: `aibom verify` uses proxy and can submit to Compose/SSH backends.

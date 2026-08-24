@@ -2,25 +2,15 @@
 
 Passive, weight-level verification of whether an LLM actually comes from the base model it claims. Instead of trusting a Hugging Face model card's `base_model` field, `aibom-security` inspects the weights directly and abstains rather than guessing when it can't tell.
 
+An AI BOM is only useful if lineage claims can be checked against the weights.
+
 A Red Hat Research project. Issues and milestones track what's being worked on; the [wiki](../../wiki) holds finished write-ups once an issue is closed (state of the art, standards research, design decisions).
 
 ## Current focus
 
 See the [Milestone 1 board](../../milestone/1) for the active spec and requirements, and the [icebox](../../milestone/2) for deferred ideas.
 
-## Repo layout
-
-Monorepo — each top-level directory is an independently buildable component.
-
-```
-aibom-security/
-├── cli/         # the `aibom` umbrella command
-├── verifier/    # aibom_verifier: the provenance verification pipeline
-├── smokes/      # survey runnable checks (#26); not product / not CI
-└── pyproject.toml   # uv workspace root
-```
-
-## Quickstart
+## Quickstart (local)
 
 Requires [`uv`](https://docs.astral.sh/uv/).
 
@@ -29,37 +19,50 @@ uv sync --all-packages
 uv run aibom verify meta-llama/Llama-3.2-1B --base someorg/some-finetune
 ```
 
-Or via Docker (see [docs/job-contract.md](docs/job-contract.md) for the host pipeline contract):
+## Pipeline integration (Docker)
+
+For a leaf step in an external verification pipeline:
 
 ```bash
 docker build -t aibom-security .
-docker run --rm aibom-security verify meta-llama/Llama-3.2-1B --base someorg/some-finetune
+docker run --rm aibom-security verify org/model --base org/base
 ```
 
-Architecture PoC stack (Postgres + MinIO + Redis + workers + sweeper).
-Local laptop only; published ports bind to `127.0.0.1`. Data is ephemeral
-(no named volumes). Container services use Docker DNS; host CLI uses
-`.env.example` (`localhost` published ports).
+For gated Hub repos, pass `HF_TOKEN`. **stdout** is the `VerificationResult` JSON; **stderr** is JSONL telemetry. Verdicts are not mapped to exit codes. Full contract (argv, env, accept mode, events): [docs/job-contract.md](docs/job-contract.md).
 
-```bash
-docker compose up -d --scale worker=2
-cp .env.example .env   # local-only defaults; do not commit secrets
-set -a && source .env && set +a   # required; copy alone does not set env
-uv run aibom verify org/model --base org/base --store proxy --backend compose
+## Repo layout
+
+Monorepo — each top-level directory is an independently buildable component.
+
 ```
-
-Worker JSONL telemetry is on container stderr. Collect it with
-`docker compose logs --no-log-prefix worker`. The host CLI honors
-`AIBOM_RUN_ID` when set; optional `AIBOM_LOG_FILE` tees the same JSONL
-to a file (best-effort; write failures do not fail verify).
+aibom-security/
+├── cli/                 # the `aibom` umbrella command
+├── verifier/            # aibom_verifier: the provenance verification pipeline
+├── docs/                # host integration and PoC guides
+├── smokes/              # survey runnable checks (#26); not product / not CI
+├── docker-compose.yml   # local PoC stack only (see docs/poc-compose.md)
+└── pyproject.toml       # uv workspace root
+```
 
 ## Development
 
 ```bash
-uv sync --all-packages          # install everything
-uv run pytest -m "not network"  # unit tests (offline)
-uv run pytest -m network        # integration tests that hit the HF Hub
-uv run ruff check .             # lint
-uv run ruff format .            # format
-uv run ty check                 # type check
+uv sync --all-packages
+uv run pytest -m "not network"
+uv run pytest -m network
+uv run ruff check .
+uv run ruff format .
+uv run ty check
 ```
+
+Contributing workflow and PR conventions: [AGENTS.md](AGENTS.md).
+
+## More documentation
+
+| Doc | For |
+|-----|-----|
+| [docs/job-contract.md](docs/job-contract.md) | Host pipeline integrators |
+| [docs/poc-compose.md](docs/poc-compose.md) | Local Compose PoC (laptop only) |
+| [verifier/AGENTS.md](verifier/AGENTS.md) | Verifier internals and backends |
+| [smokes/README.md](smokes/README.md) | Fingerprint survey checks |
+| [AGENTS.md](AGENTS.md) | Board protocol and agent workflow |
