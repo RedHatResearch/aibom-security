@@ -29,7 +29,7 @@ uv sync --all-packages
 uv run aibom verify meta-llama/Llama-3.2-1B --base someorg/some-finetune
 ```
 
-Or via Docker:
+Or via Docker (see [docs/job-contract.md](docs/job-contract.md) for the host pipeline contract):
 
 ```bash
 docker build -t aibom-security .
