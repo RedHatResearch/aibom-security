@@ -29,6 +29,7 @@ EXIT_CODE_EPILOG = """\
 exit codes:
   0  compare completed (any verdict, including non-confirming)
   1  start/config error (resolve failed, gated, bad store config, …)
+     (with --accept or AIBOM_ACCEPT=1/true/yes, start/config errors also exit 0)
 """
 
 
@@ -72,6 +73,47 @@ def add_arguments(parser: argparse.ArgumentParser) -> None:
             "compose (Redis list queue → worker; needs AIBOM_REDIS_URL)"
         ),
     )
+    parser.add_argument(
+        "--accept",
+        action="store_true",
+        help=(
+            "On start/config failure, exit 0 with a non-confirming VerificationResult "
+            "(same as AIBOM_ACCEPT=1/true/yes)"
+        ),
+    )
+
+
+def _accept_enabled(args: argparse.Namespace) -> bool:
+    if args.accept:
+        return True
+    env_val = os.environ.get("AIBOM_ACCEPT", "").strip().lower()
+    return env_val in {"1", "true", "yes"}
+
+
+def _accept_result_dict(args: argparse.Namespace) -> dict[str, object]:
+    verdict = "insufficient_evidence"
+    payload = VerificationResult(
+        target=args.target,
+        base=args.base,
+        verdict=verdict,
+        message=verdict_message(verdict, tests=[]),
+    ).to_dict()
+    payload["accept"] = True
+    return payload
+
+
+def _finish_start_failure_stdout(
+    args: argparse.Namespace,
+    *,
+    error_code: str,
+    message: str,
+    accept: bool | None = None,
+) -> int:
+    if accept if accept is not None else _accept_enabled(args):
+        print(json.dumps(_accept_result_dict(args), indent=2))
+        return 0
+    print(json.dumps(_error_envelope(error_code, message), indent=2))
+    return 1
 
 
 def _error_envelope(error_code: str, message: str) -> dict[str, object]:
@@ -126,18 +168,20 @@ def _emit_run_failed(
     started_ns: int,
     error_code: str,
     message: str,
+    args: argparse.Namespace,
 ) -> int:
+    accept = _accept_enabled(args)
+    exit_code = 0 if accept else 1
     safe_on_event(
         observer,
         "run_failed",
         logger=_CLI_LOGGER,
-        exit_code=1,
+        exit_code=exit_code,
         error_code=error_code,
         message=message,
         duration_ms=elapsed_ms(started_ns),
     )
-    print(json.dumps(_error_envelope(error_code, message), indent=2))
-    return 1
+    return _finish_start_failure_stdout(args, error_code=error_code, message=message, accept=accept)
 
 
 def run(args: argparse.Namespace) -> int:
@@ -155,6 +199,7 @@ def run(args: argparse.Namespace) -> int:
             started_ns=started_ns,
             error_code="invalid_log_level",
             message=str(exc),
+            args=args,
         )
 
     try:
@@ -169,6 +214,7 @@ def run(args: argparse.Namespace) -> int:
             started_ns=started_ns,
             error_code="invalid_store",
             message=str(exc),
+            args=args,
         )
 
     safe_on_event(
@@ -195,8 +241,7 @@ def run(args: argparse.Namespace) -> int:
             observer=observer,
         )
     except CompareStartError as exc:
-        print(json.dumps(_error_envelope(exc.error_code, exc.message), indent=2))
-        return 1
+        return _finish_start_failure_stdout(args, error_code=exc.error_code, message=exc.message)
 
     safe_on_event(
         observer,
