@@ -35,3 +35,17 @@ jobs:
       # locally with `uv run pytest -m network`.
       - name: Test (pytest, offline only)
         run: uv run pytest -m "not network" -v
+
+  docker-smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Build image
+        run: docker build -t aibom-security:ci .
+
+      - name: CLI boots in image
+        run: |
+          docker run --rm aibom-security:ci --help
+          docker run --rm aibom-security:ci verify --help
