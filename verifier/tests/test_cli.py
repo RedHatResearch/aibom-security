@@ -255,6 +255,7 @@ def test_verify_help_documents_poc_flags_and_exit_codes():
     assert "--backend" in help_text
     assert "--ignore-cache" in help_text
     assert "--store" in help_text
+    assert "--accept" in help_text
     assert cli.EXIT_CODE_EPILOG.strip() in help_text
 
 
