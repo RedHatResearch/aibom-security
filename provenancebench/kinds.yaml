@@ -1,0 +1,176 @@
+version: 0.1.0
+
+# fill: hub | partial | script | none
+# stack: dense | moe | both
+
+kinds:
+  - kind: abliterate
+    stack: both
+    fill: hub
+    blurb: refusal-direction edit; layout preserved
+
+  - kind: uncensored_sft
+    stack: both
+    fill: hub
+    blurb: SFT-only uncensored; not rank-1 abliterate
+
+  - kind: lorablation
+    stack: both
+    fill: none
+
+  - kind: sft
+    stack: both
+    fill: hub
+
+  - kind: lora_adapter
+    stack: both
+    fill: hub
+
+  - kind: lora_merged
+    stack: both
+    fill: hub
+
+  - kind: preference
+    stack: both
+    fill: hub
+
+  - kind: distill_same
+    stack: both
+    fill: hub
+
+  - kind: distill_cross
+    stack: both
+    fill: hub
+
+  - kind: distill_on_adapter
+    stack: both
+    fill: partial
+
+  - kind: minitron
+    stack: dense
+    fill: hub
+
+  - kind: structured_prune
+    stack: dense
+    fill: hub
+
+  - kind: wanda
+    stack: dense
+    fill: hub
+
+  - kind: layer_prune
+    stack: dense
+    fill: hub
+
+  - kind: oats
+    stack: dense
+    fill: script
+
+  - kind: fusegpt
+    stack: dense
+    fill: script
+
+  - kind: come
+    stack: dense
+    fill: script
+
+  - kind: pudding
+    stack: dense
+    fill: none
+
+  - kind: expert_drop
+    stack: moe
+    fill: hub
+
+  - kind: expert_drop_reap
+    stack: moe
+    fill: hub
+
+  - kind: expert_drop_router
+    stack: moe
+    fill: script
+
+  - kind: expert_drop_dern
+    stack: moe
+    fill: script
+
+  - kind: expert_merge_ream
+    stack: moe
+    fill: hub
+
+  - kind: expert_merge_hcsmoe
+    stack: moe
+    fill: hub
+
+  - kind: expert_merge_lit
+    stack: moe
+    fill: none
+
+  - kind: upcycle_dive
+    stack: moe
+    fill: script
+
+  - kind: upcycle_naive
+    stack: moe
+    fill: hub
+
+  - kind: franken_moe
+    stack: moe
+    fill: hub
+
+  - kind: dm_moe
+    stack: moe
+    fill: script
+
+  - kind: merge
+    stack: dense
+    fill: hub
+
+  - kind: merge_moe
+    stack: moe
+    fill: hub
+
+  - kind: ls_merge
+    stack: dense
+    fill: script
+
+  - kind: depth_upscale
+    stack: dense
+    fill: partial
+
+  - kind: quant
+    stack: both
+    fill: hub
+
+  - kind: quant_gguf_rehost
+    stack: both
+    fill: hub
+
+  - kind: vocab_resize
+    stack: both
+    fill: hub
+
+  - kind: vocab_extended
+    stack: both
+    fill: hub
+
+  - kind: composite
+    stack: both
+    fill: hub
+    blurb: multi-hop pipelines; stages in tags
+
+  - kind: neg_cross
+    stack: both
+    fill: hub
+
+  - kind: neg_same_data
+    stack: both
+    fill: partial
+
+  - kind: neg_mistag
+    stack: both
+    fill: partial
+
+  - kind: neg_adapter_only
+    stack: both
+    fill: partial

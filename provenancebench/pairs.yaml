@@ -1,0 +1,214 @@
+# Ground truth is y — not claim. See kinds.yaml for kind definitions.
+# label_confidence: verified | inferred | disputed (defaults to inferred when omitted)
+
+pairs:
+  # --- anchors (smokes/fixtures.yaml) ---
+  - id: pb-001
+    stack: dense
+    kind: sft
+    ref: HuggingFaceTB/SmolLM2-1.7B
+    ref_rev: effd688a1292
+    sus: SultanR/SmolTulu-1.7b-Instruct
+    sus_rev: 038ba8a7e8a2
+    y: related
+    cite: instruct finetune on same base
+    label_confidence: verified
+
+  - id: pb-002
+    stack: dense
+    kind: vocab_resize
+    ref: meta-llama/Llama-3.2-1B
+    sus: dphn/Dolphin3.0-Llama3.2-1B
+    y: related
+    cite: Dolphin +2 vocab tokens
+    label_confidence: verified
+
+  - id: pb-003
+    stack: dense
+    kind: neg_cross
+    ref: HuggingFaceTB/SmolLM2-1.7B
+    sus: meta-llama/Llama-3.2-1B
+    y: unrelated
+    cite: cross-family negative control
+    label_confidence: verified
+
+  # --- SFT ---
+  - id: pb-004
+    stack: dense
+    kind: sft
+    ref: Qwen/Qwen3-0.6B-Base
+    ref_rev: da87bfb608c1
+    sus: Qwen/Qwen3-0.6B
+    y: related
+    cite: Qwen3 base to post-trained release
+    label_confidence: verified
+
+  - id: pb-005
+    stack: moe
+    kind: sft
+    ref: allenai/OLMoE-1B-7B-0924
+    sus: allenai/OLMoE-1B-7B-0924-SFT
+    y: related
+    cite: OLMoE SFT checkpoint
+
+  # --- abliteration ---
+  - id: pb-010
+    stack: dense
+    kind: abliterate
+    ref: Qwen/Qwen3.8-27B
+    sus: huihui-ai/Huihui-Qwen3.8-27B-abliterated
+    y: related
+    cite: huihui-ai abliteration line
+    claim: Qwen/Qwen3.8-27B
+    tags: [publisher:huihui-ai]
+
+  - id: pb-011
+    stack: dense
+    kind: abliterate
+    ref: Qwen/Qwen3.8-27B
+    sus: orcarouter/Qwen3.8-27B-Uncensored
+    y: related
+    cite: orcarouter uncensored BF16
+    claim: Qwen/Qwen3.8-27B
+    tags: [publisher:orcarouter]
+
+  - id: pb-012
+    stack: dense
+    kind: abliterate
+    ref: Qwen/Qwen3.8-27B
+    sus: Blackfrost-AI/Qwen3.8-27B-ABLITERATED-BF16
+    y: related
+    cite: Blackfrost-AI abliterated BF16
+    claim: Qwen/Qwen3.8-27B
+
+  # --- quant ---
+  - id: pb-020
+    stack: dense
+    kind: quant
+    ref: Qwen/Qwen3.8-27B
+    sus: unsloth/Qwen3.8-27B-NVFP4
+    y: related
+    cite: unsloth NVFP4 sibling
+
+  - id: pb-021
+    stack: dense
+    kind: quant
+    ref: Qwen/Qwen3.8-27B
+    sus: unsloth/Qwen3.8-27B-GGUF
+    y: related
+    cite: unsloth GGUF repack
+
+  - id: pb-022
+    stack: moe
+    kind: quant
+    ref: google/gemma-4-26B-A4B-it
+    sus: orcarouter/Gemma-4-26B-A4B-it-Uncensored-FP8
+    y: related
+    cite: orcarouter FP8 quant on abliterated-style fork
+    tags: [publisher:orcarouter]
+
+  # --- MoE expert drop ---
+  - id: pb-030
+    stack: moe
+    kind: expert_drop
+    ref: openai/gpt-oss-20b
+    sus: AmanPriyanshu/gpt-oss-6.0b-specialized-all-pruned-moe-only-7-experts
+    y: related
+    cite: AmanPriyanshu domain-specialized expert prune; lineage inferred from naming
+    label_confidence: inferred
+    tags: [criterion:all, experts:7]
+
+  - id: pb-031
+    stack: moe
+    kind: expert_drop
+    ref: mistralai/Mixtral-8x7B-Instruct-v0.1
+    sus: Na0s/Mixtral-8x7B-v0.1-instruct-pruned-random-4-experts
+    y: related
+    cite: Na0s random expert prune collection
+    tags: [publisher:Na0s, criterion:random, experts:4]
+
+  - id: pb-032
+    stack: moe
+    kind: expert_drop_reap
+    ref: thinkingmachines/Inkling-Small
+    sus: pipenetwork/Inkling-Small-MLX-REAP25-4bit
+    y: related
+    cite: REAP expert drop on Inkling MoE
+    tags: [reap, mlx]
+
+  # --- distill ---
+  - id: pb-040
+    stack: dense
+    kind: distill_cross
+    ref: Qwen/Qwen2.5-7B
+    sus: deepseek-ai/DeepSeek-R1-Distill-Qwen-7B
+    y: related
+    cite: DeepSeek R1 distillation on Qwen base
+
+  # --- abliterate (daredevil chain) ---
+  - id: pb-050
+    stack: dense
+    kind: abliterate
+    ref: mlabonne/Daredevil-8B
+    sus: mlabonne/Daredevil-8B-abliterated
+    y: related
+    cite: abliterated daredevil fork
+    claim: mlabonne/Daredevil-8B
+
+  # --- LoRA adapter (not merged) ---
+  - id: pb-060
+    stack: dense
+    kind: lora_adapter
+    ref: Qwen/Qwen3.8-27B
+    sus: Medico/Qwen3.8-27B-Radiology-Impression
+    y: related
+    cite: LoRA adapter tree on Qwen3.8-27B
+    tags: [medical]
+
+  # --- composite ---
+  - id: pb-070
+    stack: dense
+    kind: composite
+    ref: hotdogs/Qwen3.8-27B-abliterated
+    sus: hotdogs/Qwen3.8-27B-abliterated-MTP-GGUF
+    y: related
+    cite: abliterated checkpoint then GGUF quant
+    claim: hotdogs/Qwen3.8-27B-abliterated
+    tags: [abliterate, quant, gguf]
+
+  # --- unsupported (verifier shape mismatch) ---
+  - id: pb-090
+    stack: dense
+    kind: depth_upscale
+    ref: mistralai/Mistral-7B-v0.1
+    sus: upstage/SOLAR-10.7B-v1.0
+    y: unsupported
+    cite: depth upscale; layer count mismatch for full tensor compare
+    label_confidence: verified
+
+  - id: pb-091
+    stack: moe
+    kind: neg_cross
+    ref: allenai/OLMoE-1B-7B-0924
+    sus: deepseek-ai/DeepSeek-V2-Lite
+    y: unrelated
+    cite: cross-family MoE hard negative (smokes/moe-router-gram)
+    label_confidence: verified
+
+  - id: pb-092
+    stack: dense
+    kind: depth_upscale
+    ref: mosaicml/mpt-7b
+    sus: upstage/SOLAR-10.7B-v1.0
+    y: unsupported
+    cite: incompatible tensor layout for full weight compare
+    label_confidence: verified
+
+  - id: pb-093
+    stack: dense
+    kind: neg_cross
+    ref: microsoft/Phi-3-mini-4k-instruct
+    sus: HuggingFaceTB/SmolLM2-1.7B
+    y: unrelated
+    cite: cross-family negative control
+    label_confidence: verified
