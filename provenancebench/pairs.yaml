@@ -56,11 +56,18 @@ pairs:
     stack: dense
     kind: abliterate
     ref: Qwen/Qwen3.8-27B
+    ref_rev: 1d4bf0f2ff6012fd82039f2fa52739d0dd7c60c0
     sus: huihui-ai/Huihui-Qwen3.8-27B-abliterated
+    sus_rev: 739e3c5b89849f6c238ce1e5b70008612ae42cdd
     y: related
     cite: huihui-ai abliteration line
     claim: Qwen/Qwen3.8-27B
-    tags: [publisher:huihui-ai]
+    label_confidence: verified
+    tags: [publisher:huihui-ai, relation:direct, modality:image-text-to-text]
+    note: "Model card identifies the exact Qwen parent and an abliterated dense child."
+    sources:
+      - https://huggingface.co/huihui-ai/Huihui-Qwen3.8-27B-abliterated
+      - https://huggingface.co/Qwen/Qwen3.8-27B
 
   - id: pb-011
     stack: dense
@@ -212,3 +219,899 @@ pairs:
     y: unrelated
     cite: cross-family negative control
     label_confidence: verified
+
+# --- curated candidates, two-scout evidence review ---
+  - id: pb-100
+    stack: dense
+    kind: sft
+    ref: bigcode/starcoder
+    ref_rev: 827cd7721231872c152e3faef5cae1b22964ed58
+    sus: WizardLMTeam/WizardCoder-15B-V1.0
+    sus_rev: 9c177589dec389eac2c8de51cbc371d45e47984e
+    y: related
+    cite: WizardCoder paper §3.2 explicitly says StarCoder 15B is fine-tuned on the evolved code instruction-following set to produce WizardCoder 15B.
+    label_confidence: verified
+    tags:
+    - relation:direct
+    note: 'Direct supervised instruction fine-tune: StarCoder 15B → WizardCoder-15B-V1.0. The paper names StarCoder 15B as a foundation and describes fine-tuning; Hub API confirms both repositories and immutable revisions. StarCoder is gated/auto-gated, so execution requires approved Hub access, but that does not weaken the documented relationship.'
+    sources:
+    - https://arxiv.org/html/2306.08568#S3.SS2
+    - https://huggingface.co/WizardLMTeam/WizardCoder-15B-V1.0
+    - https://huggingface.co/api/models/bigcode/starcoder
+    - https://huggingface.co/api/models/WizardLMTeam/WizardCoder-15B-V1.0
+  - id: pb-101
+    stack: dense
+    kind: sft
+    ref: meta-llama/CodeLlama-34b-Python-hf
+    ref_rev: 2462f4ca0933c022374e2cac879cc6d296b3f3b1
+    sus: WizardLMTeam/WizardCoder-Python-34B-V1.0
+    sus_rev: 897fc6d9e12136c68c441b2350d015902c144b20
+    y: related
+    cite: WizardCoder paper §3.2 explicitly says CodeLlama-34B-Python is fine-tuned on the evolved code instruction-following set to produce WizardCoder 34B.
+    label_confidence: verified
+    tags:
+    - relation:direct
+    note: 'Direct supervised instruction fine-tune: CodeLlama-34B-Python → WizardCoder-Python-34B-V1.0. The paper identifies CodeLlama-34B-Python as a foundation and reports the resulting 34B WizardCoder model; Hub API confirms canonical IDs, child metadata, and immutable revisions. The CodeLlama parent is manually gated and requires approved access.'
+    sources:
+    - https://arxiv.org/html/2306.08568#S3.SS2
+    - https://huggingface.co/WizardLMTeam/WizardCoder-Python-34B-V1.0
+    - https://huggingface.co/api/models/meta-llama/CodeLlama-34b-Python-hf
+    - https://huggingface.co/api/models/WizardLMTeam/WizardCoder-Python-34B-V1.0
+  - id: pb-102
+    stack: dense
+    kind: sft
+    ref: meta-llama/Llama-3.1-8B
+    ref_rev: d04e592bb4f6aa9cfee91e2e20afa771667e1d4b
+    sus: allenai/Llama-3.1-Tulu-3-8B-SFT
+    sus_rev: f2a0b46b0cfda21003c6141b1ff837b7e165524d
+    y: related
+    cite: Tülu 3 report Table 1 lists meta-llama/Llama-3.1-8B as Base Model and allenai/Llama-3.1-Tulu-3-8B-SFT as the SFT checkpoint.
+    label_confidence: verified
+    tags:
+    - relation:direct
+    note: 'Direct first post-training stage: Llama-3.1-8B → Llama-3.1-Tulu-3-8B-SFT. The report''s stage table establishes the relationship, and the child Hub API card independently declares base_model meta-llama/Llama-3.1-8B. This is SFT, not the later DPO or RLVR stage; both revisions are immutable API SHAs.'
+    sources:
+    - https://arxiv.org/html/2411.15124
+    - https://huggingface.co/allenai/Llama-3.1-Tulu-3-8B-SFT
+    - https://huggingface.co/api/models/meta-llama/Llama-3.1-8B
+    - https://huggingface.co/api/models/allenai/Llama-3.1-Tulu-3-8B-SFT
+  - id: pb-103
+    stack: dense
+    kind: preference
+    ref: allenai/Llama-3.1-Tulu-3-8B-DPO
+    ref_rev: a7beb67e33ffd01cc87ac3b46cadc1000985b8db
+    sus: allenai/Llama-3.1-Tulu-3-8B
+    sus_rev: 666943798adbde0b1aff34626007e26986a3c107
+    y: related
+    cite: Tülu 3 report describes preference training after SFT and a final RLVR stage; Table 1 lists the DPO checkpoint immediately before the final model, and the final card declares base_model allenai/Llama-3.1-Tulu-3-8B-DPO.
+    label_confidence: verified
+    tags:
+    - relation:direct
+    note: 'Direct preference/post-training edge: Tulu-3-8B-DPO → Tulu-3-8B (final RLVR model). The report''s staged recipe and release table distinguish this immediate parent from the Llama base and SFT ancestor. The child Hub API card explicitly records the DPO base_model; the preference kind is the existing manifest kind for the DPO edge, while RLVR is the subsequent transform.'
+    sources:
+    - https://arxiv.org/html/2411.15124
+    - https://huggingface.co/allenai/Llama-3.1-Tulu-3-8B
+    - https://huggingface.co/api/models/allenai/Llama-3.1-Tulu-3-8B-DPO
+    - https://huggingface.co/api/models/allenai/Llama-3.1-Tulu-3-8B
+  - id: pb-104
+    stack: dense
+    kind: composite
+    ref: meta-llama/Llama-3.1-8B
+    ref_rev: d04e592bb4f6aa9cfee91e2e20afa771667e1d4b
+    sus: allenai/Llama-3.1-Tulu-3-8B
+    sus_rev: 666943798adbde0b1aff34626007e26986a3c107
+    y: related
+    cite: Tülu 3 model card identifies the final model's DPO base and gives the family graph Base (meta-llama/Llama-3.1-8B) → SFT → DPO → Final RLVR.
+    label_confidence: verified
+    tags:
+    - relation:transitive_ancestor
+    - chain:multi-stage
+    - stage:base
+    - stage:sft
+    - stage:dpo
+    - stage:rlvr
+    note: 'The final Tülu 3 checkpoint has allenai/Llama-3.1-Tulu-3-8B-DPO as its immediate parent. The card''s Model Family table documents the complete intermediate chain from meta-llama/Llama-3.1-8B through allenai/Llama-3.1-Tulu-3-8B-SFT and DPO to the final RLVR model. Therefore this candidate tests an ancestor relationship and must not be represented as a direct base-model pair. HF API revisions: ref d04e592bb4f6aa9cfee91e2e20afa771667e1d4b; sus 666943798adbde0b1aff34626007e26986a3c107.'
+    sources:
+    - https://huggingface.co/allenai/Llama-3.1-Tulu-3-8B
+    - https://arxiv.org/pdf/2411.15124
+  - id: pb-105
+    stack: dense
+    kind: preference
+    ref: moreh/MoMo-72B-lora-1.8.7-DPO
+    ref_rev: ac0b55f7779a70f5462678421910b8f9f57f8a76
+    sus: abacusai/Smaug-72B-v0.1
+    sus_rev: a1d657156f82c24b670158406378648233487011
+    y: related
+    cite: Smaug paper documents Smaug-72B as a DPO-Positive (DPOP) fine-tuned model starting from MoMo-72B-lora-1.8.7-DPO; the child Hub card declares that exact base_model.
+    label_confidence: verified
+    tags:
+    - relation:direct
+    note: 'Direct preference optimization transform: MoMo-72B-lora-1.8.7-DPO → Smaug-72B-v0.1. The paper establishes Smaug''s DPOP fine-tuning methodology and model family; the child API/card supplies exact base_model metadata. This is the immediate DPO-positive parent, not the more distant Qwen-72B ancestor; preference is an existing valid kind.'
+    sources:
+    - https://arxiv.org/html/2402.13228v2
+    - https://huggingface.co/abacusai/Smaug-72B-v0.1
+    - https://huggingface.co/api/models/moreh/MoMo-72B-lora-1.8.7-DPO
+    - https://huggingface.co/api/models/abacusai/Smaug-72B-v0.1
+  - id: pb-106
+    stack: dense
+    kind: composite
+    ref: Qwen/Qwen-72B
+    ref_rev: b8e18ac61df64d35308695769ff46b976b6a00f4
+    sus: abacusai/Smaug-72B-v0.1
+    sus_rev: a1d657156f82c24b670158406378648233487011
+    y: related
+    cite: Smaug §6.2 states that Smaug-72B starts from MoMo-72B-lora-1.8.7-DPO, itself a fine-tune of Qwen-72B; the MoMo card documents its SFT and DPO stages.
+    label_confidence: verified
+    tags:
+    - relation:transitive_ancestor
+    - chain:multi-stage
+    - stage:base
+    - stage:sft
+    - stage:dpo
+    - stage:dpop
+    note: 'The immediate parent is moreh/MoMo-72B-lora-1.8.7-DPO, not Qwen/Qwen-72B. The Smaug paper explicitly documents Qwen-72B → MoMo-72B-LoRA-V1.4 (SFT/LoRA) → MoMo-72B-lora-1.8.7-DPO → Smaug-72B (DPOP). This is a supported transitive ancestor relation. Use Qwen/Qwen-72B, not the distinct later Qwen1.5-72B. HF API revisions: ref b8e18ac61df64d35308695769ff46b976b6a00f4; sus a1d657156f82c24b670158406378648233487011.'
+    sources:
+    - https://arxiv.org/html/2402.13228v2
+    - https://huggingface.co/abacusai/Smaug-72B-v0.1
+    - https://huggingface.co/moreh/MoMo-72B-lora-1.8.7-DPO
+  - id: pb-107
+    stack: dense
+    kind: preference
+    ref: openchat/openchat_3.5
+    ref_rev: 0fc98e324280bc4bf5d2c30ecf7b97b84fb8a19b
+    sus: berkeley-nest/Starling-LM-7B-alpha
+    sus_rev: 1dddf3b95bc1391f6307299eb1c162c194bde9bd
+    y: related
+    cite: Starling model card says it is finetuned from Openchat 3.5 and trained with reward-model RLAIF plus APA policy optimization.
+    label_confidence: verified
+    tags:
+    - relation:direct
+    note: 'Direct preference/RLHF-style post-training edge: OpenChat 3.5 → Starling-LM-7B-alpha. The child card explicitly names Openchat 3.5 as the fine-tuning source and describes RLAIF/APA policy optimization; its parenthetical Mistral-7B-v0.1 is only an ancestor and must not replace OpenChat. Hub API confirms both immutable revisions.'
+    sources:
+    - https://huggingface.co/berkeley-nest/Starling-LM-7B-alpha
+    - https://huggingface.co/api/models/openchat/openchat_3.5
+    - https://huggingface.co/api/models/berkeley-nest/Starling-LM-7B-alpha
+  - id: pb-108
+    stack: dense
+    kind: composite
+    ref: mistralai/Mistral-7B-v0.1
+    ref_rev: 27d67f1b5f57dc0953326b2601d68371d40ea8da
+    sus: berkeley-nest/Starling-LM-7B-alpha
+    sus_rev: 1dddf3b95bc1391f6307299eb1c162c194bde9bd
+    y: related
+    cite: Starling's model card says it was finetuned from OpenChat 3.5, which is based on Mistral-7B-v0.1.
+    label_confidence: verified
+    tags:
+    - relation:transitive_ancestor
+    - chain:multi-stage
+    - stage:base
+    - stage:openchat
+    - stage:starling
+    note: 'The direct parent is openchat/openchat_3.5. Starling''s first-party card explicitly states both `Finetuned from model: Openchat 3.5 (based on Mistral-7B-v0.1)` and that Starling was trained from OpenChat 3.5. Thus Mistral-7B-v0.1 is a documented transitive ancestor, not the immediate parent. HF API revisions: ref 27d67f1b5f57dc0953326b2601d68371d40ea8da; sus 1dddf3b95bc1391f6307299eb1c162c194bde9bd.'
+    sources:
+    - https://huggingface.co/berkeley-nest/Starling-LM-7B-alpha
+    - https://huggingface.co/openchat/openchat_3.5
+  - id: pb-109
+    stack: dense
+    kind: composite
+    ref: ornith-ai/Ornith-1.0-9B
+    ref_rev: 83dc1f5e24ef8527af019a6b3bf66ac0f1c2c999
+    sus: ornith-ai/Ornith-1.5-9B
+    sus_rev: 489cb97981b8654bcfcf30ce1f94ed1b62e07b53
+    y: related
+    cite: Ornith 1.5 announcement states that Ornith 1.5 extends Ornith 1.0.
+    label_confidence: verified
+    tags:
+    - relation:direct
+    - continued-training
+    note: Direct family continuation/extension documented by first-party announcement; supplied inventory Qwen3.5 parent is not the direct parent. Both are Qwen3.5 multimodal architecture with matching 9B tensor shape, so dense stack is appropriate. Keep this corrected direct pair separate from the mistaken Qwen source-inventory claim.
+    sources:
+    - https://ornith.ai/ornith_1_5.html
+    - https://huggingface.co/ornith-ai/Ornith-1.5-9B
+    - https://huggingface.co/ornith-ai/Ornith-1.0-9B
+  - id: pb-110
+    stack: moe
+    kind: sft
+    ref: nvidia/NVIDIA-Nemotron-3-Nano-30B-A3B-Base-BF16
+    ref_rev: e0ac9ee3dfd02be21b5479edfc2f671ed269d0a2
+    sus: pipecat-ai/phonellm-alpha-1
+    sus_rev: 8e76aaa6e8ce4765ac943ba3fb339494d4d48dca
+    y: related
+    cite: PhoneLLM card identifies NVIDIA Nemotron 3 Nano 30B-A3B as its base and says it is a full-parameter supervised fine-tune.
+    label_confidence: verified
+    tags:
+    - relation:direct
+    - full_parameter_sft
+    - moe
+    note: Child card has base_model and base_model_relation=finetune; README states full-parameter SFT with NeMo. Both are Nemotron-H MoE with 30B total/3.5B active and matching 31,577,937,344 BF16 parameter count.
+    sources:
+    - https://huggingface.co/pipecat-ai/phonellm-alpha-1
+    - https://huggingface.co/nvidia/NVIDIA-Nemotron-3-Nano-30B-A3B-Base-BF16
+  - id: pb-111
+    stack: moe
+    kind: quant_gguf_rehost
+    ref: ornith-ai/Ornith-1.5-35B-A3B
+    ref_rev: 10fbf86fed7ecee4a061f8b499a618f46001cac1
+    sus: peculiar-ragdoll/Tiel-Coder-35B-A3B-GGUF
+    sus_rev: 0b5b446a04ef6c89efc10408105b1b78d227f0a3
+    y: related
+    cite: Child card declares base_model Ornith-1.5-35B-A3B and base_model_relation quantized.
+    label_confidence: verified
+    tags:
+    - relation:direct
+    - quantized
+    - gguf
+    - moe
+    - architecture:qwen35moe
+    note: GGUF metadata reports qwen35moe and 34.66 GB total; parent is a 35B-A3B MoE safetensors checkpoint. Full quantized tensor artifact is present across multiple GGUF files plus projector.
+    sources:
+    - https://huggingface.co/peculiar-ragdoll/Tiel-Coder-35B-A3B-GGUF
+    - https://huggingface.co/ornith-ai/Ornith-1.5-35B-A3B
+  - id: pb-112
+    stack: moe
+    kind: sft
+    ref: zai-org/GLM-5.2
+    ref_rev: b4734de4facf877f85769a911abafc5283eab3d9
+    sus: zai-org/GLM-5.3
+    sus_rev: e0b07fd2751b42d5efa199cc02c2b271deadc516
+    y: related
+    cite: GLM-5.3 card explicitly says it uses the same base model as GLM-5.2 and every gain comes from post-training.
+    label_confidence: verified
+    tags:
+    - relation:direct
+    - continued_training
+    - post_training
+    - moe
+    note: Direct same-architecture MoE post-training/continued-training relation. Kind sft is the closest existing taxonomy kind for ordinary supervised/post-training release; do not call this quant or merge.
+    sources:
+    - https://huggingface.co/zai-org/GLM-5.3
+    - https://huggingface.co/zai-org/GLM-5.2
+  - id: pb-113
+    stack: moe
+    kind: quant
+    ref: Qwen/Qwen3.8-Flash-Next
+    ref_rev: de4b8e4d43b917e7706784d8bb445c9af86a3540
+    sus: Qwen/Qwen3.8-Flash-Next-FP8
+    sus_rev: 970c569adaca6b35532111fd6b27351b2baefe50
+    y: related
+    cite: FP8 card declares exact Qwen3.8-Flash-Next quantized base; Qwen4Exp architecture is MoE.
+    label_confidence: verified
+    tags:
+    - relation:direct
+    - quantized
+    - modality:image-text-to-text
+    note: Compatible image-text-to-text Qwen4Exp MoE pair. Existing quant kind is appropriate.
+    sources:
+    - https://huggingface.co/Qwen/Qwen3.8-Flash-Next-FP8
+    - https://huggingface.co/Qwen/Qwen3.8-Flash-Next
+  - id: pb-114
+    stack: moe
+    kind: quant_gguf_rehost
+    ref: zai-org/GLM-5.3-Flash
+    ref_rev: 04c4e9e95c5da8862dced7e5056455116f83a7e0
+    sus: unsloth/GLM-5.3-Flash-GGUF
+    sus_rev: 2975ab414d30340466d8c51533c6e91f0cca64c1
+    y: related
+    cite: Unsloth card tags base_model and base_model:quantized as zai-org/GLM-5.3-Flash.
+    label_confidence: verified
+    tags:
+    - relation:direct
+    - quantized
+    - gguf
+    - moe
+    - architecture:glm5next
+    note: Child exposes BF16 and Q8_0 GGUF shard sets with glm5next architecture; parent is the matching GLM-5.3-Flash checkpoint. This is a serialization/quantization rehost, not a finetune.
+    sources:
+    - https://huggingface.co/unsloth/GLM-5.3-Flash-GGUF
+    - https://huggingface.co/zai-org/GLM-5.3-Flash
+  - id: pb-115
+    stack: moe
+    kind: quant_gguf_rehost
+    ref: Qwen/Qwen3.8-Flash-Next
+    ref_rev: de4b8e4d43b917e7706784d8bb445c9af86a3540
+    sus: unsloth/Qwen3.8-Flash-Next-GGUF
+    sus_rev: c8b5954a88c2775c546b92593eda40ea041d3176
+    y: related
+    cite: Child metadata declares base_model Qwen/Qwen3.8-Flash-Next and quantized relation.
+    label_confidence: verified
+    tags:
+    - relation:direct
+    - quantized
+    - gguf
+    - moe
+    - architecture:qwen4exp
+    note: GGUF metadata reports qwen4exp architecture with BF16, Q8_0 and multiple low-bit shard sets; parent is matching Qwen4Exp safetensors model. Compatible full model representation is explicitly shipped.
+    sources:
+    - https://huggingface.co/unsloth/Qwen3.8-Flash-Next-GGUF
+    - https://huggingface.co/Qwen/Qwen3.8-Flash-Next
+  - id: pb-116
+    stack: dense
+    kind: quant
+    ref: Qwen/Qwen3.8-27B
+    ref_rev: 1d4bf0f2ff6012fd82039f2fa52739d0dd7c60c0
+    sus: EschaLabs/Qwen3.8-27B-Escha-W2
+    sus_rev: f0eadefa2f9679f7c04a115214c1cd883979a529
+    y: related
+    cite: Escha child card declares Qwen3.8-27B as base_model with base_model_relation=quantized and Escha W2 2-bit quantization.
+    label_confidence: verified
+    tags:
+    - relation:direct
+    - quant_method:escha
+    - bits:2
+    note: Direct quantized derivative. Matching Qwen3.5 dense/multimodal architecture and full model family; quant kind is valid existing taxonomy.
+    sources:
+    - https://huggingface.co/EschaLabs/Qwen3.8-27B-Escha-W2
+    - https://huggingface.co/Qwen/Qwen3.8-27B
+  - id: pb-117
+    stack: dense
+    kind: quant_gguf_rehost
+    ref: ornith-ai/Ornith-1.5-9B
+    ref_rev: 489cb97981b8654bcfcf30ce1f94ed1b62e07b53
+    sus: ornith-ai/Ornith-1.5-9B-GGUF
+    sus_rev: abdd624b12ebf020b767fff532ff44fe552b28c3
+    y: related
+    cite: Official Ornith GGUF repository provides BF16 and quantized files for Ornith-1.5-9B.
+    label_confidence: inferred
+    tags:
+    - relation:direct
+    - quantized
+    - gguf
+    - dense
+    - architecture:qwen35
+    note: GGUF metadata reports qwen35 and BF16/Q4/Q5/Q6/Q8 files; parent has matching Qwen3_5ForConditionalGeneration architecture and 9.65B BF16 parameters. Card does not repeat base_model YAML, so confidence is inferred from official same-org naming and exact architecture/size.
+    sources:
+    - https://huggingface.co/ornith-ai/Ornith-1.5-9B-GGUF
+    - https://huggingface.co/ornith-ai/Ornith-1.5-9B
+  - id: pb-118
+    stack: dense
+    kind: sft
+    ref: Qwen/Qwen3-0.6B
+    ref_rev: c1899de289a04d12100db370d81485cdf75e47ca
+    sus: superwhisper/s1-mini
+    sus_rev: 88f6b15896c73bbb13a3b596e0afe8ea0d5150b4
+    y: related
+    cite: S1 Mini card declares Qwen/Qwen3-0.6B as base_model with base_model_relation=finetune.
+    label_confidence: verified
+    tags:
+    - relation:direct
+    - finetune
+    - asr
+    note: Direct dense Qwen3 fine-tune for ASR/text normalization. Same Qwen3 causal architecture and 751,632,384 BF16 parameters; capability specialization does not change lineage kind.
+    sources:
+    - https://huggingface.co/superwhisper/s1-mini
+    - https://huggingface.co/Qwen/Qwen3-0.6B
+    - https://arxiv.org/abs/2505.09388
+  - id: pb-119
+    stack: moe
+    kind: quant_gguf_rehost
+    ref: ornith-ai/Ornith-1.5-35B-A3B
+    ref_rev: 10fbf86fed7ecee4a061f8b499a618f46001cac1
+    sus: ornith-ai/Ornith-1.5-35B-A3B-GGUF
+    sus_rev: 12393612fd4f730ff5aadc23e9b8f9648aa49ceb
+    y: related
+    cite: Official Ornith GGUF sibling for the 35B-A3B model; files and architecture match.
+    label_confidence: inferred
+    tags:
+    - relation:direct
+    - quantized
+    - gguf
+    - moe
+    - architecture:qwen35moe
+    note: Child GGUF metadata reports qwen35moe and quantized 35B-class files; parent has Qwen3_5MoeForConditionalGeneration and matching 35.95B BF16 weights. Same publisher and exact model family support direct rehost, though explicit base_model field is absent.
+    sources:
+    - https://huggingface.co/ornith-ai/Ornith-1.5-35B-A3B-GGUF
+    - https://huggingface.co/ornith-ai/Ornith-1.5-35B-A3B
+  - id: pb-120
+    stack: dense
+    kind: quant
+    ref: Qwen/Qwen3.8-27B
+    ref_rev: 1d4bf0f2ff6012fd82039f2fa52739d0dd7c60c0
+    sus: npario/Qwen3.8-27B-Uncensored-MLX
+    sus_rev: c64222989b64507ee09cd567829568e103d40564
+    y: related
+    cite: MLX card declares exact Qwen3.8-27B quantized base.
+    label_confidence: verified
+    tags:
+    - relation:direct
+    - quantized
+    - mlx
+    - modality:image-text-to-text
+    note: Dense Qwen3_5 image-text model with MLX quantization; quant is the applicable existing kind.
+    sources:
+    - https://huggingface.co/npario/Qwen3.8-27B-Uncensored-MLX
+    - https://huggingface.co/Qwen/Qwen3.8-27B
+  - id: pb-121
+    stack: dense
+    kind: abliterate
+    ref: Qwen/Qwen3.8-27B
+    ref_rev: 1d4bf0f2ff6012fd82039f2fa52739d0dd7c60c0
+    sus: OBLITERATUS/Qwen3.8-27B-OBLITERATED
+    sus_rev: a58c3b53b3ce71551eafde2ed5ec8df48e0f4ff8
+    y: related
+    cite: Child card identifies Qwen3.8-27B as base_model and labels the artifact abliterated/uncensored.
+    label_confidence: verified
+    tags:
+    - relation:direct
+    - abliterated
+    - uncensored
+    note: Direct refusal-direction/abliteration transform. Child includes matching Qwen3.5 model architecture and full safetensor plus quantized exports; use canonical abliterate, not quant or uncensored_sft.
+    sources:
+    - https://huggingface.co/OBLITERATUS/Qwen3.8-27B-OBLITERATED
+    - https://huggingface.co/Qwen/Qwen3.8-27B
+  - id: pb-122
+    stack: dense
+    kind: quant_gguf_rehost
+    ref: Qwen/Qwen3.8-27B
+    ref_rev: 1d4bf0f2ff6012fd82039f2fa52739d0dd7c60c0
+    sus: 0bserverx/Qwen3.8-27B-Heretic-Abliterated-Uncensored-GGUF
+    sus_rev: 20b94f0613b632b4848bbe3b1e05d9ee0c2b1608
+    y: related
+    cite: Child card explicitly lists Qwen/Qwen3.8-27B as base_model and quantized base_model.
+    label_confidence: inferred
+    tags:
+    - relation:direct
+    - quantized
+    - gguf
+    - dense
+    - abliterated
+    note: GGUF metadata reports qwen35, 27.32B-class files and standard quant families. Card also says heretic/abliterated, but the supplied parent is explicitly the direct base represented by this quantized artifact; abliteration is documented as part of the child artifact and does not invalidate the declared direct base relation.
+    sources:
+    - https://huggingface.co/0bserverx/Qwen3.8-27B-Heretic-Abliterated-Uncensored-GGUF
+    - https://huggingface.co/Qwen/Qwen3.8-27B
+  - id: pb-123
+    stack: dense
+    kind: quant_gguf_rehost
+    ref: Qwen/Qwen3.8-27B
+    ref_rev: 1d4bf0f2ff6012fd82039f2fa52739d0dd7c60c0
+    sus: empero-ai/Qwen3.8-27B-Ridge-GGUF
+    sus_rev: 486faa5f2032ff99bdc8993ade1b8fff13d1464c
+    y: related
+    cite: Child card declares base_model Qwen/Qwen3.8-27B and base_model_relation quantized.
+    label_confidence: verified
+    tags:
+    - relation:direct
+    - quantized
+    - gguf
+    - dense
+    - architecture:qwen35
+    note: GGUF metadata reports qwen35, exact 27.32B total and standard Ridge quant file plus projector. Parent has matching Qwen3_5 architecture and 27.78B BF16 parameters.
+    sources:
+    - https://huggingface.co/empero-ai/Qwen3.8-27B-Ridge-GGUF
+    - https://huggingface.co/Qwen/Qwen3.8-27B
+  - id: pb-124
+    stack: dense
+    kind: quant_gguf_rehost
+    ref: Qwen/Qwen3.8-27B
+    ref_rev: 1d4bf0f2ff6012fd82039f2fa52739d0dd7c60c0
+    sus: HauhauCS/Qwen3.8-27B-Uncensored-HauhauCS-Aggressive-MTP-GGUF
+    sus_rev: 993a5971fda8f30dd1b7eb2654792ba4415c7460
+    y: related
+    cite: Child card tags base_model Qwen/Qwen3.8-27B and base_model:quantized Qwen/Qwen3.8-27B.
+    label_confidence: verified
+    tags:
+    - relation:direct
+    - quantized
+    - gguf
+    - dense
+    - mtp
+    note: GGUF child uses qwen35 architecture and ships quantized main weights, MTP variants, and projector. Although the model name says uncensored/MTP, the Hub-declared base is the supplied Qwen checkpoint.
+    sources:
+    - https://huggingface.co/HauhauCS/Qwen3.8-27B-Uncensored-HauhauCS-Aggressive-MTP-GGUF
+    - https://huggingface.co/Qwen/Qwen3.8-27B
+  - id: pb-125
+    stack: moe
+    kind: quant_gguf_rehost
+    ref: meta-models/Muse-Glimmer-30B
+    ref_rev: a4e59da52a7bc87ae7251dd5545c0dd437c44b68
+    sus: unsloth/Muse-Glimmer-30B-GGUF
+    sus_rev: faa5b025c584459c13febfa5c59883516710ae39
+    y: related
+    cite: Unsloth card declares base_model meta-models/Muse-Glimmer-30B and quantized relation.
+    label_confidence: verified
+    tags:
+    - relation:direct
+    - quantized
+    - gguf
+    - moe
+    - architecture:muse-glimmer
+    note: Child ships BF16 and many low-bit GGUF forms with muse-glimmer architecture; parent is matching 30B model and same multimodal task.
+    sources:
+    - https://huggingface.co/unsloth/Muse-Glimmer-30B-GGUF
+    - https://huggingface.co/meta-models/Muse-Glimmer-30B
+  - id: pb-126
+    stack: dense
+    kind: quant_gguf_rehost
+    ref: Qwen/Qwen3.8-27B
+    ref_rev: 1d4bf0f2ff6012fd82039f2fa52739d0dd7c60c0
+    sus: JonathanColetti/Qwen3.8-27B-Uncensored-GGUF
+    sus_rev: 45d0fc0ad6cfcf9eeee6008ddaea925536409b18
+    y: related
+    cite: Child card explicitly declares Qwen/Qwen3.8-27B as base_model and quantized relation.
+    label_confidence: verified
+    tags:
+    - relation:direct
+    - quantized
+    - gguf
+    - dense
+    - mtp
+    note: GGUF metadata reports qwen35 and full quant families including no-MTP and MTP artifacts; parent architecture and parameter scale match.
+    sources:
+    - https://huggingface.co/JonathanColetti/Qwen3.8-27B-Uncensored-GGUF
+    - https://huggingface.co/Qwen/Qwen3.8-27B
+  - id: pb-127
+    stack: dense
+    kind: quant
+    ref: Qwen/Qwen3.8-27B
+    ref_rev: 1d4bf0f2ff6012fd82039f2fa52739d0dd7c60c0
+    sus: Qwen/Qwen3.8-27B-FP8
+    sus_rev: 017b9c7af6b5689d5dd426a76e0bc077eb5ca20a
+    y: related
+    cite: Qwen FP8 card declares exact Qwen3.8-27B quantized base.
+    label_confidence: verified
+    tags:
+    - relation:direct
+    - quantized
+    - fp8
+    - modality:image-text-to-text
+    note: Dense Qwen3_5 pair with explicit FP8 quantization.
+    sources:
+    - https://huggingface.co/Qwen/Qwen3.8-27B-FP8
+    - https://huggingface.co/Qwen/Qwen3.8-27B
+  - id: pb-128
+    stack: moe
+    kind: quant_gguf_rehost
+    ref: meta-models/Muse-Glimmer-30B
+    ref_rev: a4e59da52a7bc87ae7251dd5545c0dd437c44b68
+    sus: meta-models/Muse-Glimmer-30B-GGUF
+    sus_rev: 70bf1b61ac09f91b24d39038091b41c582bc5d7a
+    y: related
+    cite: Official same-org GGUF card declares Muse-Glimmer-30B as base_model and quantized.
+    label_confidence: verified
+    tags:
+    - relation:direct
+    - quantized
+    - gguf
+    - moe
+    - architecture:muse-glimmer
+    note: Child has BF16 and K-quant GGUF files with muse-glimmer architecture and matching 30B parent. Full quantized model plus multimodal projector are shipped.
+    sources:
+    - https://huggingface.co/meta-models/Muse-Glimmer-30B-GGUF
+    - https://huggingface.co/meta-models/Muse-Glimmer-30B
+  - id: pb-129
+    stack: moe
+    kind: sft
+    ref: Qwen/Qwen3.6-35B-A3B
+    ref_rev: 995ad96eacd98c81ed38be0c5b274b04031597b0
+    sus: endless-frontier/BigBang-v1
+    sus_rev: fe313c9057ca2c51a07c7cf141915dc8cc3f620e
+    y: related
+    cite: BigBang card declares exact Qwen3.6-35B-A3B finetune base and Qwen3_5Moe architecture.
+    label_confidence: verified
+    tags:
+    - relation:direct
+    - modality:image-text-to-text
+    note: Compatible full BF16 image-text MoE pair; sft is the existing kind.
+    sources:
+    - https://huggingface.co/endless-frontier/BigBang-v1
+    - https://huggingface.co/Qwen/Qwen3.6-35B-A3B
+  - id: pb-130
+    stack: dense
+    kind: quant_gguf_rehost
+    ref: LiquidAI/LFM2.5-2.6B
+    ref_rev: 654f9463ce32b05d0429d76fe1f580b27d4c1ac0
+    sus: LiquidAI/LFM2.5-2.6B-GGUF
+    sus_rev: 84022ce711b28455e8c4fc364ce68c00cf995875
+    y: related
+    cite: Official LiquidAI GGUF card declares LFM2.5-2.6B as base_model and quantized relation.
+    label_confidence: verified
+    tags:
+    - relation:direct
+    - quantized
+    - gguf
+    - dense
+    - architecture:lfm2
+    note: Child ships BF16/F16 and Q4-Q8 GGUF variants with lfm2 architecture and 2.697B total; parent is matching LFM2.5 checkpoint.
+    sources:
+    - https://huggingface.co/LiquidAI/LFM2.5-2.6B-GGUF
+    - https://huggingface.co/LiquidAI/LFM2.5-2.6B
+  - id: pb-131
+    stack: moe
+    kind: sft
+    ref: Qwen/Qwen3.6-35B-A3B
+    ref_rev: 995ad96eacd98c81ed38be0c5b274b04031597b0
+    sus: XYZAILab/XYZ-Aquila-mini
+    sus_rev: c70d151a710715886f013423d2a9ffbcba754858
+    y: related
+    cite: XYZ-Aquila-mini card and README declare Qwen3.6-35B-A3B as base and describe bounded-exploration AI4AI post-training.
+    label_confidence: verified
+    tags:
+    - relation:direct
+    - finetune
+    - ai4ai
+    - moe
+    note: Direct MoE post-training/fine-tune. Child has explicit base_model and finetune tags; same Qwen3.5 MoE architecture and 35B total parameter shape. Harness/tool capabilities are additional context, not a separate model-transform kind.
+    sources:
+    - https://huggingface.co/XYZAILab/XYZ-Aquila-mini
+    - https://github.com/XYZ-AI-Lab/AxisAgentic
+    - https://xyz-lab.ai/blogs/ai4ai-at-scale/assets/bounded-exploration-ai4ai-system-optimization.pdf
+  - id: pb-132
+    stack: moe
+    kind: sft
+    ref: Qwen/Qwen3.5-397B-A17B
+    ref_rev: 8472618112abcbd45acbcdc58436aff4233c23f7
+    sus: XYZAILab/XYZ-Aquila-pro
+    sus_rev: f878444f483e18bee543a0cd55dbb9b9c4386553
+    y: related
+    cite: XYZ-Aquila-pro card and README declare Qwen3.5-397B-A17B as base and describe AI4AI post-training.
+    label_confidence: verified
+    tags:
+    - relation:direct
+    - finetune
+    - ai4ai
+    - moe
+    note: Direct MoE post-training/fine-tune; explicit base_model/finetune tags and matching 397B/A17B model family. This is the large full-suite case.
+    sources:
+    - https://huggingface.co/XYZAILab/XYZ-Aquila-pro
+    - https://github.com/XYZ-AI-Lab/AxisAgentic
+    - https://xyz-lab.ai/blogs/ai4ai-at-scale/assets/bounded-exploration-ai4ai-system-optimization.pdf
+  - id: pb-133
+    stack: moe
+    kind: quant
+    ref: Qwen/Qwen3.6-35B-A3B
+    ref_rev: 995ad96eacd98c81ed38be0c5b274b04031597b0
+    sus: EschaLabs/Qwen3.6-35B-A3B-Escha-W2
+    sus_rev: 6072a54913552616b64599c30f5e8a3c8fecad9c
+    y: related
+    cite: Escha child card declares Qwen/Qwen3.6-35B-A3B as base_model with base_model_relation=quantized and EschaMoE W2 quantization.
+    label_confidence: verified
+    tags:
+    - relation:direct
+    - quant_method:eschamoe
+    - bits:2
+    - moe
+    note: Direct 2-bit MoE quantization. Matching Qwen3.5 MoE architecture and 35B/A3B shape; use quant kind, not sft.
+    sources:
+    - https://huggingface.co/EschaLabs/Qwen3.6-35B-A3B-Escha-W2
+    - https://huggingface.co/Qwen/Qwen3.6-35B-A3B
+  - id: pb-134
+    stack: moe
+    kind: quant
+    ref: upstage/Solar-Open2-250B
+    ref_rev: 9190fbe63a2ad8e17fc766ccceb36de7c66f004b
+    sus: nota-ai/Solar-Open2-250B-Nota-NVFP4
+    sus_rev: 3cc673335f4c2f41181e05a98fc2b8324d586a64
+    y: related
+    cite: Nota child card declares Solar-Open2-250B as base_model with base_model_relation=quantized and compressed-tensors NVFP4 config.
+    label_confidence: verified
+    tags:
+    - relation:direct
+    - quant_method:nvfp4
+    - moe
+    note: Direct MoE NVFP4 quantization. Both cards expose SolarOpen2 architecture and 250B-class model; canonical quant kind.
+    sources:
+    - https://huggingface.co/nota-ai/Solar-Open2-250B-Nota-NVFP4
+    - https://huggingface.co/upstage/Solar-Open2-250B
+  - id: pb-135
+    stack: moe
+    kind: quant_gguf_rehost
+    ref: moonshotai/Kimi-K3
+    ref_rev: a590ce090cb049c93a33dfe8c208ec652aa20503
+    sus: unsloth/Kimi-K3-GGUF
+    sus_rev: a0836360ce58dfec088d966a97f2ddc8a606279b
+    y: related
+    cite: Unsloth Kimi-K3 GGUF is the quantized rehost of moonshotai/Kimi-K3.
+    label_confidence: verified
+    tags:
+    - relation:direct
+    - quantized
+    - gguf
+    - moe
+    note: Hub API identifies matching Kimi-K3 child/parent repositories; child is GGUF quantized artifact and parent is the original Kimi-K3 model. Architecture-specific tensor details are not exposed in the concise API, so confidence is based on explicit repository identity/quantized role.
+    sources:
+    - https://huggingface.co/unsloth/Kimi-K3-GGUF
+    - https://huggingface.co/moonshotai/Kimi-K3
+  - id: pb-136
+    stack: moe
+    kind: quant
+    ref: moonshotai/Kimi-K3
+    ref_rev: a590ce090cb049c93a33dfe8c208ec652aa20503
+    sus: unsloth/Kimi-K3
+    sus_rev: 6095bb6b51abc90e7e8f8804ad4f65be4a441262
+    y: related
+    cite: Unsloth card declares quantized moonshotai/Kimi-K3 base; Kimi card has vision tower and compressed MoE tensors.
+    label_confidence: verified
+    tags:
+    - relation:direct
+    - quantized
+    - modality:image-text-to-text
+    note: Compatible multimodal Kimi K3 quantized MoE pair.
+    sources:
+    - https://huggingface.co/unsloth/Kimi-K3
+    - https://huggingface.co/moonshotai/Kimi-K3
+  - id: pb-137
+    stack: dense
+    kind: sft
+    ref: Qwen/Qwen3.5-27B
+    ref_rev: fc05daec18b0a78c049392ed2e771dde82bdf654
+    sus: microsoft/Fara1.5-27B
+    sus_rev: 299c8406a6c6256d45ec200d1ac12b34c5599d9b
+    y: related
+    cite: Fara card declares exact Qwen3.5-27B finetune base and dense Qwen3_5 architecture.
+    label_confidence: verified
+    tags:
+    - relation:direct
+    - modality:image-text-to-text
+    note: Computer-use vision modality remains compatible with dense Qwen3.5 tensor architecture.
+    sources:
+    - https://huggingface.co/microsoft/Fara1.5-27B
+    - https://huggingface.co/Qwen/Qwen3.5-27B
+  - id: pb-138
+    stack: moe
+    kind: sft
+    ref: Qwen/Qwen3.6-35B-A3B
+    ref_rev: 995ad96eacd98c81ed38be0c5b274b04031597b0
+    sus: Kwaipilot/KAT-Coder-V2.5-Dev
+    sus_rev: 7be56fe773e72b6f5ca93c1ae45d828ddb893922
+    y: related
+    cite: KAT-Coder child card tags Qwen3.6-35B-A3B as base_model and finetune; model card describes coding/agent post-training.
+    label_confidence: verified
+    tags:
+    - relation:direct
+    - finetune
+    - agentic-coding
+    - moe
+    note: Direct MoE fine-tune/post-training with matching 35B/A3B architecture. Use sft as existing ordinary training kind.
+    sources:
+    - https://huggingface.co/Kwaipilot/KAT-Coder-V2.5-Dev
+    - https://huggingface.co/Qwen/Qwen3.6-35B-A3B
+    - https://arxiv.org/abs/2607.05471
+  - id: pb-139
+    stack: dense
+    kind: quant_gguf_rehost
+    ref: poolside/Laguna-S-2.1
+    ref_rev: 0f573140834b11cfac0c2af97a101a7a69a13e22
+    sus: unsloth/Laguna-S-2.1-GGUF
+    sus_rev: 750f92f90cf54159c4d7a610cb7b3e74498e75c6
+    y: related
+    cite: Unsloth repository is the GGUF quantized rehost of poolside/Laguna-S-2.1.
+    label_confidence: verified
+    tags:
+    - relation:direct
+    - quantized
+    - gguf
+    - dense
+    note: Child and parent Hub identities match the inventory claim; child is explicitly GGUF quantized and parent is original Laguna checkpoint. API metadata confirms immutable revisions.
+    sources:
+    - https://huggingface.co/unsloth/Laguna-S-2.1-GGUF
+    - https://huggingface.co/poolside/Laguna-S-2.1
+  - id: pb-140
+    stack: moe
+    kind: quant
+    ref: poolside/Laguna-S-2.1
+    ref_rev: 0f573140834b11cfac0c2af97a101a7a69a13e22
+    sus: poolside/Laguna-S-2.1-NVFP4
+    sus_rev: 826aacdf6d8b2699d4e367def6f17c83b06044c2
+    y: related
+    cite: Laguna NVFP4 card declares poolside/Laguna-S-2.1 as base_model with base_model_relation=quantized.
+    label_confidence: verified
+    tags:
+    - relation:direct
+    - quant_method:nvfp4
+    - moe
+    note: Direct compressed-tensors NVFP4 quantization. Both cards expose Laguna MoE (256 experts, 10 active/token) and matching architecture.
+    sources:
+    - https://huggingface.co/poolside/Laguna-S-2.1-NVFP4
+    - https://huggingface.co/poolside/Laguna-S-2.1
+  - id: pb-141
+    stack: moe
+    kind: quant_gguf_rehost
+    ref: thinkingmachines/Inkling
+    ref_rev: 828496eeae4c243ff1a22f7f28ff83694f2f7bc9
+    sus: unsloth/Inkling-GGUF
+    sus_rev: d3e9ffca48751dbe8b59dab5cfa364621257c682
+    y: related
+    cite: Unsloth Inkling-GGUF repository is named and documented as the quantized Inkling export.
+    label_confidence: inferred
+    tags:
+    - relation:direct
+    - quantized
+    - gguf
+    - moe
+    note: Child/parent Hub revisions are available; GGUF artifact is a serialization/quantization rehost. Exact architecture details are not exposed in the concise response, so confidence is inferred from direct repository naming and role.
+    sources:
+    - https://huggingface.co/unsloth/Inkling-GGUF
+    - https://huggingface.co/thinkingmachines/Inkling
+  - id: pb-142
+    stack: dense
+    kind: quant_gguf_rehost
+    ref: tencent/Hy3
+    ref_rev: a960ebc3da325ba167f069f76c41eb62c9280d22
+    sus: AngelSlim/Hy3-GGUF
+    sus_rev: 31b453f4d9b647c74e4c4f5cba632eb512332c91
+    y: related
+    cite: AngelSlim Hy3-GGUF is the GGUF quantized rehost of tencent/Hy3.
+    label_confidence: verified
+    tags:
+    - relation:direct
+    - quantized
+    - gguf
+    - dense
+    note: Hub revisions are available for both repositories and child identity is explicitly GGUF; direct model-name pairing supports serialization rehost. Exact tensor architecture is not exposed in concise metadata, so confidence is verified for relation and inferred for dense stack.
+    sources:
+    - https://huggingface.co/AngelSlim/Hy3-GGUF
+    - https://huggingface.co/tencent/Hy3
+  - id: pb-143
+    stack: dense
+    kind: sft
+    ref: openbmb/MiniCPM5-1B
+    ref_rev: 87179e5c1f455ef22e6223592d2d61351b525bfc
+    sus: GnLOLot/MiniCPM5-1B-Claude-Opus-Fable5-Thinking
+    sus_rev: c876d62d63cd8b585d14b096c701fc4151a6ca95
+    y: related
+    cite: Child card declares openbmb/MiniCPM5-1B as base_model with base_model_relation=finetune.
+    label_confidence: verified
+    tags:
+    - relation:direct
+    - finetune
+    - thinking
+    note: Direct dense fine-tune; matching LlamaForCausalLM architecture and 1,080,632,832 BF16 parameters.
+    sources:
+    - https://huggingface.co/GnLOLot/MiniCPM5-1B-Claude-Opus-Fable5-Thinking
+    - https://huggingface.co/openbmb/MiniCPM5-1B
+  - id: pb-144
+    stack: dense
+    kind: sft
+    ref: Qwen/Qwen3.5-0.8B-Base
+    ref_rev: dc7cdfe2ee4154fa7e30f5b51ca41bfa40174e68
+    sus: ATH-MaaS/OvisOCR2
+    sus_rev: 1fc9221b7823a371d6e97f92d527cc847e24e107
+    y: related
+    cite: OvisOCR2 card declares exact Qwen3.5-0.8B finetune base and dense architecture.
+    label_confidence: verified
+    tags:
+    - relation:direct
+    - modality:image-text-to-text
+    - ocr
+    note: Compatible dense OCR multimodal fine-tune.
+    sources:
+    - https://huggingface.co/ATH-MaaS/OvisOCR2
+    - https://huggingface.co/Qwen/Qwen3.5-0.8B-Base
+  - id: pb-145
+    stack: dense
+    kind: quant_gguf_rehost
+    ref: empero-ai/Qwythos-9B-v2
+    ref_rev: 2178f73a9b5ea28ccd8f6096ef6bac5cd59c9d8b
+    sus: empero-ai/Qwythos-9B-v2-GGUF
+    sus_rev: 97c11b03687f194b300efbdb4760d9bc4021b759
+    y: related
+    cite: Qwythos GGUF card explicitly declares Qwythos-9B-v2 as base_model and quantized relation.
+    label_confidence: verified
+    tags:
+    - relation:direct
+    - quantized
+    - gguf
+    - dense
+    - mtp
+    note: Card documents llama.cpp conversion, standard qwen35 architecture, BF16 and Q4-Q8 normal/MTP variants, and a compatible projector. Full tensor coverage is described and structurally verified in the model card.
+    sources:
+    - https://huggingface.co/empero-ai/Qwythos-9B-v2-GGUF
+    - https://huggingface.co/empero-ai/Qwythos-9B-v2
+  - id: pb-146
+    stack: dense
+    kind: quant
+    ref: Qwen/Qwen3.6-27B
+    ref_rev: 6a9e13bd6fc8f0983b9b99948120bc37f49c13e9
+    sus: unsloth/Qwen3.6-27B-NVFP4
+    sus_rev: ccdaab7e68af2409599b8949a8f2685703c9bae5
+    y: related
+    cite: Unsloth card declares exact Qwen3.6-27B compressed-tensors quantized base.
+    label_confidence: verified
+    tags:
+    - relation:direct
+    - quantized
+    - nvfp4
+    - modality:image-text-to-text
+    note: Dense Qwen3.5 multimodal mixed-precision NVFP4 quantization pair.
+    sources:
+    - https://huggingface.co/unsloth/Qwen3.6-27B-NVFP4
+    - https://huggingface.co/Qwen/Qwen3.6-27B
