@@ -63,8 +63,9 @@ class VerifyJob:
 class JobRunner:
     """Bounded FIFO queue with daemon worker threads.
 
-    Workers are started in the constructor and die with the process; a job
-    killed mid-run keeps ``status: running`` in its ``job.json``.
+    Workers are started in the constructor and die with the process; runs
+    left queued or running by a previous process are swept to ``status:
+    error`` (``interrupted by restart``) at startup.
     """
 
     def __init__(
@@ -83,6 +84,35 @@ class JobRunner:
         self._pending_lock = threading.Lock()
         self._pending = 0
         self.runs_dir.mkdir(parents=True, exist_ok=True)
+        # Fail fast at boot when the runs dir is not writable (e.g. a
+        # mis-mounted volume) instead of green-healthz plus per-job 500s.
+        try:
+            probe = self.runs_dir / ".write-probe"
+            probe.write_text("")
+            probe.unlink()
+        except OSError as exc:
+            raise RuntimeError(f"runs dir {self.runs_dir} is not writable: {exc}") from exc
+        # Previous process died with jobs in flight: no worker owns them, so
+        # sweep any non-terminal run to error before workers start.
+        try:
+            existing = list(self.runs_dir.iterdir())
+        except OSError:
+            existing = []
+        for entry in existing:
+            try:
+                record = json.loads((entry / "job.json").read_text())
+            except (OSError, ValueError):
+                continue
+            if not isinstance(record, dict) or record.get("status") not in (
+                STATUS_QUEUED,
+                STATUS_RUNNING,
+            ):
+                continue
+            record["status"] = STATUS_ERROR
+            record["error"] = "interrupted by restart"
+            record["finished_at"] = _utc_now_iso()
+            with contextlib.suppress(OSError):
+                self._write_record(entry, record)
         self._workers = [
             threading.Thread(target=self._work, name=f"aibom-serve-worker-{i}", daemon=True)
             for i in range(max(1, concurrency))
@@ -121,10 +151,15 @@ class JobRunner:
             except Exception as exc:
                 # A dead worker would silently stop all job processing while
                 # /healthz stays green, so record the crash and keep looping.
+                # Prefer the on-disk record so a crash after the running write
+                # keeps started_at instead of resetting the record to queued.
+                record: dict[str, object] = {}
+                try:
+                    record = json.loads((self._run_dir(job) / "job.json").read_text())
+                except (OSError, ValueError):
+                    record = self._base_record(job)
                 with contextlib.suppress(OSError):
-                    self._finish_error(
-                        self._run_dir(job), self._base_record(job), f"worker crashed: {exc!r}"
-                    )
+                    self._finish_error(self._run_dir(job), record, f"worker crashed: {exc!r}")
             finally:
                 with self._pending_lock:
                     self._pending -= 1
@@ -152,21 +187,31 @@ class JobRunner:
             stderr = exc.stderr
             if isinstance(stderr, bytes):
                 stderr = stderr.decode(errors="replace")
-            if stderr:
-                (run_dir / "telemetry.jsonl").write_text(stderr)
+            try:
+                if stderr:
+                    (run_dir / "telemetry.jsonl").write_text(stderr)
+            except OSError as exc:
+                self._finish_error(run_dir, record, f"failed to persist run output: {exc}")
+                return
             self._finish_error(run_dir, record, "verify subprocess timed out")
             return
         except OSError as exc:
             self._finish_error(run_dir, record, f"verify subprocess failed to start: {exc}")
             return
 
-        (run_dir / "telemetry.jsonl").write_text(proc.stderr)
-        (run_dir / "result.json").write_text(proc.stdout)
-        record["exit_code"] = proc.returncode
-        # --accept makes verify exit 0 for start failures too; only crashes are errors.
-        record["status"] = STATUS_DONE if proc.returncode == 0 else STATUS_ERROR
-        record["finished_at"] = _utc_now_iso()
-        self._write_record(run_dir, record)
+        try:
+            (run_dir / "telemetry.jsonl").write_text(proc.stderr)
+            (run_dir / "result.json").write_text(proc.stdout)
+            record["exit_code"] = proc.returncode
+            # --accept makes verify exit 0 for start failures too; only crashes are errors.
+            record["status"] = STATUS_DONE if proc.returncode == 0 else STATUS_ERROR
+            record["finished_at"] = _utc_now_iso()
+            self._write_record(run_dir, record)
+        except Exception as exc:
+            # The run already succeeded or failed; a write failure here must
+            # not escape to _work's generic handler, which would lose
+            # started_at and relabel the outcome as "worker crashed".
+            self._finish_error(run_dir, record, f"failed to persist run output: {exc}")
 
     def _finish_error(self, run_dir: Path, record: dict[str, object], message: str) -> None:
         record["status"] = STATUS_ERROR
@@ -191,5 +236,10 @@ class JobRunner:
     def _write_record(self, run_dir: Path, record: dict[str, object]) -> None:
         run_dir.mkdir(parents=True, exist_ok=True)
         tmp_file = run_dir / "job.json.tmp"
-        tmp_file.write_text(json.dumps(record, indent=2) + "\n")
+        # fsync for durability, not atomicity: os.replace is already atomic,
+        # but without fsync a power loss can leave job.json empty.
+        with open(tmp_file, "w") as f:
+            f.write(json.dumps(record, indent=2) + "\n")
+            f.flush()
+            os.fsync(f.fileno())
         os.replace(tmp_file, run_dir / "job.json")

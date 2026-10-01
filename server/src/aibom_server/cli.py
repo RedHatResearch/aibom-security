@@ -74,7 +74,16 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 def main(argv: Sequence[str] | None = None) -> int:
-    args = build_parser().parse_args(argv)
+    parser = build_parser()
+    args = parser.parse_args(argv)
+    if args.token == "":
+        # `docker run -e AIBOM_API_TOKEN` with a missing secret exports the
+        # empty string; treating that as "auth off" would silently expose
+        # POST /verify while the operator believes it is protected.
+        parser.error(
+            "AIBOM_API_TOKEN/--token is set but empty; refusing to start with auth disabled "
+            "(unset it or provide a real value)"
+        )
     runner = JobRunner(
         args.runs_dir,
         concurrency=args.concurrency,
