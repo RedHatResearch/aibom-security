@@ -1,0 +1,25 @@
+[project]
+name = "aibom-server"
+version = "0.1.0"
+description = "REST server exposing aibom verify runs to external pipelines (e.g. Tekton)"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "aibom",
+    "fastapi>=0.115",
+    "uvicorn>=0.30",
+]
+
+[project.scripts]
+aibom-serve = "aibom_server.cli:main"
+
+[build-system]
+requires = ["uv_build>=0.11.28,<0.12.0"]
+build-backend = "uv_build"
+
+[tool.uv.sources]
+aibom = { workspace = true }
+
+[tool.uv.build-backend]
+module-name = "aibom_server"
+module-root = "src"

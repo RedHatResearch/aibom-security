@@ -49,3 +49,37 @@ jobs:
         run: |
           docker run --rm aibom-security:ci --help
           docker run --rm aibom-security:ci verify --help
+
+      # Same offline boundary as lint-and-test: a valid model POST would
+      # spawn a verify subprocess that hits the Hugging Face Hub. Boot the
+      # serve entrypoint and exercise the paths that stay offline.
+      - name: Serve boots in image (health, auth, validation)
+        run: |
+          mkdir -p /tmp/aibom-runs
+          sudo chown 999:999 /tmp/aibom-runs
+          docker run -d --name aibom-serve \
+            -p 127.0.0.1:8080:8080 \
+            -e AIBOM_API_TOKEN=ci-smoke \
+            -e AIBOM_RUNS_DIR=/runs \
+            -v /tmp/aibom-runs:/runs \
+            --entrypoint aibom-serve \
+            aibom-security:ci --host 0.0.0.0 --port 8080
+          for _ in $(seq 1 30); do
+            curl -fsS http://127.0.0.1:8080/healthz > /dev/null && break
+            sleep 1
+          done
+          curl -fsS http://127.0.0.1:8080/healthz > /dev/null
+          docker exec aibom-serve test -w /runs
+          code() { curl -sS -o /dev/null -w '%{http_code}' "$@"; }
+          test "$(code -X POST http://127.0.0.1:8080/verify \
+            -H 'content-type: application/json' \
+            -d '{"model_id": "org/model"}')" = 401
+          test "$(code -X POST http://127.0.0.1:8080/verify \
+            -H 'authorization: Bearer wrong-token' \
+            -H 'content-type: application/json' \
+            -d '{"model_id": "org/model"}')" = 401
+          test "$(code -X POST http://127.0.0.1:8080/verify \
+            -H 'authorization: Bearer ci-smoke' \
+            -H 'content-type: application/json' \
+            -d '{"model_id": "not a repo id"}')" = 422
+          docker rm -f aibom-serve > /dev/null

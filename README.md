@@ -30,6 +30,8 @@ docker run --rm aibom-security verify org/model --base org/base
 
 For gated Hub repos, pass `HF_TOKEN`. **stdout** is the `VerificationResult` JSON; **stderr** is JSONL telemetry. Verdicts are not mapped to exit codes. Full contract (argv, env, accept mode, events): [docs/job-contract.md](docs/job-contract.md).
 
+To run the verifier as a long-running REST service that an external pipeline (e.g. Tekton) can POST Hugging Face model IDs to, see [server/README.md](server/README.md).
+
 ## Repo layout
 
 Monorepo — each top-level directory is an independently buildable component.
@@ -38,7 +40,7 @@ Monorepo — each top-level directory is an independently buildable component.
 aibom-security/
 ├── cli/                 # the `aibom` umbrella command
 ├── verifier/            # aibom_verifier: the provenance verification pipeline
-├── docs/                # host integration and PoC guides
+├── server/              # aibom-serve: REST verify server for pipeline submissions
 ├── smokes/              # survey runnable checks (#26); not product / not CI
 ├── docker-compose.yml   # local PoC stack only (see docs/poc-compose.md)
 └── pyproject.toml       # uv workspace root
