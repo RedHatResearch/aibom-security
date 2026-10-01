@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import queue
 import re
+import secrets
 
 from fastapi import FastAPI, HTTPException, Request
 from pydantic import BaseModel, Field, field_validator
@@ -56,5 +57,6 @@ def create_app(*, runner: JobRunner, token: str | None = None) -> FastAPI:
 def _authorize(request: Request, token: str | None) -> None:
     if token is None:
         return
-    if request.headers.get("authorization") != f"Bearer {token}":
+    scheme, _, credentials = (request.headers.get("authorization") or "").partition(" ")
+    if scheme != "Bearer" or not secrets.compare_digest(credentials.encode(), token.encode()):
         raise HTTPException(status_code=401, detail="missing or invalid bearer token")

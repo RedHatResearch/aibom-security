@@ -96,7 +96,7 @@ class JobRunner:
         run_dir = self._run_dir(job)
         # Persist the queued record before the job is visible to a worker, so
         # job.json always has a single writer at a time.
-        self._write_record(run_dir, self._load_record(run_dir, job))
+        self._write_record(run_dir, self._base_record(job))
         with self._pending_lock:
             self._pending += 1
         try:
@@ -118,6 +118,13 @@ class JobRunner:
             job = self._queue.get()
             try:
                 self._execute(job)
+            except Exception as exc:
+                # A dead worker would silently stop all job processing while
+                # /healthz stays green, so record the crash and keep looping.
+                with contextlib.suppress(OSError):
+                    self._finish_error(
+                        self._run_dir(job), self._base_record(job), f"worker crashed: {exc!r}"
+                    )
             finally:
                 with self._pending_lock:
                     self._pending -= 1
@@ -125,7 +132,7 @@ class JobRunner:
 
     def _execute(self, job: VerifyJob) -> None:
         run_dir = self._run_dir(job)
-        record = self._load_record(run_dir, job)
+        record = self._base_record(job)
         record["status"] = STATUS_RUNNING
         record["started_at"] = _utc_now_iso()
         self._write_record(run_dir, record)
@@ -135,10 +142,18 @@ class JobRunner:
                 [sys.executable, "-m", "aibom", "verify", job.model_id, "--accept"],
                 capture_output=True,
                 text=True,
+                errors="replace",
                 env=self._subprocess_env(job),
                 timeout=self.timeout_seconds,
             )
-        except subprocess.TimeoutExpired:
+        except subprocess.TimeoutExpired as exc:
+            # TimeoutExpired carries the child's output so far (bytes even
+            # with text=True); keep the partial telemetry for offline analysis.
+            stderr = exc.stderr
+            if isinstance(stderr, bytes):
+                stderr = stderr.decode(errors="replace")
+            if stderr:
+                (run_dir / "telemetry.jsonl").write_text(stderr)
             self._finish_error(run_dir, record, "verify subprocess timed out")
             return
         except OSError as exc:
@@ -165,18 +180,13 @@ class JobRunner:
     def _run_dir(self, job: VerifyJob) -> Path:
         return self.runs_dir / job.run_id
 
-    def _load_record(self, run_dir: Path, job: VerifyJob) -> dict[str, object]:
-        record: dict[str, object] = {
+    def _base_record(self, job: VerifyJob) -> dict[str, object]:
+        return {
             "run_id": job.run_id,
             "model_id": job.model_id,
             "submitted_at": job.submitted_at,
             "status": STATUS_QUEUED,
         }
-        job_file = run_dir / "job.json"
-        if job_file.exists():
-            with contextlib.suppress(OSError, json.JSONDecodeError):
-                record.update(json.loads(job_file.read_text()))
-        return record
 
     def _write_record(self, run_dir: Path, record: dict[str, object]) -> None:
         run_dir.mkdir(parents=True, exist_ok=True)

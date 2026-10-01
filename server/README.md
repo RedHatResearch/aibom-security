@@ -45,6 +45,8 @@ curl -sS -X POST localhost:8080/verify \
 
 ```bash
 docker build -t aibom-security .
+sudo mkdir -p /srv/aibom/runs
+sudo chown 999:999 /srv/aibom/runs   # image runs as uid 999 (nonroot)
 docker run -d --name aibom-serve \
   -p 8080:8080 \
   -v /srv/aibom/runs:/runs \

@@ -113,6 +113,42 @@ def test_subprocess_timeout_records_error(tmp_path: Path) -> None:
     assert "timed out" in record["error"]
 
 
+def test_timeout_keeps_partial_telemetry(tmp_path: Path) -> None:
+    def spawn(argv: list[str], **kwargs: Any) -> subprocess.CompletedProcess:
+        raise subprocess.TimeoutExpired(cmd=argv, timeout=0.1, stderr=b'{"event": "run_start"}\n')
+
+    runner = JobRunner(tmp_path / "runs", spawn=spawn)
+
+    job = runner.submit("org/model")
+
+    record = _wait_for_status(tmp_path / "runs" / job.run_id, "error")
+    assert "timed out" in record["error"]
+    assert (tmp_path / "runs" / job.run_id / "telemetry.jsonl").read_text() == (
+        '{"event": "run_start"}\n'
+    )
+
+
+def test_worker_survives_unexpected_exception(tmp_path: Path) -> None:
+    state = {"calls": 0}
+
+    def spawn(argv: list[str], **kwargs: Any) -> subprocess.CompletedProcess:
+        state["calls"] += 1
+        if state["calls"] == 1:
+            raise ValueError("boom")
+        return subprocess.CompletedProcess(
+            args=argv, returncode=0, stdout=RESULT_JSON, stderr=TELEMETRY_JSONL
+        )
+
+    runner = JobRunner(tmp_path / "runs", spawn=spawn)
+
+    first = runner.submit("org/model")
+    second = runner.submit("org/model")
+
+    record = _wait_for_status(tmp_path / "runs" / first.run_id, "error")
+    assert "worker crashed" in record["error"]
+    assert _wait_for_status(tmp_path / "runs" / second.run_id, "done")["exit_code"] == 0
+
+
 def test_full_queue_rejects_and_pending_tracks_busy_jobs(tmp_path: Path) -> None:
     started = threading.Event()
     release = threading.Event()
