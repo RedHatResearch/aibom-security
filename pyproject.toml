@@ -8,6 +8,7 @@ dependencies = []
 members = [
     "verifier",
     "cli",
+    "server",
 ]
 
 [dependency-groups]
@@ -16,6 +17,7 @@ dev = [
     "ruff>=0.16.1",
     "ty>=0.0.65",
     "fakeredis>=2.26",
+    "httpx>=0.27",
 ]
 smokes = [
     "aibom-verifier",
@@ -33,7 +35,7 @@ smokes = [
 aibom-verifier = { workspace = true }
 
 [tool.pytest.ini_options]
-testpaths = ["verifier/tests", "cli/tests"]
+testpaths = ["verifier/tests", "cli/tests", "server/tests"]
 pythonpath = ["verifier/tests"]
 addopts = "--import-mode=importlib"
 markers = ["network: tests that require Hugging Face Hub network access"]
@@ -41,13 +43,13 @@ markers = ["network: tests that require Hugging Face Hub network access"]
 [tool.ruff]
 line-length = 100
 target-version = "py312"
-src = ["verifier/src", "cli/src"]
+src = ["verifier/src", "cli/src", "server/src"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B", "SIM"]
 
 [tool.ty.environment]
-root = ["./verifier/src", "./cli/src", "./verifier/tests"]
+root = ["./verifier/src", "./cli/src", "./verifier/tests", "./server/src"]
 
 [tool.ty.src]
-include = ["verifier/src", "cli/src", "verifier/tests"]
+include = ["verifier/src", "cli/src", "verifier/tests", "server/src"]
