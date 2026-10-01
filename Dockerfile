@@ -10,7 +10,7 @@ ENV UV_COMPILE_BYTECODE=1 \
 
 WORKDIR /app
 COPY . .
-# Workspace root has empty deps; sync workspace members (cli + verifier).
+# Workspace root has empty deps; sync workspace members (cli + verifier + server).
 RUN uv sync --locked --no-dev --all-packages
 
 # Same base distro + Python version as the builder — required so the venv's
