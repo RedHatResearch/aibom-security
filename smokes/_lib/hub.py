@@ -61,11 +61,13 @@ def load_tensors(
     names: set[str],
     *,
     cache_dir: Path | None = None,
+    revision: str | None = None,
 ) -> dict[str, np.ndarray]:
     model_dir = snapshot_download(
         repo_id,
         allow_patterns=["*.safetensors", "model.safetensors.index.json"],
         cache_dir=cache_dir,
+        revision=revision,
     )
     root = Path(model_dir)
     shards = sorted(root.glob("*.safetensors"))
