@@ -1,4 +1,4 @@
-"""Frozen eval harness for ProvenanceBench."""
+"""Frozen v1 evaluation harness for ProvenanceBench."""
 
 from __future__ import annotations
 
@@ -8,15 +8,17 @@ import importlib.util
 import json
 import sys
 from collections import defaultdict
+from collections.abc import Iterable
 from datetime import UTC, datetime
 from pathlib import Path
 from types import ModuleType
 from typing import Any
 
 from pbench import load
-from pbench.load import bench_root, label_confidence, manifest_hashes, model_pin
+from pbench.load import bench_root, canonical_sha256, manifest_hashes, model_pin
 
-EVAL_VERSION = "pbench-eval/0.2"
+EVAL_VERSION = "pbench-eval/1"
+VALID_VERDICTS = frozenset({"related", "unrelated", "abstain"})
 
 
 def _load_detect(root: Path) -> ModuleType:
@@ -34,330 +36,415 @@ def _load_detect(root: Path) -> ModuleType:
     return module
 
 
-def _detect_sha256(root: Path) -> str:
-    return hashlib.sha256((root / "detect.py").read_bytes()).hexdigest()[:12]
+def _method_sha256(root: Path) -> str:
+    return hashlib.sha256((root / "detect.py").read_bytes()).hexdigest()
 
 
-def _select_cases(
+def _apply_case_filters(
+    selected: list[dict[str, Any]],
+    *,
+    stack: str | None,
+    kinds: list[str] | None,
+) -> list[dict[str, Any]]:
+    if stack is not None and stack not in load.VALID_STACK:
+        msg = f"stack must be dense or moe, got {stack!r}"
+        raise ValueError(msg)
+    kind_set = None
+    if kinds is not None:
+        if not kinds or any(not isinstance(kind, str) or not kind for kind in kinds):
+            msg = "--kind values must be non-empty strings"
+            raise ValueError(msg)
+        kind_set = set(kinds)
+    if stack is None and kind_set is None:
+        return selected
+    filtered = [
+        case
+        for case in selected
+        if (stack is None or case["stack"] == stack)
+        and (kind_set is None or case["kind"] in kind_set)
+    ]
+    if not filtered:
+        parts: list[str] = []
+        if stack is not None:
+            parts.append(f"stack={stack}")
+        if kind_set is not None:
+            parts.append(f"kind in {{{', '.join(sorted(kind_set))}}}")
+        msg = f"selection matched no cases after filters ({', '.join(parts)})"
+        raise ValueError(msg)
+    return filtered
+
+
+def _resolve_ids(
     cases: list[dict[str, Any]],
     *,
-    suite: str,
-    smoke_ids: list[str],
-) -> list[dict[str, Any]]:
-    if suite == "smoke":
-        by_id = load.case_by_id(cases)
-        return [by_id[cid] for cid in smoke_ids]
-    if suite == "full":
-        return cases
-    msg = f"unknown suite: {suite}"
-    raise ValueError(msg)
+    cohort: str | None,
+    ids: list[str] | None,
+    root: Path,
+    stack: str | None = None,
+    kinds: list[str] | None = None,
+) -> tuple[list[dict[str, Any]], dict[str, Any]]:
+    if cohort is not None and ids is not None:
+        msg = "--cohort and --ids are mutually exclusive"
+        raise ValueError(msg)
+    has_filters = stack is not None or bool(kinds)
+    if cohort is None and ids is None and not has_filters:
+        msg = "pass --cohort, --ids, or a --stack/--kind filter; no default cohort exists"
+        raise ValueError(msg)
+    selection: dict[str, Any]
+    if cohort is not None:
+        cohort_row = load.load_cohort(cohort, root)
+        resolved_ids = list(cohort_row["ids"])
+        selection = {
+            "mode": "cohort",
+            "requested": cohort,
+            "resolved_ids": resolved_ids,
+            "cohort_sha256": canonical_sha256({"name": cohort, **cohort_row}),
+        }
+    elif ids is not None:
+        resolved_ids = list(ids)
+        selection = {
+            "mode": "ids",
+            "requested": resolved_ids,
+            "resolved_ids": resolved_ids,
+            "cohort_sha256": canonical_sha256({"ids": resolved_ids}),
+        }
+    else:
+        resolved_ids = [case["id"] for case in cases]
+        selection = {
+            "mode": "manifest",
+            "requested": None,
+            "resolved_ids": resolved_ids,
+            "cohort_sha256": canonical_sha256({"ids": resolved_ids}),
+        }
+    if not resolved_ids:
+        msg = "selection resolved no case ids"
+        raise ValueError(msg)
+    by_id = load.case_by_id(cases)
+    missing = [case_id for case_id in resolved_ids if case_id not in by_id]
+    if missing:
+        msg = f"unknown case ids: {', '.join(missing)}"
+        raise ValueError(msg)
+    if len(resolved_ids) != len(set(resolved_ids)):
+        msg = "selection contains duplicate case ids"
+        raise ValueError(msg)
+    selected = [by_id[case_id] for case_id in resolved_ids]
+    if has_filters:
+        if kinds:
+            known_kinds = load.kind_index(load.load_kinds(root))
+            unknown = sorted({kind for kind in kinds if kind not in known_kinds})
+            if unknown:
+                msg = f"unknown kind(s): {', '.join(unknown)}"
+                raise ValueError(msg)
+        selected = _apply_case_filters(selected, stack=stack, kinds=kinds)
+        selection["resolved_ids"] = [case["id"] for case in selected]
+        selection["filters"] = {
+            "stack": stack,
+            "kinds": list(kinds) if kinds else None,
+        }
+    return selected, selection
 
 
-def _error_class(gold: str, pred: str) -> str | None:
-    if gold == pred:
+def _correct(expected: str, verdict: str) -> bool:
+    return expected == verdict or (expected == "unsupported" and verdict == "abstain")
+
+
+def _error_class(expected: str, verdict: str) -> str | None:
+    if _correct(expected, verdict):
         return None
-    if pred == "related" and gold == "unrelated":
+    if verdict == "related" and expected == "unrelated":
         return "false_confirm"
-    if pred == "related" and gold == "unsupported":
+    if verdict == "related" and expected == "unsupported":
         return "unsupported_false_confirm"
-    if gold == "related" and pred != "related":
+    if expected == "related":
         return "miss"
-    if gold == "unrelated" and pred == "abstain":
+    if expected == "unrelated" and verdict == "abstain":
         return "abstain_on_unrelated"
-    if gold == "unsupported" and pred == "unrelated":
+    if expected == "unsupported" and verdict == "unrelated":
         return "reject_unsupported"
-    if gold == "unsupported" and pred == "related":
-        return "confirm_unsupported"
     return "other_mismatch"
 
 
-def _is_control(case: dict[str, Any]) -> bool:
-    kind = case.get("kind", "")
-    y = case.get("y")
-    return y in {"unrelated", "unsupported"} or (
-        isinstance(kind, str) and kind.startswith("neg_")
-    )
+def _result_fields(result: object) -> tuple[str, float | None, dict[str, Any], str, str | None]:
+    verdict = getattr(result, "verdict", None)
+    score = getattr(result, "score", None)
+    diagnostics = getattr(result, "diagnostics", None)
+    note = getattr(result, "note", "")
+    abstain_reason = getattr(result, "abstain_reason", None)
+    if verdict not in VALID_VERDICTS:
+        msg = "detector result verdict must be related, unrelated, or abstain"
+        raise ValueError(msg)
+    if score is not None and (not isinstance(score, (int, float)) or isinstance(score, bool)):
+        msg = "detector result score must be a number or null"
+        raise ValueError(msg)
+    if not isinstance(diagnostics, dict):
+        msg = "detector result diagnostics must be a mapping"
+        raise ValueError(msg)
+    if not isinstance(note, str) or not (abstain_reason is None or isinstance(abstain_reason, str)):
+        msg = "detector result note and abstain_reason must be strings or null"
+        raise ValueError(msg)
+    return verdict, float(score) if score is not None else None, diagnostics, note, abstain_reason
 
 
-def _case_record(
+def _method_case_record(
     case: dict[str, Any],
     *,
-    ref_id: str,
-    ref_rev: str | None,
-    sus_id: str,
-    sus_rev: str | None,
-    pred: str,
-    confidence: float,
+    subject: str,
+    subject_rev: str | None,
+    reference: str,
+    reference_rev: str | None,
+    verdict: str,
+    score: float | None,
+    diagnostics: dict[str, Any],
     note: str,
-    ok: bool,
-    suite: str,
-    smoke_sha: str,
+    abstain_reason: str | None,
 ) -> dict[str, Any]:
-    gold = case["y"]
-    tier = label_confidence(case)
     return {
         "type": "case",
         "id": case["id"],
-        "suite": suite,
         "stack": case["stack"],
         "kind": case["kind"],
-        "ref_id": ref_id,
-        "sus_id": sus_id,
-        "ref_rev": ref_rev,
-        "sus_rev": sus_rev,
-        "claim": case.get("claim"),
-        "cite": case["cite"],
-        "label_confidence": tier,
-        "y": gold,
-        "pred": pred,
-        "score": confidence,
+        "subject": subject,
+        "subject_rev": subject_rev,
+        "reference": reference,
+        "reference_rev": reference_rev,
+        "verdict": verdict,
+        "score": score,
+        "diagnostics": diagnostics,
         "note": note,
-        "ok": ok,
-        "error_class": _error_class(gold, pred),
-        "control": _is_control(case),
-        "smoke_sha": smoke_sha,
+        "abstain_reason": abstain_reason,
     }
 
 
-def _triage_record(case_row: dict[str, Any]) -> dict[str, Any]:
+def _review_case_record(method_case: dict[str, Any], case: dict[str, Any]) -> dict[str, Any]:
+    expected = case["expected"]
+    verdict = method_case["verdict"]
+    correct = _correct(expected, verdict)
     return {
-        "type": "case",
-        "id": case_row["id"],
-        "suite": case_row["suite"],
-        "stack": case_row["stack"],
-        "kind": case_row["kind"],
-        "ref_id": case_row["ref_id"],
-        "sus_id": case_row["sus_id"],
-        "ref_rev": case_row["ref_rev"],
-        "sus_rev": case_row["sus_rev"],
-        "claim": case_row["claim"],
-        "cite": case_row["cite"],
-        "label_confidence": case_row["label_confidence"],
-        "pred": case_row["pred"],
-        "score": case_row["score"],
-        "note": case_row["note"],
-        "mismatch": not case_row["ok"],
-        "control": case_row["control"],
-        "smoke_sha": case_row["smoke_sha"],
+        **method_case,
+        "expected": expected,
+        "evidence": case["evidence"],
+        "context": case.get("context"),
+        "lineage_scope": case.get("lineage_scope"),
+        "challenge": case.get("challenge"),
+        "correct": correct,
+        "mismatch": not correct,
+        "error_class": _error_class(expected, verdict),
     }
 
 
-def _summary_line(
-    *,
-    acc: float,
-    bal_acc: float,
-    cov: float,
-    abstain: float,
-    false_confirm: float,
-    miss: float,
-    unsupported_false_confirm: float,
-    n: int,
-    smoke_sha: str,
-) -> str:
+def _rates(rows: Iterable[dict[str, Any]]) -> dict[str, Any]:
+    rows = list(rows)
+    by_expected: dict[str, list[dict[str, Any]]] = defaultdict(list)
+    confusion: dict[str, dict[str, int]] = defaultdict(lambda: defaultdict(int))
+    for row in rows:
+        by_expected[row["expected"]].append(row)
+        confusion[row["expected"]][row["verdict"]] += 1
+    n = len(rows)
+    correct = sum(row["correct"] for row in rows)
+    abstain = sum(row["verdict"] == "abstain" for row in rows)
+    related = by_expected["related"]
+    unrelated = by_expected["unrelated"]
+    unsupported = by_expected["unsupported"]
+    class_rates = [
+        sum(row["correct"] for row in expected_rows) / len(expected_rows)
+        for expected_rows in (related, unrelated, unsupported)
+        if expected_rows
+    ]
+
+    def slices(field: str, *, challenges_only: bool = False) -> dict[str, dict[str, float | int]]:
+        groups: dict[str, list[dict[str, Any]]] = defaultdict(list)
+        for row in rows:
+            if challenges_only:
+                challenge = row.get("challenge")
+                if challenge is None:
+                    continue
+                value = challenge["type"]
+            else:
+                value = row[field]
+            groups[value].append(row)
+        return {
+            value: {"n": len(group), "acc": sum(row["correct"] for row in group) / len(group)}
+            for value, group in sorted(groups.items())
+        }
+
+    return {
+        "acc": correct / n,
+        "bal_acc": sum(class_rates) / len(class_rates) if class_rates else 0.0,
+        "cov": (n - abstain) / n,
+        "abstain": abstain / n,
+        "false_confirm": sum(row["error_class"] == "false_confirm" for row in unrelated)
+        / max(1, len(unrelated)),
+        "miss": sum(row["error_class"] == "miss" for row in related) / max(1, len(related)),
+        "unsupported_false_confirm": sum(
+            row["error_class"] == "unsupported_false_confirm" for row in unsupported
+        )
+        / max(1, len(unsupported)),
+        "confusion": {expected: dict(verdicts) for expected, verdicts in sorted(confusion.items())},
+        "by_kind": slices("kind"),
+        "by_stack": slices("stack"),
+        "by_challenge": slices("challenge", challenges_only=True),
+    }
+
+
+def _summary_line(metrics: dict[str, Any], n: int) -> str:
     return (
-        f"SUMMARY acc={acc:.3f} bal_acc={bal_acc:.3f} cov={cov:.3f} abstain={abstain:.3f} "
-        f"false_confirm={false_confirm:.3f} miss={miss:.3f} "
-        f"unsupported_false_confirm={unsupported_false_confirm:.3f} n={n} "
-        f"smoke_sha={smoke_sha}"
+        f"SUMMARY acc={metrics['acc']:.3f} bal_acc={metrics['bal_acc']:.3f} "
+        f"cov={metrics['cov']:.3f} abstain={metrics['abstain']:.3f} "
+        f"false_confirm={metrics['false_confirm']:.3f} miss={metrics['miss']:.3f} "
+        f"unsupported_false_confirm={metrics['unsupported_false_confirm']:.3f} n={n}"
     )
 
 
-def default_run_path(root: Path) -> Path:
-    return root / "runs" / "latest.jsonl"
+def default_run_path(root: Path, method_sha256: str) -> Path:
+    timestamp = datetime.now(UTC).strftime("%Y%m%dT%H%M%S%fZ")
+    return root / "runs" / f"{timestamp}-{method_sha256[:12]}.method.jsonl"
 
 
-def triage_run_path(eval_path: Path) -> Path:
-    return eval_path.with_name(f"{eval_path.stem}.triage{eval_path.suffix}")
+def review_run_path(method_path: Path) -> Path:
+    suffix = ".method.jsonl"
+    if not method_path.name.endswith(suffix):
+        msg = "method artifact path must end with .method.jsonl"
+        raise ValueError(msg)
+    return method_path.with_name(f"{method_path.name.removesuffix(suffix)}.review.jsonl")
+
+
+def _write_jsonl(path: Path, rows: list[dict[str, Any]]) -> None:
+    if path.exists():
+        msg = f"refusing to overwrite immutable artifact: {path}"
+        raise FileExistsError(msg)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("x", encoding="utf-8") as handle:
+        for row in rows:
+            handle.write(json.dumps(row, sort_keys=True) + "\n")
+
+
+def _assert_artifact_pair_is_new(method_path: Path, review_path: Path) -> None:
+    for path in (method_path, review_path):
+        if path.exists():
+            msg = f"refusing to overwrite immutable artifact: {path}"
+            raise FileExistsError(msg)
 
 
 def run_eval(
     root: Path | None = None,
     *,
-    suite: str = "smoke",
+    cohort: str | None = None,
+    ids: list[str] | None = None,
+    stack: str | None = None,
+    kinds: list[str] | None = None,
     out_path: Path | None = None,
 ) -> int:
     root = root or bench_root()
     detect = _load_detect(root)
     cases = load.load_cases(root)
-    smoke_ids, smoke_sha = load.load_smoke(root)
-    selected = _select_cases(cases, suite=suite, smoke_ids=smoke_ids)
-    out_path = out_path if out_path is not None else default_run_path(root)
-    triage_path = triage_run_path(out_path)
-    hashes = manifest_hashes(root)
+    selected, selection = _resolve_ids(
+        cases, cohort=cohort, ids=ids, root=root, stack=stack, kinds=kinds
+    )
+    method_sha256 = _method_sha256(root)
+    out_path = out_path if out_path is not None else default_run_path(root, method_sha256)
+    review_path = review_run_path(out_path)
+    _assert_artifact_pair_is_new(out_path, review_path)
+    hashes = {
+        **manifest_hashes(root),
+        "cohort_sha256": selection["cohort_sha256"],
+        "method_sha256": method_sha256,
+    }
+    meta_base = {
+        "eval_version": EVAL_VERSION,
+        "timestamp_utc": datetime.now(UTC).isoformat(),
+        "selection": selection,
+        "hashes": hashes,
+        "n_cases": len(selected),
+    }
 
-    outcomes: list[dict[str, Any]] = []
-    triage_rows: list[dict[str, Any]] = []
-    correct = 0
-    abstain_count = 0
-    false_confirm = 0
-    miss = 0
-    unsupported_false_confirm = 0
-    gold_unrelated = 0
-    gold_related = 0
-    gold_unsupported = 0
-    related_ok = 0
-    unrelated_ok = 0
-    unsupported_ok = 0
-    by_kind: dict[str, dict[str, int]] = defaultdict(lambda: {"n": 0, "ok": 0})
-    by_stack: dict[str, dict[str, int]] = defaultdict(lambda: {"n": 0, "ok": 0})
-    confusion: dict[str, dict[str, int]] = defaultdict(lambda: defaultdict(int))
-
+    method_rows: list[dict[str, Any]] = []
+    review_rows: list[dict[str, Any]] = []
     for case in selected:
-        ref_id, ref_rev = model_pin(case, "ref")
-        sus_id, sus_rev = model_pin(case, "sus")
+        subject, subject_rev = model_pin(case, "subject")
+        reference, reference_rev = model_pin(case, "reference")
         result = detect.score(
-            ref_id,
-            sus_id,
-            ref_rev=ref_rev,
-            sus_rev=sus_rev,
+            subject,
+            reference,
+            subject_rev=subject_rev,
+            reference_rev=reference_rev,
             stack=case["stack"],
         )
-        gold = case["y"]
-        if gold == "unrelated":
-            gold_unrelated += 1
-        elif gold == "related":
-            gold_related += 1
-        elif gold == "unsupported":
-            gold_unsupported += 1
-        pred = result.pred
-        ok = pred == gold
-        if ok:
-            correct += 1
-            if gold == "related":
-                related_ok += 1
-            elif gold == "unrelated":
-                unrelated_ok += 1
-            elif gold == "unsupported":
-                unsupported_ok += 1
-        if pred == "abstain":
-            abstain_count += 1
-        if pred == "related" and gold == "unrelated":
-            false_confirm += 1
-        if pred == "related" and gold == "unsupported":
-            unsupported_false_confirm += 1
-        if gold == "related" and pred != "related":
-            miss += 1
-        kind = case["kind"]
-        stack = case["stack"]
-        by_kind[kind]["n"] += 1
-        by_stack[stack]["n"] += 1
-        if ok:
-            by_kind[kind]["ok"] += 1
-            by_stack[stack]["ok"] += 1
-        confusion[gold][pred] += 1
-
-        row = _case_record(
+        verdict, score, diagnostics, note, abstain_reason = _result_fields(result)
+        method_case = _method_case_record(
             case,
-            ref_id=ref_id,
-            ref_rev=ref_rev,
-            sus_id=sus_id,
-            sus_rev=sus_rev,
-            pred=pred,
-            confidence=result.confidence,
-            note=result.note,
-            ok=ok,
-            suite=suite,
-            smoke_sha=smoke_sha,
+            subject=subject,
+            subject_rev=subject_rev,
+            reference=reference,
+            reference_rev=reference_rev,
+            verdict=verdict,
+            score=score,
+            diagnostics=diagnostics,
+            note=note,
+            abstain_reason=abstain_reason,
         )
-        outcomes.append(row)
-        triage_rows.append(_triage_record(row))
+        method_rows.append(method_case)
+        review_rows.append(_review_case_record(method_case, case))
 
-    n = len(selected) or 1
-    acc = correct / n
-    cov = (n - abstain_count) / n
-    abstain_rate = abstain_count / n
-    false_confirm_rate = false_confirm / max(1, gold_unrelated)
-    miss_rate = miss / max(1, gold_related)
-    unsupported_false_confirm_rate = unsupported_false_confirm / max(1, gold_unsupported)
-    class_rates: list[float] = []
-    if gold_related:
-        class_rates.append(related_ok / gold_related)
-    if gold_unrelated:
-        class_rates.append(unrelated_ok / gold_unrelated)
-    if gold_unsupported:
-        class_rates.append(unsupported_ok / gold_unsupported)
-    bal_acc = sum(class_rates) / len(class_rates) if class_rates else 0.0
-    by_kind_acc = {
-        k: {"n": v["n"], "acc": (v["ok"] / v["n"] if v["n"] else 0.0)}
-        for k, v in sorted(by_kind.items())
-    }
-    by_stack_acc = {
-        k: {"n": v["n"], "acc": (v["ok"] / v["n"] if v["n"] else 0.0)}
-        for k, v in sorted(by_stack.items())
-    }
-    control_subset = [row["id"] for row in outcomes if row["control"]]
-    summary = _summary_line(
-        acc=acc,
-        bal_acc=bal_acc,
-        cov=cov,
-        abstain=abstain_rate,
-        false_confirm=false_confirm_rate,
-        miss=miss_rate,
-        unsupported_false_confirm=unsupported_false_confirm_rate,
-        n=len(selected),
-        smoke_sha=smoke_sha,
+    metrics = _rates(review_rows)
+    summary = _summary_line(metrics, len(review_rows))
+    _write_jsonl(
+        out_path,
+        [
+            {"type": "meta", "artifact": "method", **meta_base},
+            *method_rows,
+            {"type": "trailer", "artifact": "method", "n_cases": len(method_rows)},
+        ],
     )
-    meta = {
-        "type": "meta",
-        "eval_version": EVAL_VERSION,
-        "suite": suite,
-        "timestamp_utc": datetime.now(UTC).isoformat(),
-        "n_cases": len(selected),
-        "detect_sha256": _detect_sha256(root),
-        **hashes,
-    }
-    trailer = {
-        "type": "trailer",
-        "summary": summary,
-        "bal_acc": bal_acc,
-        "acc": acc,
-        "cov": cov,
-        "abstain": abstain_rate,
-        "false_confirm": false_confirm_rate,
-        "miss": miss_rate,
-        "unsupported_false_confirm": unsupported_false_confirm_rate,
-        "by_kind": by_kind_acc,
-        "by_stack": by_stack_acc,
-        "confusion": {g: dict(preds) for g, preds in sorted(confusion.items())},
-        "control_subset": control_subset,
-    }
-    triage_trailer = {
-        "type": "trailer",
-        "summary": summary,
-        "control_subset": control_subset,
-        "by_kind": by_kind_acc,
-        "by_stack": by_stack_acc,
-    }
-
-    out_path.parent.mkdir(parents=True, exist_ok=True)
-    with out_path.open("w", encoding="utf-8") as handle:
-        handle.write(json.dumps(meta, sort_keys=True) + "\n")
-        for row in outcomes:
-            handle.write(json.dumps(row, sort_keys=True) + "\n")
-        handle.write(json.dumps(trailer, sort_keys=True) + "\n")
-
-    with triage_path.open("w", encoding="utf-8") as handle:
-        handle.write(json.dumps(meta, sort_keys=True) + "\n")
-        for row in triage_rows:
-            handle.write(json.dumps(row, sort_keys=True) + "\n")
-        handle.write(json.dumps(triage_trailer, sort_keys=True) + "\n")
-
+    _write_jsonl(
+        review_path,
+        [
+            {"type": "meta", "artifact": "review", **meta_base},
+            *review_rows,
+            {"type": "trailer", "artifact": "review", "summary": summary, **metrics},
+        ],
+    )
     print(summary, file=sys.stdout)
     return 0
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description="ProvenanceBench dry-run eval")
-    parser.add_argument("--suite", choices=("smoke", "full"), default="smoke")
+    parser = argparse.ArgumentParser(description="ProvenanceBench v1 evaluation")
+    selection = parser.add_mutually_exclusive_group()
+    selection.add_argument("--cohort", help="named cohort")
+    selection.add_argument("--ids", nargs="+", help="ordered explicit case ids")
+    parser.add_argument(
+        "--stack",
+        choices=sorted(load.VALID_STACK),
+        default=None,
+        help="keep only dense or moe pairs (AND with --kind)",
+    )
+    parser.add_argument(
+        "--kind",
+        action="append",
+        dest="kinds",
+        default=None,
+        metavar="KIND",
+        help=(
+            "keep pairs whose kind equals KIND (repeatable; OR within kind, AND with "
+            "--stack). Quants: pass exact kinds quant and/or quant_gguf_rehost."
+        ),
+    )
     parser.add_argument(
         "--out",
         type=Path,
         default=None,
-        help="run artifact path (default: provenancebench/runs/latest.jsonl)",
+        help="new method artifact path, ending in .method.jsonl",
     )
     parser.add_argument("--root", type=Path, default=None, help="bench data directory")
     args = parser.parse_args(argv)
-    return run_eval(args.root, suite=args.suite, out_path=args.out)
+    return run_eval(
+        args.root,
+        cohort=args.cohort,
+        ids=args.ids,
+        stack=args.stack,
+        kinds=args.kinds,
+        out_path=args.out,
+    )
 
 
 if __name__ == "__main__":

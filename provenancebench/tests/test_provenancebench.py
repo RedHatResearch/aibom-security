@@ -1,181 +1,286 @@
-"""Offline tests for ProvenanceBench manifest."""
+"""Offline tests for the ProvenanceBench manifest and evaluator."""
 
 from __future__ import annotations
 
 import json
-import subprocess
-import sys
+import shutil
 from pathlib import Path
 
+import pytest
 import yaml
 
-from pbench.eval import run_eval
-from pbench.load import (
-    bench_root,
-    case_by_id,
-    kind_index,
-    load_cases,
-    load_kinds,
-    load_smoke_ids,
-    model_pin,
-)
-
-VALID_Y = frozenset({"related", "unrelated", "unsupported"})
-VALID_STACK = frozenset({"dense", "moe"})
-VALID_FILL = frozenset({"hub", "partial", "script", "none"})
-VALID_LABEL_CONFIDENCE = frozenset({"verified", "inferred", "disputed"})
-REQUIRED_CASE_KEYS = frozenset({"id", "stack", "kind", "ref", "sus", "y", "cite"})
-SMOKES_FIXTURES = Path(__file__).resolve().parents[2] / "smokes" / "fixtures.yaml"
-ANCHOR_LABELS = {
-    "pb-001": "positive_dense",
-    "pb-002": "vocab_drift",
-    "pb-003": "unrelated_cross_family",
-}
+from pbench import load
+from pbench.eval import _resolve_ids, run_eval
+from pbench.load import bench_root, case_by_id, load_cases, load_cohort, load_cohorts, load_kinds
 
 
-def test_kinds_load() -> None:
-    kinds = load_kinds()
-    assert len(kinds) >= 30
-    for row in kinds:
-        assert row["fill"] in VALID_FILL
-        assert row["stack"] in {"dense", "moe", "both"}
-
-
-def test_pairs_schema() -> None:
+def test_manifest_and_taxonomy_load() -> None:
     cases = load_cases()
-    kinds = kind_index(load_kinds())
-    assert len(cases) >= 10
+    kinds = load_kinds()
+    cohorts = load_cohorts()
+
+    assert cases
+    assert kinds == list(dict.fromkeys(kinds))
+    assert all(isinstance(kind, str) and kind for kind in kinds)
+    assert all(case["kind"] in kinds for case in cases)
+    assert set(cohorts) == {"smoke", "core", "all"}
+
+
+def test_pair_rows_have_evidence_and_immutable_pins() -> None:
+    cases = load_cases()
+    case_ids = [case["id"] for case in cases]
+
+    assert len(case_ids) == len(set(case_ids))
     for case in cases:
-        assert case.keys() >= REQUIRED_CASE_KEYS
-        assert case["y"] in VALID_Y
-        assert case["stack"] in VALID_STACK
-        assert case["kind"] in kinds
-        tier = case.get("label_confidence", "inferred")
-        assert tier in VALID_LABEL_CONFIDENCE
+        assert not {"ref", "sus", "y", "cite", "label_confidence"} & case.keys()
+        assert case["expected"] in load.VALID_EXPECTED
+        assert case["stack"] in load.VALID_STACK
+        assert set(case["evidence"]) == {"confidence", "sources", "note"}
+        assert case["evidence"]["confidence"] in load.VALID_CONFIDENCE
+        assert case["evidence"]["sources"]
+        assert case["evidence"]["note"]
+        for side in ("subject", "reference"):
+            revision = case[f"{side}_rev"]
+            assert len(revision) == 40
+            assert set(revision) <= set("0123456789abcdef")
+        if case["expected"] == "related":
+            assert case["lineage_scope"] in load.VALID_LINEAGE_SCOPE
+            assert "challenge" not in case
+        else:
+            assert "lineage_scope" not in case
+        if "challenge" in case:
+            assert case["challenge"]["type"] in load.VALID_CHALLENGE_TYPES
 
 
-def test_smoke_ids_exist() -> None:
+def test_cohorts_partition_manifest_without_roster_constants() -> None:
     cases = case_by_id(load_cases())
-    for cid in load_smoke_ids():
-        assert cid in cases
+    cohorts = load_cohorts()
+    for name in cohorts:
+        load_cohort(name)
+
+    smoke_ids = cohorts["smoke"]["ids"]
+    core_ids = cohorts["core"]["ids"]
+    all_ids = cohorts["all"]["ids"]
+
+    assert len(all_ids) == len(set(all_ids))
+    assert set(all_ids) == set(cases)
+    assert set(smoke_ids).isdisjoint(core_ids)
+    assert all_ids == smoke_ids + core_ids
 
 
-def test_anchor_pairs_match_smokes_fixtures() -> None:
-    fixtures = yaml.safe_load(SMOKES_FIXTURES.read_text(encoding="utf-8"))["pairs"]
-    cases = case_by_id(load_cases())
-    for case_id, label in ANCHOR_LABELS.items():
-        case = cases[case_id]
-        pair = fixtures[label]
-        assert case["ref"] == pair["ref"]
-        assert case["sus"] == pair["sus"]
+def test_model_pin_passes_through_manifest_values() -> None:
+    for case in load_cases():
+        for side in ("subject", "reference"):
+            assert load.model_pin(case, side) == (case[side], case[f"{side}_rev"])
 
 
-def test_smoke_label_balance() -> None:
-    cases = case_by_id(load_cases())
-    smoke = load_smoke_ids()
-    labels = [cases[cid]["y"] for cid in smoke]
-    related = sum(label == "related" for label in labels)
-    unrelated = sum(label == "unrelated" for label in labels)
-    unsupported = sum(label == "unsupported" for label in labels)
-    assert unrelated >= 2
-    assert unsupported >= 2
-    assert related <= len(smoke) // 2
+@pytest.mark.parametrize(
+    ("mutation", "message"),
+    [
+        ("missing_field", "missing required field subject"),
+        ("unknown_kind", "unknown kind missing_kind"),
+        ("bad_challenge", "challenge.difficulty must be a non-empty string"),
+        ("empty_sources", "evidence.sources must be a non-empty list of strings"),
+        ("missing_revision", "missing required field subject_rev"),
+    ],
+)
+def test_load_cases_rejects_invalid_metadata(tmp_path: Path, mutation: str, message: str) -> None:
+    root = _copy_bench(tmp_path)
+    path = root / "pairs.yaml"
+    data = yaml.safe_load(path.read_text(encoding="utf-8"))
+    case = data["pairs"][0]
+    if mutation == "missing_field":
+        del case["subject"]
+    elif mutation == "unknown_kind":
+        case["kind"] = "missing_kind"
+    elif mutation == "bad_challenge":
+        case = next(row for row in data["pairs"] if "challenge" in row)
+        case["challenge"]["difficulty"] = 2
+    elif mutation == "empty_sources":
+        case["evidence"]["sources"] = []
+    elif mutation == "missing_revision":
+        del case["subject_rev"]
+    path.write_text(yaml.safe_dump(data, sort_keys=False), encoding="utf-8")
+
+    with pytest.raises(ValueError, match=message):
+        load_cases(root)
 
 
-def test_detect_does_not_import_bench_labels() -> None:
+def test_load_kinds_rejects_non_string_kind(tmp_path: Path) -> None:
+    root = _copy_bench(tmp_path)
+    path = root / "kinds.yaml"
+    data = yaml.safe_load(path.read_text(encoding="utf-8"))
+    data["kinds"][0] = {"kind": "invalid"}
+    path.write_text(yaml.safe_dump(data, sort_keys=False), encoding="utf-8")
+
+    with pytest.raises(ValueError, match="kinds.yaml: row 1 must be a non-empty string"):
+        load_kinds(root)
+
+
+def test_load_cohort_rejects_unknown_case(tmp_path: Path) -> None:
+    root = _copy_bench(tmp_path)
+    (root / "cohorts.yaml").write_text(
+        "schema_version: 1\ncohorts:\n  test:\n    ids: [pb-missing]\n",
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ValueError, match="cohort test: unknown case id pb-missing"):
+        load_cohort("test", root)
+
+
+def test_detector_cannot_read_ground_truth() -> None:
     detect_src = (bench_root() / "detect.py").read_text(encoding="utf-8")
-    banned = ("load_cases", "pairs.yaml", "case_by_id", "pbench.load", "yaml.safe_load")
-    for term in banned:
+    for term in ("load_cases", "pairs.yaml", "case_by_id", "pbench.load", "yaml.safe_load"):
         assert term not in detect_src
 
 
-def test_always_related_baseline_scores_low_bal_acc() -> None:
-    root = bench_root()
-    cheat = root / "detect_cheat_always_related.py"
-    cheat.write_text(
-        """\
-from dataclasses import dataclass
+def test_always_related_is_caught_by_class_behavior(tmp_path: Path) -> None:
+    root = _copy_bench(tmp_path)
+    _write_detector(root, "related", score="1.0")
+    run_path = root / "runs" / "always-related.method.jsonl"
+
+    assert run_eval(root, cohort="all", out_path=run_path) == 0
+    rows = [
+        json.loads(line)
+        for line in run_path.with_name("always-related.review.jsonl").read_text().splitlines()[1:-1]
+    ]
+    assert rows
+    assert all(row["correct"] for row in rows if row["expected"] == "related")
+    assert all(
+        row["error_class"] == "false_confirm" for row in rows if row["expected"] == "unrelated"
+    )
+    assert all(
+        row["error_class"] == "unsupported_false_confirm"
+        for row in rows
+        if row["expected"] == "unsupported"
+    )
+
+
+def test_unsupported_maps_abstain_to_correct(tmp_path: Path) -> None:
+    root = _copy_bench(tmp_path)
+    case = next(row for row in load_cases(root) if row["expected"] == "unsupported")
+    _write_detector(root, "abstain", score="None")
+    run_path = root / "runs" / "unsupported.method.jsonl"
+
+    assert run_eval(root, ids=[case["id"]], out_path=run_path) == 0
+    review_row = json.loads(
+        run_path.with_name("unsupported.review.jsonl").read_text().splitlines()[1]
+    )
+    assert review_row["expected"] == "unsupported"
+    assert review_row["verdict"] == "abstain"
+    assert review_row["correct"] is True
+    assert review_row["error_class"] is None
+    assert review_row["score"] is None
+
+
+def test_eval_writes_pairwise_method_and_review_artifacts(tmp_path: Path) -> None:
+    root = _copy_bench(tmp_path)
+    smoke_ids = load_cohort("smoke", root)["ids"]
+    run_path = root / "runs" / "smoke.method.jsonl"
+
+    assert run_eval(root, cohort="smoke", out_path=run_path) == 0
+    method_lines = run_path.read_text(encoding="utf-8").splitlines()
+    review_lines = run_path.with_name("smoke.review.jsonl").read_text().splitlines()
+    method_cases = [json.loads(line) for line in method_lines[1:-1]]
+    review_cases = [json.loads(line) for line in review_lines[1:-1]]
+    method_meta = json.loads(method_lines[0])
+    method_trailer = json.loads(method_lines[-1])
+    review_trailer = json.loads(review_lines[-1])
+
+    assert method_meta["selection"]["resolved_ids"] == smoke_ids
+    assert len(method_cases) == len(smoke_ids)
+    assert len(review_cases) == len(smoke_ids)
+    assert method_trailer["n_cases"] == len(smoke_ids)
+    assert {"manifest_sha256", "cohort_sha256", "method_sha256"} <= method_meta["hashes"].keys()
+    assert (
+        not {"expected", "evidence", "correct", "mismatch", "error_class"} & method_cases[0].keys()
+    )
+    assert {"expected", "evidence", "correct", "mismatch", "error_class"} <= review_cases[0].keys()
+    assert sum(row["n"] for row in review_trailer["by_kind"].values()) == len(smoke_ids)
+    assert sum(row["n"] for row in review_trailer["by_stack"].values()) == len(smoke_ids)
+
+
+def test_selection_modes_and_filters() -> None:
+    cases = load_cases()
+    with pytest.raises(ValueError, match="mutually exclusive"):
+        run_eval(cohort="smoke", ids=[load_cohorts()["smoke"]["ids"][0]])
+    with pytest.raises(ValueError, match="pass --cohort, --ids, or a --stack/--kind filter"):
+        run_eval()
+
+    selected_case = cases[0]
+    selected, selection = _resolve_ids(
+        cases,
+        cohort=None,
+        ids=None,
+        root=bench_root(),
+        stack=selected_case["stack"],
+        kinds=[selected_case["kind"]],
+    )
+    expected_ids = [
+        case["id"]
+        for case in cases
+        if case["stack"] == selected_case["stack"] and case["kind"] == selected_case["kind"]
+    ]
+    assert [case["id"] for case in selected] == expected_ids
+    assert selection["resolved_ids"] == expected_ids
+    assert selection["filters"] == {
+        "stack": selected_case["stack"],
+        "kinds": [selected_case["kind"]],
+    }
+
+    with pytest.raises(ValueError, match="selection matched no cases after filters"):
+        _resolve_ids(
+            cases,
+            cohort=None,
+            ids=None,
+            root=bench_root(),
+            stack="dense",
+            kinds=["expert_drop"],
+        )
+
+
+def test_artifact_pair_is_preflight_immutable(tmp_path: Path) -> None:
+    root = _copy_bench(tmp_path)
+    method_path = root / "runs" / "collision.method.jsonl"
+    review_path = root / "runs" / "collision.review.jsonl"
+    review_path.parent.mkdir()
+    review_path.write_text("existing review artifact\n", encoding="utf-8")
+
+    with pytest.raises(FileExistsError, match="refusing to overwrite immutable artifact"):
+        run_eval(root, ids=[load_cohort("smoke", root)["ids"][0]], out_path=method_path)
+
+    assert not method_path.exists()
+    assert review_path.read_text(encoding="utf-8") == "existing review artifact\n"
+
+
+def _copy_bench(tmp_path: Path) -> Path:
+    copied = tmp_path / "bench"
+    shutil.copytree(
+        bench_root(),
+        copied,
+        ignore=shutil.ignore_patterns("runs", ".cache", "__pycache__", "*.pyc"),
+    )
+    return copied
+
+
+def _write_detector(root: Path, verdict: str, *, score: str) -> None:
+    (root / "detect.py").write_text(
+        f'''from dataclasses import dataclass
 from typing import Literal
 
-Pred = Literal["related", "unrelated", "abstain"]
+Verdict = Literal["related", "unrelated", "abstain"]
 
 @dataclass(frozen=True)
-class Score:
-    pred: Pred
-    confidence: float
+class Result:
+    verdict: Verdict
+    score: float | None
+    diagnostics: dict[str, object]
     note: str = ""
+    abstain_reason: str | None = None
 
-def score(ref, sus, *, ref_rev=None, sus_rev=None, stack):
-    _ = (ref, sus, ref_rev, sus_rev, stack)
-    return Score(pred="related", confidence=1.0)
-""",
+def score(subject, reference, *, subject_rev=None, reference_rev=None, stack):
+    _ = (subject, reference, subject_rev, reference_rev, stack)
+    return Result(verdict="{verdict}", score={score}, diagnostics={{}})
+''',
         encoding="utf-8",
     )
-    real_detect = root / "detect.py"
-    backup = root / "detect.py.bak"
-    real_detect.rename(backup)
-    cheat.rename(real_detect)
-    try:
-        run_path = root / "runs" / "test-cheat.jsonl"
-        if run_path.exists():
-            run_path.unlink()
-        result = run_eval(root, suite="smoke", out_path=run_path)
-        assert result == 0
-        summary = run_path.read_text(encoding="utf-8").strip().splitlines()[-1]
-        assert '"bal_acc"' in summary
-        trailer = json.loads(summary)
-        assert trailer["bal_acc"] < 0.7
-    finally:
-        real_detect.rename(cheat)
-        backup.rename(real_detect)
-        if run_path.exists():
-            run_path.unlink()
-
-
-def test_model_pin_optional_rev() -> None:
-    case = case_by_id(load_cases())["pb-001"]
-    assert model_pin(case, "ref") == ("HuggingFaceTB/SmolLM2-1.7B", "effd688a1292")
-    assert model_pin(case, "sus")[0].startswith("SultanR/")
-    case_no_rev = case_by_id(load_cases())["pb-003"]
-    assert model_pin(case_no_rev, "ref") == ("HuggingFaceTB/SmolLM2-1.7B", None)
-
-
-def test_eval_smoke_dry_run() -> None:
-    root = bench_root()
-    run_path = root / "runs" / "test-latest.jsonl"
-    triage_path = root / "runs" / "test-latest.triage.jsonl"
-    for path in (run_path, triage_path):
-        if path.exists():
-            path.unlink()
-    result = subprocess.run(
-        [sys.executable, "-m", "pbench.eval", "--suite", "smoke", "--out", str(run_path)],
-        cwd=root.parent,
-        check=False,
-        capture_output=True,
-        text=True,
-    )
-    assert result.returncode == 0, result.stderr
-    assert "SUMMARY acc=" in result.stdout
-    assert "bal_acc=" in result.stdout
-    assert "false_confirm=" in result.stdout
-    assert run_path.is_file()
-    assert triage_path.is_file()
-    lines = run_path.read_text(encoding="utf-8").strip().splitlines()
-    smoke_n = len(load_smoke_ids())
-    assert len(lines) == smoke_n + 2
-    meta = json.loads(lines[0])
-    assert meta["type"] == "meta"
-    assert "pairs_sha256" in meta
-    case_row = json.loads(lines[1])
-    assert case_row["type"] == "case"
-    assert "ref_id" in case_row
-    assert "cite" in case_row
-    assert "label_confidence" in case_row
-    trailer = json.loads(lines[-1])
-    assert trailer["type"] == "trailer"
-    assert "control_subset" in trailer
-    assert "confusion" in trailer
-    triage_lines = triage_path.read_text(encoding="utf-8").strip().splitlines()
-    triage_case = json.loads(triage_lines[1])
-    assert "y" not in triage_case
-    assert "mismatch" in triage_case

@@ -1,36 +1,39 @@
 """Agent-editable detector. pbench-eval loads this file from the bench root.
 
-Must not read ground-truth labels — eval passes only ref/sus, revisions, and stack.
+Must not read curated labels — eval passes only subject/reference ids, revisions, and stack.
 """
 
 from __future__ import annotations
 
 from dataclasses import dataclass
-from pathlib import Path
 from typing import Literal
 
-Pred = Literal["related", "unrelated", "abstain"]
-
-CACHE_DIR = Path(__file__).resolve().parent / ".cache" / "hub"
+Verdict = Literal["related", "unrelated", "abstain"]
 
 
 @dataclass(frozen=True)
-class Score:
-    pred: Pred
-    confidence: float
+class Result:
+    verdict: Verdict
+    score: float | None
+    diagnostics: dict[str, object]
     note: str = ""
+    abstain_reason: str | None = None
 
 
 def score(
-    ref: str,
-    sus: str,
+    subject: str,
+    reference: str,
     *,
-    ref_rev: str | None = None,
-    sus_rev: str | None = None,
+    subject_rev: str | None = None,
+    reference_rev: str | None = None,
     stack: str,
-) -> Score:
+) -> Result:
     """Score one pair. Replace this body with real weight-level signals."""
-    _ = (ref, sus, ref_rev, sus_rev, stack, CACHE_DIR)
-
     # Baseline stub: always abstain. Real detectors must use weights, not labels.
-    return Score(pred="abstain", confidence=0.0, note="stub abstain")
+    return Result(
+        verdict="abstain",
+        score=None,
+        diagnostics={},
+        note="stub abstain",
+        abstain_reason="method_not_implemented",
+    )
