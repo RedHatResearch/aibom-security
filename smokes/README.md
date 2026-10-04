@@ -11,6 +11,7 @@ Runnable checks for the [#26](https://github.com/RedHatResearch/aibom-security/i
 | MoE router Gram | [`moe-router-gram/`](moe-router-gram/) | Gate Gram + expert align | [#17](https://github.com/RedHatResearch/aibom-security/issues/17) · fixtures [`deferred.moe`](fixtures.yaml) |
 | Witness Overlap | [`witness-overlap/`](witness-overlap/) | Delta cosine + SVD subspace overlap | [#26 Witness Overlap](https://github.com/RedHatResearch/aibom-security/issues/26) · fixtures [`deferred.dense_qwen3`, `deferred.tiny_smoke`](fixtures.yaml) |
 | TensorLock | [`tensorlock/`](tensorlock/) | MSA gate + QPS quant provenance + FT direction | [#26 TensorLock](https://github.com/RedHatResearch/aibom-security/issues/26#issuecomment-5982618419) · fixtures in [`tensorlock/config.py`](tensorlock/config.py) |
+| MoE gate probe | [`moe-gate-probe/`](moe-gate-probe/) | TensorLock Eq. 1 s_MSA gate on MoE attention | [#26 MoE gate](https://github.com/RedHatResearch/aibom-security/issues/26#issuecomment-5984348386) · fixtures in [`moe-gate-probe/config.py`](moe-gate-probe/config.py) |
 
 Shared helpers: [`_lib/`](_lib/) (Hub load, fixture pairs).
 
