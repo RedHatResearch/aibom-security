@@ -18,9 +18,9 @@ deferred:
     ref: allenai/OLMoE-1B-7B-0924
     sus: allenai/OLMoE-1B-7B-0924-SFT
   dense_qwen3:
-    note: verify Hub ids before enabling
-    ref: Qwen/Qwen3-0.6B
-    sus: Qwen/Qwen3-0.6B-Instruct
+    note: lineage fixed per pb-smoke-qwen3-sft in provenancebench/pairs.yaml; matches smokes/witness-overlap/config.py
+    ref: Qwen/Qwen3-0.6B-Base
+    sus: Qwen/Qwen3-0.6B
   tiny_smoke:
     ref: HuggingFaceTB/SmolLM2-135M
     sus: HuggingFaceTB/SmolLM2-135M-Instruct

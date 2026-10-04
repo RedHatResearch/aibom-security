@@ -9,6 +9,7 @@ Runnable checks for the [#26](https://github.com/RedHatResearch/aibom-security/i
 | HuRef ICS | [`huref-ics/`](huref-ics/) | Invariant-term cosine | [#26 HuRef](https://github.com/RedHatResearch/aibom-security/issues/26#issuecomment-5193183677) |
 | MoTHer ℓ_FT | [`mother-distance/`](mother-distance/) | Square-tensor RMS distance | [#26 MoTHer](https://github.com/RedHatResearch/aibom-security/issues/26#issuecomment-5194367004) |
 | MoE router Gram | [`moe-router-gram/`](moe-router-gram/) | Gate Gram + expert align | [#17](https://github.com/RedHatResearch/aibom-security/issues/17) · fixtures [`deferred.moe`](fixtures.yaml) |
+| Witness Overlap | [`witness-overlap/`](witness-overlap/) | Delta cosine + SVD subspace overlap | [#26 Witness Overlap](https://github.com/RedHatResearch/aibom-security/issues/26) · fixtures [`deferred.dense_qwen3`, `deferred.tiny_smoke`](fixtures.yaml) |
 
 Shared helpers: [`_lib/`](_lib/) (Hub load, fixture pairs).
 
