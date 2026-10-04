@@ -21,7 +21,8 @@ dev = [
 ]
 smokes = [
     "aibom-verifier",
-    "huggingface_hub>=0.34",
+    "gguf>=0.10",
+     "huggingface_hub>=0.34",
     "ml_dtypes>=0.5",
     "numpy>=2.0",
     "pyyaml>=6.0",
