@@ -13,7 +13,7 @@ pairs:
     confidence: verified
     sources:
     - "https://huggingface.co/Qwen/Qwen2.5-0.5B-Instruct-AWQ/resolve/db09cd27ead7fee40cdee309693cf83601b9c899/README.md"
-    note: AWQ quantization of Qwen2.5-0.5B-Instruct; card and Hub base_model tag name that parent.
+    note: AWQ quantization of Qwen2.5-0.5B-Instruct; card and Hugging Face base_model tag name that parent.
   subject_rev: db09cd27ead7fee40cdee309693cf83601b9c899
   reference_rev: 7ae557604adf67be50417f59c2c2f167def9a775
   lineage_scope: direct
@@ -133,7 +133,7 @@ pairs:
     sources:
     - "https://huggingface.co/AlexWortega/moe-600m-qwen3-upcycle/resolve/46d01a41fee2dd87c8b6dad8e8e71185312c6c5e/README.md"
     - "https://huggingface.co/api/models/Qwen/Qwen3-0.6B-Base/revision/da87bfb608c14b7cf20ba1ce41287e8de496c0cd"
-    note: Dense-to-MoE upcycle from Qwen3-0.6B-Base; card and Hub base_model tag name that dense parent.
+    note: Dense-to-MoE upcycle from Qwen3-0.6B-Base; card and Hugging Face base_model tag name that dense parent.
   subject_rev: 46d01a41fee2dd87c8b6dad8e8e71185312c6c5e
   reference_rev: da87bfb608c14b7cf20ba1ce41287e8de496c0cd
   lineage_scope: direct
@@ -248,7 +248,7 @@ pairs:
     sources:
     - "https://huggingface.co/LiquidAI/LFM2.5-8B-A1B-GGUF/resolve/49c14831707011e64d70b2ebd8462ba08d608434/README.md"
     - "https://huggingface.co/api/models/LiquidAI/LFM2.5-8B-A1B/revision/5dd22602c2e9f6a097b1de4c4efe0658b605015c"
-    note: Official LiquidAI GGUF of LFM2.5-8B-A1B; Hub base_model tag names that parent.
+    note: Official LiquidAI GGUF of LFM2.5-8B-A1B; Hugging Face base_model tag names that parent.
   subject_rev: 49c14831707011e64d70b2ebd8462ba08d608434
   reference_rev: 5dd22602c2e9f6a097b1de4c4efe0658b605015c
   lineage_scope: direct
@@ -278,7 +278,7 @@ pairs:
     sources:
     - "https://huggingface.co/prism-ml/Ternary-Bonsai-8B-gguf/resolve/c2aefbeb4b24469cd11579c3384b990404c17a30/README.md"
     - "https://huggingface.co/api/models/Qwen/Qwen3-8B/revision/b968826d9c46dd6066d109eabc6255188de91218"
-    note: Ternary GGUF of Qwen3-8B; card lists that as base. Hub base_model tag points at an intermediate unpacked packaging step.
+    note: Ternary GGUF of Qwen3-8B; card lists that as base. Hugging Face base_model tag points at an intermediate unpacked packaging step.
   subject_rev: c2aefbeb4b24469cd11579c3384b990404c17a30
   reference_rev: b968826d9c46dd6066d109eabc6255188de91218
   lineage_scope: direct
@@ -418,7 +418,7 @@ pairs:
     sources:
     - "https://huggingface.co/unsloth/Qwen3.5-9B-GGUF/resolve/3885219b6810b007914f3a7950a8d1b469d598a5/README.md"
     - "https://huggingface.co/api/models/Qwen/Qwen3.5-9B/revision/c202236235762e1c871ad0ccb60c8ee5ba337b9a"
-    note: Third-party Unsloth GGUF of Qwen3.5-9B; Hub base_model tag names that parent.
+    note: Third-party Unsloth GGUF of Qwen3.5-9B; Hugging Face base_model tag names that parent.
   subject_rev: 3885219b6810b007914f3a7950a8d1b469d598a5
   reference_rev: c202236235762e1c871ad0ccb60c8ee5ba337b9a
   lineage_scope: direct
@@ -483,7 +483,7 @@ pairs:
     - "https://huggingface.co/api/models/EleutherAI/pythia-410m/revision/9879c9b5f8bea9051dcb0e68dff21493d67e9d4f"
     - "https://huggingface.co/api/models/EleutherAI/pythia-410m/revision/0a5602b15394499c95245a2a266115556c4bb17c"
     - "https://arxiv.org/abs/2304.01373"
-    note: "Same Hub repo: final Pythia-410m checkpoint versus training step 65000."
+    note: "Same Hugging Face repo: final Pythia-410m checkpoint versus training step 65000."
   subject_rev: 9879c9b5f8bea9051dcb0e68dff21493d67e9d4f
   reference_rev: 0a5602b15394499c95245a2a266115556c4bb17c
   lineage_scope: direct
@@ -513,7 +513,7 @@ pairs:
     sources:
     - "https://huggingface.co/ISTA-DASLab/Qwen3.5-4B-GGUF-GSQ/resolve/3fd6825d7b0f014adb03d3981074a43753c0b8be/README.md"
     - "https://huggingface.co/api/models/Qwen/Qwen3.5-4B/revision/851bf6e806efd8d0a36b00ddf55e13ccb7b8cd0a"
-    note: GSQ GGUF (Q2_K_XL) of finetuned Qwen3.5-4B, not the Base; Hub base_model tag names that parent.
+    note: GSQ GGUF (Q2_K_XL) of finetuned Qwen3.5-4B, not the Base; Hugging Face base_model tag names that parent.
   subject_rev: 3fd6825d7b0f014adb03d3981074a43753c0b8be
   reference_rev: 851bf6e806efd8d0a36b00ddf55e13ccb7b8cd0a
   lineage_scope: direct
