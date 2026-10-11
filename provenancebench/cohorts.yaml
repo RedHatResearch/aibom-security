@@ -1,0 +1,88 @@
+schema_version: 1
+cohorts:
+  smoke:
+    ids:
+    - pb-smoke-qwen25-awq
+    - pb-smoke-qwen25-fp8
+    - pb-smoke-smoltulu
+    - pb-smoke-qwen3-sft
+    - pb-smoke-llama-smol-cross
+    - pb-smoke-granite-instruct
+    - pb-smoke-granite-gguf
+    - pb-smoke-granite-smol-cross
+    - pb-smoke-qwen3-upcycle
+  core:
+    ids:
+    - pb-core-tinymixtral-strangers
+    - pb-core-fs-du-strangers
+    - pb-core-btx-fs-strangers
+    - pb-core-du-from-dense
+    - pb-core-sheared-pythia
+    - pb-core-tulu3-sft
+    - pb-core-lfm25-gguf
+    - pb-core-gemma-aqlm
+    - pb-core-ternary-bonsai
+    - pb-core-llama2-aqlm-ft
+    - pb-core-sheared-llama-pruned
+    - pb-core-gpt-oss-4experts
+    - pb-core-gpt-oss-7experts-strangers
+    - pb-core-r1-distill-qwen15
+    - pb-core-r1-distill-llama8
+    - pb-core-r1-abliterated
+    - pb-core-daredevil-abliterated
+    - pb-core-qwen35-unsloth-gguf
+    - pb-core-nemotron-h-4b
+    - pb-core-smollm2-medit-upscale
+    - pb-core-gpt2-fineweb-fp8
+    - pb-core-pythia-step65000
+    - pb-core-minicpm5-1b-rl
+    - pb-core-qwen35-4b-gsq
+    - pb-core-granite-reap-025
+    - pb-core-qwen3-30b-ream
+    - pb-core-lfm25-abliterated
+    - pb-core-lfm25-opus-distil
+    - pb-core-smollm-smollm2-strangers
+    - pb-core-llama2-granite7b-strangers
+    - pb-core-pds-bsl-470m
+  all:
+    ids:
+    - pb-smoke-qwen25-awq
+    - pb-smoke-qwen25-fp8
+    - pb-smoke-smoltulu
+    - pb-smoke-qwen3-sft
+    - pb-smoke-llama-smol-cross
+    - pb-smoke-granite-instruct
+    - pb-smoke-granite-gguf
+    - pb-smoke-granite-smol-cross
+    - pb-smoke-qwen3-upcycle
+    - pb-core-tinymixtral-strangers
+    - pb-core-fs-du-strangers
+    - pb-core-btx-fs-strangers
+    - pb-core-du-from-dense
+    - pb-core-sheared-pythia
+    - pb-core-tulu3-sft
+    - pb-core-lfm25-gguf
+    - pb-core-gemma-aqlm
+    - pb-core-ternary-bonsai
+    - pb-core-llama2-aqlm-ft
+    - pb-core-sheared-llama-pruned
+    - pb-core-gpt-oss-4experts
+    - pb-core-gpt-oss-7experts-strangers
+    - pb-core-r1-distill-qwen15
+    - pb-core-r1-distill-llama8
+    - pb-core-r1-abliterated
+    - pb-core-daredevil-abliterated
+    - pb-core-qwen35-unsloth-gguf
+    - pb-core-nemotron-h-4b
+    - pb-core-smollm2-medit-upscale
+    - pb-core-gpt2-fineweb-fp8
+    - pb-core-pythia-step65000
+    - pb-core-minicpm5-1b-rl
+    - pb-core-qwen35-4b-gsq
+    - pb-core-granite-reap-025
+    - pb-core-qwen3-30b-ream
+    - pb-core-lfm25-abliterated
+    - pb-core-lfm25-opus-distil
+    - pb-core-smollm-smollm2-strangers
+    - pb-core-llama2-granite7b-strangers
+    - pb-core-pds-bsl-470m

@@ -1,0 +1,19 @@
+schema_version: 1
+
+# Kinds currently represented in pairs.yaml.
+
+kinds:
+  - abliterate
+  - sft
+  - preference
+  - distill_cross
+  - structured_prune
+  - expert_drop
+  - expert_drop_reap
+  - expert_merge_ream
+  - upcycle_naive
+  - depth_upscale
+  - quant
+  - quant_gguf_rehost
+  - composite
+  - neg_cross

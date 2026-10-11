@@ -1,0 +1,638 @@
+# Pairwise static-whitebox provenance evaluation: subject x reference -> expected.
+# evidence supports the expected label; context is reserved for pair-specific diagnostics.
+
+schema_version: 1
+pairs:
+- id: pb-smoke-qwen25-awq
+  stack: dense
+  kind: quant
+  subject: Qwen/Qwen2.5-0.5B-Instruct-AWQ
+  reference: Qwen/Qwen2.5-0.5B-Instruct
+  expected: related
+  evidence:
+    confidence: verified
+    sources:
+    - "https://huggingface.co/Qwen/Qwen2.5-0.5B-Instruct-AWQ/resolve/db09cd27ead7fee40cdee309693cf83601b9c899/README.md"
+    note: AWQ quantization of Qwen2.5-0.5B-Instruct; card and Hugging Face base_model tag name that parent.
+  subject_rev: db09cd27ead7fee40cdee309693cf83601b9c899
+  reference_rev: 7ae557604adf67be50417f59c2c2f167def9a775
+  lineage_scope: direct
+- id: pb-smoke-qwen25-fp8
+  stack: dense
+  kind: quant
+  subject: RedHatAI/Qwen2.5-0.5B-Instruct-FP8-dynamic
+  reference: Qwen/Qwen2.5-0.5B-Instruct
+  expected: related
+  evidence:
+    confidence: inferred
+    sources:
+    - "https://huggingface.co/RedHatAI/Qwen2.5-0.5B-Instruct-FP8-dynamic/resolve/67c5c3a4f39629d3653b715527f363d86929841e/config.json"
+    - "https://huggingface.co/RedHatAI/Qwen2.5-0.5B-Instruct-FP8-dynamic/resolve/67c5c3a4f39629d3653b715527f363d86929841e/recipe.yaml"
+    - "https://huggingface.co/api/models/Qwen/Qwen2.5-0.5B-Instruct/revision/7ae557604adf67be50417f59c2c2f167def9a775"
+    note: FP8-dynamic quantization of Qwen2.5-0.5B-Instruct; config _name_or_path points at that snapshot. No model card README.
+  subject_rev: 67c5c3a4f39629d3653b715527f363d86929841e
+  reference_rev: 7ae557604adf67be50417f59c2c2f167def9a775
+  lineage_scope: direct
+- id: pb-smoke-smoltulu
+  stack: dense
+  kind: sft
+  subject: SultanR/SmolTulu-1.7b-Instruct
+  reference: HuggingFaceTB/SmolLM2-1.7B
+  expected: related
+  evidence:
+    confidence: verified
+    sources:
+    - "https://huggingface.co/SultanR/SmolTulu-1.7b-Instruct/resolve/038ba8a7e8a2bff3c6ae2b352fafbc698d539f93/README.md"
+    note: SFT and DPO of SmolLM2-1.7B via the Tulu 3 pipeline; subject card names that base.
+  subject_rev: 038ba8a7e8a2bff3c6ae2b352fafbc698d539f93
+  reference_rev: effd688a12921b4cc83e3312b6feb579f70f9c71
+  lineage_scope: direct
+- id: pb-smoke-qwen3-sft
+  stack: dense
+  kind: sft
+  subject: Qwen/Qwen3-0.6B
+  reference: Qwen/Qwen3-0.6B-Base
+  expected: related
+  evidence:
+    confidence: verified
+    sources:
+    - "https://huggingface.co/Qwen/Qwen3-0.6B/resolve/c1899de289a04d12100db370d81485cdf75e47ca/README.md"
+    note: Instruct post-train of Qwen3-0.6B-Base; subject card names that base.
+  subject_rev: c1899de289a04d12100db370d81485cdf75e47ca
+  reference_rev: da87bfb608c14b7cf20ba1ce41287e8de496c0cd
+  lineage_scope: direct
+- id: pb-smoke-llama-smol-cross
+  stack: dense
+  kind: neg_cross
+  subject: meta-llama/Llama-3.2-1B
+  reference: HuggingFaceTB/SmolLM2-1.7B
+  expected: unrelated
+  evidence:
+    confidence: verified
+    sources:
+    - "https://huggingface.co/api/models/meta-llama/Llama-3.2-1B/revision/4e20de362430cd3b72f300e6b0f18e50e7166e08"
+    - "https://huggingface.co/api/models/HuggingFaceTB/SmolLM2-1.7B/revision/effd688a12921b4cc83e3312b6feb579f70f9c71"
+    note: "Cross-family: Llama-3.2-1B and SmolLM2-1.7B are independently published checkpoints with no parent/child link."
+  subject_rev: 4e20de362430cd3b72f300e6b0f18e50e7166e08
+  reference_rev: effd688a12921b4cc83e3312b6feb579f70f9c71
+  challenge:
+    type: unrelated_reference
+- id: pb-smoke-granite-instruct
+  stack: moe
+  kind: sft
+  subject: ibm-granite/granite-3.1-1b-a400m-instruct
+  reference: ibm-granite/granite-3.1-1b-a400m-base
+  expected: related
+  evidence:
+    confidence: verified
+    sources:
+    - "https://huggingface.co/ibm-granite/granite-3.1-1b-a400m-instruct/resolve/0da7a48b0276d500ce5922fd2b33944091fc6c09/README.md"
+    - "https://huggingface.co/api/models/ibm-granite/granite-3.1-1b-a400m-base/revision/408b6e90baab8cf24f4aa9f8e19703ffa0a53b29"
+    note: Instruct post-train of granite-3.1-1b-a400m-base via SFT, RL alignment, and merging; subject card names that base.
+  subject_rev: 0da7a48b0276d500ce5922fd2b33944091fc6c09
+  reference_rev: 408b6e90baab8cf24f4aa9f8e19703ffa0a53b29
+  lineage_scope: direct
+- id: pb-smoke-granite-gguf
+  stack: moe
+  kind: quant_gguf_rehost
+  subject: QuantFactory/granite-3.1-1b-a400m-base-GGUF
+  reference: ibm-granite/granite-3.1-1b-a400m-base
+  expected: related
+  evidence:
+    confidence: verified
+    sources:
+    - "https://huggingface.co/QuantFactory/granite-3.1-1b-a400m-base-GGUF/resolve/8180861a4a2104b96ac65424aedf1385393b8466/README.md"
+    note: Third-party QuantFactory GGUF of granite-3.1-1b-a400m-base; README names that parent.
+  subject_rev: 8180861a4a2104b96ac65424aedf1385393b8466
+  reference_rev: 408b6e90baab8cf24f4aa9f8e19703ffa0a53b29
+  lineage_scope: direct
+- id: pb-smoke-granite-smol-cross
+  stack: moe
+  kind: neg_cross
+  subject: ibm-granite/granite-3.1-1b-a400m-base
+  reference: HuggingFaceTB/SmolLM2-1.7B
+  expected: unrelated
+  evidence:
+    confidence: verified
+    sources:
+    - "https://huggingface.co/api/models/ibm-granite/granite-3.1-1b-a400m-base/revision/408b6e90baab8cf24f4aa9f8e19703ffa0a53b29"
+    - "https://huggingface.co/api/models/HuggingFaceTB/SmolLM2-1.7B/revision/effd688a12921b4cc83e3312b6feb579f70f9c71"
+    note: "Cross-family: Granite MoE base versus SmolLM2 dense; no shared lineage."
+  subject_rev: 408b6e90baab8cf24f4aa9f8e19703ffa0a53b29
+  reference_rev: effd688a12921b4cc83e3312b6feb579f70f9c71
+  challenge:
+    type: unrelated_reference
+- id: pb-smoke-qwen3-upcycle
+  stack: moe
+  kind: upcycle_naive
+  subject: AlexWortega/moe-600m-qwen3-upcycle
+  reference: Qwen/Qwen3-0.6B-Base
+  expected: related
+  evidence:
+    confidence: verified
+    sources:
+    - "https://huggingface.co/AlexWortega/moe-600m-qwen3-upcycle/resolve/46d01a41fee2dd87c8b6dad8e8e71185312c6c5e/README.md"
+    - "https://huggingface.co/api/models/Qwen/Qwen3-0.6B-Base/revision/da87bfb608c14b7cf20ba1ce41287e8de496c0cd"
+    note: Dense-to-MoE upcycle from Qwen3-0.6B-Base; card and Hugging Face base_model tag name that dense parent.
+  subject_rev: 46d01a41fee2dd87c8b6dad8e8e71185312c6c5e
+  reference_rev: da87bfb608c14b7cf20ba1ce41287e8de496c0cd
+  lineage_scope: direct
+- id: pb-core-tinymixtral-strangers
+  stack: moe
+  kind: neg_cross
+  subject: mikecovlee/tinymixtral-v1.0
+  reference: mikecovlee/tinymixtral-v1.1-0.5b
+  expected: unrelated
+  evidence:
+    confidence: inferred
+    sources:
+    - "https://huggingface.co/api/models/mikecovlee/tinymixtral-v1.0/revision/eeddfffd919438f93763d996ac5de94bcf32d858"
+    - "https://huggingface.co/api/models/mikecovlee/tinymixtral-v1.1-0.5b/revision/d3ea7fe9f3a1a0b4b1a85c19ce1d0d5581f9e8d9"
+    - "https://huggingface.co/mikecovlee/tinymixtral-v1.0/resolve/eeddfffd919438f93763d996ac5de94bcf32d858/README.md"
+    - "https://huggingface.co/mikecovlee/tinymixtral-v1.1-0.5b/resolve/d3ea7fe9f3a1a0b4b1a85c19ce1d0d5581f9e8d9/README.md"
+    note: Same-layout tinymixtral models from separate pretraining lines (v1.0 on C4, v1.1 on FineWeb-Edu+Cosmopedia); neither is parent of the other.
+  subject_rev: eeddfffd919438f93763d996ac5de94bcf32d858
+  reference_rev: d3ea7fe9f3a1a0b4b1a85c19ce1d0d5581f9e8d9
+  challenge:
+    type: unrelated_reference
+- id: pb-core-fs-du-strangers
+  stack: moe
+  kind: neg_cross
+  subject: llm-jp/FS-8x152M
+  reference: llm-jp/DU-0.5-8x152M
+  expected: unrelated
+  evidence:
+    confidence: verified
+    sources:
+    - "https://huggingface.co/llm-jp/DU-0.5-8x152M/resolve/8c4c776a79ad44b77aebcf748c0d08df7d7eba58/README.md"
+    - "https://huggingface.co/api/models/llm-jp/FS-8x152M/revision/50ba41ad19e20b9d6c1fbcb3509d690d3af86ee3"
+    note: FS-8x152M and DU-0.5-8x152M are sibling MoEs from Dense-152M; neither is parent of the other.
+  subject_rev: 50ba41ad19e20b9d6c1fbcb3509d690d3af86ee3
+  reference_rev: 8c4c776a79ad44b77aebcf748c0d08df7d7eba58
+  challenge:
+    type: unrelated_reference
+- id: pb-core-btx-fs-strangers
+  stack: moe
+  kind: neg_cross
+  subject: llm-jp/BTX-8x152M
+  reference: llm-jp/FS-8x152M
+  expected: unrelated
+  evidence:
+    confidence: verified
+    sources:
+    - "https://huggingface.co/llm-jp/DU-0.5-8x152M/resolve/8c4c776a79ad44b77aebcf748c0d08df7d7eba58/README.md"
+    - "https://huggingface.co/api/models/llm-jp/BTX-8x152M/revision/71b85d19bf8c84d459aa8c9ed8fd31351812d47a"
+    - "https://huggingface.co/api/models/llm-jp/FS-8x152M/revision/50ba41ad19e20b9d6c1fbcb3509d690d3af86ee3"
+    note: BTX-8x152M and FS-8x152M are distinct upcycling constructions; neither is parent of the other.
+  subject_rev: 71b85d19bf8c84d459aa8c9ed8fd31351812d47a
+  reference_rev: 50ba41ad19e20b9d6c1fbcb3509d690d3af86ee3
+  challenge:
+    type: unrelated_reference
+- id: pb-core-du-from-dense
+  stack: moe
+  kind: upcycle_naive
+  subject: llm-jp/DU-0.5-8x152M
+  reference: llm-jp/Dense-152M
+  expected: related
+  evidence:
+    confidence: verified
+    sources:
+    - "https://huggingface.co/llm-jp/DU-0.5-8x152M/resolve/8c4c776a79ad44b77aebcf748c0d08df7d7eba58/README.md"
+    - "https://openreview.net/forum?id=gx1wHnf5Vp"
+    - "https://huggingface.co/api/models/llm-jp/Dense-152M/revision/a89cf2c52c5286d4e11f6b8331fc92d0e3e0fbc4"
+    note: Drop-Upcycling dense-to-MoE from Dense-152M.
+  subject_rev: 8c4c776a79ad44b77aebcf748c0d08df7d7eba58
+  reference_rev: a89cf2c52c5286d4e11f6b8331fc92d0e3e0fbc4
+  lineage_scope: direct
+- id: pb-core-sheared-pythia
+  stack: dense
+  kind: composite
+  subject: princeton-nlp/Sheared-Pythia-160m
+  reference: EleutherAI/pythia-410m
+  expected: related
+  evidence:
+    confidence: verified
+    sources:
+    - "https://huggingface.co/princeton-nlp/Sheared-Pythia-160m/resolve/c8889f496254bae7b6196dfd64521e1581eb5567/README.md"
+    - "https://arxiv.org/abs/2310.06694"
+    - "https://huggingface.co/api/models/EleutherAI/pythia-410m/revision/9879c9b5f8bea9051dcb0e68dff21493d67e9d4f"
+    note: Structured prune plus continued training from pythia-410m (Sheared line), not pure prune.
+  subject_rev: c8889f496254bae7b6196dfd64521e1581eb5567
+  reference_rev: 9879c9b5f8bea9051dcb0e68dff21493d67e9d4f
+  lineage_scope: direct
+- id: pb-core-tulu3-sft
+  stack: dense
+  kind: sft
+  subject: allenai/Llama-3.1-Tulu-3-8B-SFT
+  reference: meta-llama/Llama-3.1-8B
+  expected: related
+  evidence:
+    confidence: verified
+    sources:
+    - "https://arxiv.org/html/2411.15124"
+    - "https://huggingface.co/allenai/Llama-3.1-Tulu-3-8B-SFT"
+    - "https://huggingface.co/api/models/meta-llama/Llama-3.1-8B/revision/d04e592bb4f6aa9cfee91e2e20afa771667e1d4b"
+    - "https://huggingface.co/api/models/allenai/Llama-3.1-Tulu-3-8B-SFT/revision/f2a0b46b0cfda21003c6141b1ff837b7e165524d"
+    note: SFT of Llama-3.1-8B; Tülu 3 report lists that as Base Model.
+  subject_rev: f2a0b46b0cfda21003c6141b1ff837b7e165524d
+  reference_rev: d04e592bb4f6aa9cfee91e2e20afa771667e1d4b
+  lineage_scope: direct
+- id: pb-core-lfm25-gguf
+  stack: moe
+  kind: quant
+  subject: LiquidAI/LFM2.5-8B-A1B-GGUF
+  reference: LiquidAI/LFM2.5-8B-A1B
+  expected: related
+  evidence:
+    confidence: verified
+    sources:
+    - "https://huggingface.co/LiquidAI/LFM2.5-8B-A1B-GGUF/resolve/49c14831707011e64d70b2ebd8462ba08d608434/README.md"
+    - "https://huggingface.co/api/models/LiquidAI/LFM2.5-8B-A1B/revision/5dd22602c2e9f6a097b1de4c4efe0658b605015c"
+    note: Official LiquidAI GGUF of LFM2.5-8B-A1B; Hugging Face base_model tag names that parent.
+  subject_rev: 49c14831707011e64d70b2ebd8462ba08d608434
+  reference_rev: 5dd22602c2e9f6a097b1de4c4efe0658b605015c
+  lineage_scope: direct
+- id: pb-core-gemma-aqlm
+  stack: dense
+  kind: quant
+  subject: ISTA-DASLab/gemma-2b-AQLM-2Bit-1x16-hf
+  reference: google/gemma-2b
+  expected: related
+  evidence:
+    confidence: verified
+    sources:
+    - "https://huggingface.co/ISTA-DASLab/gemma-2b-AQLM-2Bit-1x16-hf/resolve/509ed2dd78bd624eb4e3e91dbd9fc87631f49b57/README.md"
+    - "https://huggingface.co/api/models/google/gemma-2b/revision/9cf48e52b224239de00d483ec8eb84fb8d0f3a3a"
+    note: AQLM 2-bit quantization of google/gemma-2b.
+  subject_rev: 509ed2dd78bd624eb4e3e91dbd9fc87631f49b57
+  reference_rev: 9cf48e52b224239de00d483ec8eb84fb8d0f3a3a
+  lineage_scope: direct
+- id: pb-core-ternary-bonsai
+  stack: dense
+  kind: quant
+  subject: prism-ml/Ternary-Bonsai-8B-gguf
+  reference: Qwen/Qwen3-8B
+  expected: related
+  evidence:
+    confidence: verified
+    sources:
+    - "https://huggingface.co/prism-ml/Ternary-Bonsai-8B-gguf/resolve/c2aefbeb4b24469cd11579c3384b990404c17a30/README.md"
+    - "https://huggingface.co/api/models/Qwen/Qwen3-8B/revision/b968826d9c46dd6066d109eabc6255188de91218"
+    note: Ternary GGUF of Qwen3-8B; card lists that as base. Hugging Face base_model tag points at an intermediate unpacked packaging step.
+  subject_rev: c2aefbeb4b24469cd11579c3384b990404c17a30
+  reference_rev: b968826d9c46dd6066d109eabc6255188de91218
+  lineage_scope: direct
+- id: pb-core-llama2-aqlm-ft
+  stack: dense
+  kind: composite
+  subject: ISTA-DASLab/Llama-2-7b-AQLM-2Bit-1x16-hf
+  reference: meta-llama/Llama-2-7b-hf
+  expected: related
+  evidence:
+    confidence: verified
+    sources:
+    - "https://huggingface.co/ISTA-DASLab/Llama-2-7b-AQLM-2Bit-1x16-hf/resolve/9746e511b4eecf972af0a2bb3ebd93f2c5f84ecc/README.md"
+    - "https://huggingface.co/api/models/meta-llama/Llama-2-7b-hf/revision/01c7f73d771dfac7d292323805ebc428287df4f9"
+    note: AQLM quantization of Llama-2-7b-hf with documented post-quant global finetuning.
+  subject_rev: 9746e511b4eecf972af0a2bb3ebd93f2c5f84ecc
+  reference_rev: 01c7f73d771dfac7d292323805ebc428287df4f9
+  lineage_scope: direct
+- id: pb-core-sheared-llama-pruned
+  stack: dense
+  kind: structured_prune
+  subject: princeton-nlp/Sheared-LLaMA-1.3B-Pruned
+  reference: meta-llama/Llama-2-7b-hf
+  expected: related
+  evidence:
+    confidence: verified
+    sources:
+    - "https://huggingface.co/princeton-nlp/Sheared-LLaMA-1.3B-Pruned/resolve/97faa5975163e879f2f3f8b715e4d187ed96684f/README.md"
+    - "https://arxiv.org/abs/2310.06694"
+    - "https://huggingface.co/api/models/meta-llama/Llama-2-7b-hf/revision/01c7f73d771dfac7d292323805ebc428287df4f9"
+    note: Structured prune of Llama-2-7b-hf to Sheared-LLaMA-1.3B-Pruned, before continued pretraining.
+  subject_rev: 97faa5975163e879f2f3f8b715e4d187ed96684f
+  reference_rev: 01c7f73d771dfac7d292323805ebc428287df4f9
+  lineage_scope: direct
+- id: pb-core-gpt-oss-4experts
+  stack: moe
+  kind: expert_drop
+  subject: AmanPriyanshu/gpt-oss-4.2b-specialized-all-pruned-moe-only-4-experts
+  reference: openai/gpt-oss-20b
+  expected: related
+  evidence:
+    confidence: verified
+    sources:
+    - "https://huggingface.co/AmanPriyanshu/gpt-oss-4.2b-specialized-all-pruned-moe-only-4-experts/resolve/d2fbf35dfdc9de041e71377c7747508fff794cbe/README.md"
+    - "https://huggingface.co/AmanPriyanshu/gpt-oss-4.2b-specialized-all-pruned-moe-only-4-experts/resolve/d2fbf35dfdc9de041e71377c7747508fff794cbe/config.json"
+    - "https://huggingface.co/openai/gpt-oss-20b/resolve/6cee5e81ee83917806bbde320786a8fb61efebee/README.md"
+    - "https://huggingface.co/datasets/AmanPriyanshu/GPT-OSS-20B-MoE-expert-activations"
+    note: Expert drop of gpt-oss-20b from 32 to 4 experts by activation pattern; no additional training.
+  subject_rev: d2fbf35dfdc9de041e71377c7747508fff794cbe
+  reference_rev: 6cee5e81ee83917806bbde320786a8fb61efebee
+  lineage_scope: direct
+- id: pb-core-gpt-oss-7experts-strangers
+  stack: moe
+  kind: neg_cross
+  subject: AmanPriyanshu/gpt-oss-6.0b-specialized-math-pruned-moe-only-7-experts
+  reference: AmanPriyanshu/gpt-oss-6.0b-specialized-all-pruned-moe-only-7-experts
+  expected: unrelated
+  evidence:
+    confidence: verified
+    sources:
+    - "https://huggingface.co/AmanPriyanshu/gpt-oss-6.0b-specialized-math-pruned-moe-only-7-experts/resolve/9302a7666bcf81c55c7ea15fed8eabed68ee9b4b/README.md"
+    - "https://huggingface.co/AmanPriyanshu/gpt-oss-6.0b-specialized-all-pruned-moe-only-7-experts/resolve/a1599a4d8b40849c8dd0c676b681b90a05954091/README.md"
+    note: Sibling expert-drops of gpt-oss-20b to 7 experts (math vs all criteria); neither is parent of the other.
+  subject_rev: 9302a7666bcf81c55c7ea15fed8eabed68ee9b4b
+  reference_rev: a1599a4d8b40849c8dd0c676b681b90a05954091
+  challenge:
+    type: unrelated_reference
+- id: pb-core-r1-distill-qwen15
+  stack: dense
+  kind: distill_cross
+  subject: deepseek-ai/DeepSeek-R1-Distill-Qwen-1.5B
+  reference: Qwen/Qwen2.5-Math-1.5B
+  expected: related
+  evidence:
+    confidence: verified
+    sources:
+    - "https://huggingface.co/deepseek-ai/DeepSeek-R1-Distill-Qwen-1.5B/resolve/ad9f0ae0864d7fbcd1cd905e3c6c5b069cc8b562/README.md"
+    - "https://huggingface.co/api/models/Qwen/Qwen2.5-Math-1.5B/revision/4a83ca6e4526a4f2da3aa259ec36c259f66b2ab2"
+    - "https://arxiv.org/abs/2501.12948"
+    note: R1 distill onto the Qwen2.5-Math-1.5B weight backbone; the R1 teacher is not the reference.
+  subject_rev: ad9f0ae0864d7fbcd1cd905e3c6c5b069cc8b562
+  reference_rev: 4a83ca6e4526a4f2da3aa259ec36c259f66b2ab2
+  lineage_scope: direct
+- id: pb-core-r1-distill-llama8
+  stack: dense
+  kind: distill_cross
+  subject: deepseek-ai/DeepSeek-R1-Distill-Llama-8B
+  reference: meta-llama/Llama-3.1-8B
+  expected: related
+  evidence:
+    confidence: verified
+    sources:
+    - "https://huggingface.co/deepseek-ai/DeepSeek-R1-Distill-Llama-8B/resolve/6a6f4aa4197940add57724a7707d069478df56b1/README.md"
+    - "https://huggingface.co/api/models/meta-llama/Llama-3.1-8B/revision/d04e592bb4f6aa9cfee91e2e20afa771667e1d4b"
+    - "https://arxiv.org/abs/2501.12948"
+    note: R1 distill onto the Llama-3.1-8B weight backbone; the R1 teacher is not the reference.
+  subject_rev: 6a6f4aa4197940add57724a7707d069478df56b1
+  reference_rev: d04e592bb4f6aa9cfee91e2e20afa771667e1d4b
+  lineage_scope: direct
+- id: pb-core-r1-abliterated
+  stack: dense
+  kind: abliterate
+  subject: huihui-ai/DeepSeek-R1-Distill-Qwen-7B-abliterated-v2
+  reference: deepseek-ai/DeepSeek-R1-Distill-Qwen-7B
+  expected: related
+  evidence:
+    confidence: verified
+    sources:
+    - "https://huggingface.co/huihui-ai/DeepSeek-R1-Distill-Qwen-7B-abliterated-v2/resolve/03f2ebe6efc082cd416af9bce842c8b65f7484a2/README.md"
+    - "https://huggingface.co/api/models/deepseek-ai/DeepSeek-R1-Distill-Qwen-7B/revision/916b56a44061fd5cd7d6a8fb632557ed4f724f60"
+    note: Abliteration of DeepSeek-R1-Distill-Qwen-7B; layout preserved.
+  subject_rev: 03f2ebe6efc082cd416af9bce842c8b65f7484a2
+  reference_rev: 916b56a44061fd5cd7d6a8fb632557ed4f724f60
+  lineage_scope: direct
+- id: pb-core-daredevil-abliterated
+  stack: dense
+  kind: abliterate
+  subject: mlabonne/Daredevil-8B-abliterated
+  reference: mlabonne/Daredevil-8B
+  expected: related
+  evidence:
+    confidence: inferred
+    sources:
+    - "https://huggingface.co/mlabonne/Daredevil-8B-abliterated/resolve/6f3527c9adb10df019bee590ec935a572329ff79/README.md"
+    note: Abliteration of Daredevil-8B; subject card names that exact parent.
+  subject_rev: 6f3527c9adb10df019bee590ec935a572329ff79
+  reference_rev: a3fc9099b50a8455dfeee4d2971461df7e1892c9
+  lineage_scope: direct
+- id: pb-core-qwen35-unsloth-gguf
+  stack: dense
+  kind: quant_gguf_rehost
+  subject: unsloth/Qwen3.5-9B-GGUF
+  reference: Qwen/Qwen3.5-9B
+  expected: related
+  evidence:
+    confidence: verified
+    sources:
+    - "https://huggingface.co/unsloth/Qwen3.5-9B-GGUF/resolve/3885219b6810b007914f3a7950a8d1b469d598a5/README.md"
+    - "https://huggingface.co/api/models/Qwen/Qwen3.5-9B/revision/c202236235762e1c871ad0ccb60c8ee5ba337b9a"
+    note: Third-party Unsloth GGUF of Qwen3.5-9B; Hugging Face base_model tag names that parent.
+  subject_rev: 3885219b6810b007914f3a7950a8d1b469d598a5
+  reference_rev: c202236235762e1c871ad0ccb60c8ee5ba337b9a
+  lineage_scope: direct
+- id: pb-core-nemotron-h-4b
+  stack: dense
+  kind: composite
+  subject: nvidia/Nemotron-H-4B-Base-8K
+  reference: nvidia/Nemotron-H-8B-Base-8K
+  expected: related
+  evidence:
+    confidence: verified
+    sources:
+    - "https://huggingface.co/nvidia/Nemotron-H-4B-Base-8K/resolve/faba3b731ad7ea5781b9518ae75fb610a94affcf/README.md"
+    - "https://arxiv.org/abs/2504.11409"
+    - "https://huggingface.co/api/models/nvidia/Nemotron-H-8B-Base-8K/revision/94ea861e008c2dfced3e8e1302094024077aa04e"
+    note: Prune-then-distill compression from Nemotron-H-8B-Base-8K to the 4B child.
+  subject_rev: faba3b731ad7ea5781b9518ae75fb610a94affcf
+  reference_rev: 94ea861e008c2dfced3e8e1302094024077aa04e
+  lineage_scope: direct
+- id: pb-core-smollm2-medit-upscale
+  stack: dense
+  kind: depth_upscale
+  subject: meditsolutions/SmolLM2-MedIT-Upscale-2B
+  reference: HuggingFaceTB/SmolLM2-1.7B-Instruct
+  expected: unsupported
+  evidence:
+    confidence: inferred
+    sources:
+    - "https://huggingface.co/meditsolutions/SmolLM2-MedIT-Upscale-2B/resolve/a563de6981c8a0897df8483e696af663c506cfdd/README.md"
+    - "https://huggingface.co/meditsolutions/SmolLM2-MedIT-Upscale-2B/resolve/a563de6981c8a0897df8483e696af663c506cfdd/config.json"
+    - "https://huggingface.co/HuggingFaceTB/SmolLM2-1.7B-Instruct/resolve/31b70e2e869a7173562077fd711b654946d38674/config.json"
+    note: Attention heads expanded 32 to 64 versus SmolLM2-1.7B-Instruct; depth, hidden width, and vocab unchanged, so comparable-tensor scoring cannot run.
+  subject_rev: a563de6981c8a0897df8483e696af663c506cfdd
+  reference_rev: 31b70e2e869a7173562077fd711b654946d38674
+  challenge:
+    type: non_comparable_input
+- id: pb-core-gpt2-fineweb-fp8
+  stack: dense
+  kind: neg_cross
+  subject: ulmentflam/gpt2-124m-fineweb-fp8-mojo
+  reference: openai-community/gpt2
+  expected: unrelated
+  evidence:
+    confidence: inferred
+    sources:
+    - "https://huggingface.co/ulmentflam/gpt2-124m-fineweb-fp8-mojo/resolve/b9633291a2a4801daa886d52428c5c827ef747d2/README.md"
+    - "https://huggingface.co/api/models/openai-community/gpt2/revision/607a30d783dfa663caf39e06633721c8d4cfcd7e"
+    note: From-scratch FineWeb train with GPT-2 layout and no GPT-2 warm-start; same layout is not weight lineage.
+  subject_rev: b9633291a2a4801daa886d52428c5c827ef747d2
+  reference_rev: 607a30d783dfa663caf39e06633721c8d4cfcd7e
+  challenge:
+    type: unrelated_reference
+- id: pb-core-pythia-step65000
+  stack: dense
+  kind: composite
+  subject: EleutherAI/pythia-410m
+  reference: EleutherAI/pythia-410m
+  expected: related
+  evidence:
+    confidence: inferred
+    sources:
+    - "https://huggingface.co/api/models/EleutherAI/pythia-410m/revision/9879c9b5f8bea9051dcb0e68dff21493d67e9d4f"
+    - "https://huggingface.co/api/models/EleutherAI/pythia-410m/revision/0a5602b15394499c95245a2a266115556c4bb17c"
+    - "https://arxiv.org/abs/2304.01373"
+    note: "Same Hugging Face repo: final Pythia-410m checkpoint versus training step 65000."
+  subject_rev: 9879c9b5f8bea9051dcb0e68dff21493d67e9d4f
+  reference_rev: 0a5602b15394499c95245a2a266115556c4bb17c
+  lineage_scope: direct
+- id: pb-core-minicpm5-1b-rl
+  stack: dense
+  kind: preference
+  subject: openbmb/MiniCPM5-1B
+  reference: openbmb/MiniCPM5-1B-SFT
+  expected: related
+  evidence:
+    confidence: inferred
+    sources:
+    - "https://huggingface.co/openbmb/MiniCPM5-1B/resolve/87179e5c1f455ef22e6223592d2d61351b525bfc/README.md"
+    - "https://huggingface.co/openbmb/MiniCPM5-1B"
+    note: BF16 RL+OPD post-train of MiniCPM5-1B-SFT; card lists that SFT checkpoint as the prior stage.
+  subject_rev: 87179e5c1f455ef22e6223592d2d61351b525bfc
+  reference_rev: a60b37f1fc409c54e1e337b0723aaac6f92dfec0
+  lineage_scope: direct
+- id: pb-core-qwen35-4b-gsq
+  stack: dense
+  kind: quant
+  subject: ISTA-DASLab/Qwen3.5-4B-GGUF-GSQ
+  reference: Qwen/Qwen3.5-4B
+  expected: related
+  evidence:
+    confidence: inferred
+    sources:
+    - "https://huggingface.co/ISTA-DASLab/Qwen3.5-4B-GGUF-GSQ/resolve/3fd6825d7b0f014adb03d3981074a43753c0b8be/README.md"
+    - "https://huggingface.co/api/models/Qwen/Qwen3.5-4B/revision/851bf6e806efd8d0a36b00ddf55e13ccb7b8cd0a"
+    note: GSQ GGUF (Q2_K_XL) of finetuned Qwen3.5-4B, not the Base; Hugging Face base_model tag names that parent.
+  subject_rev: 3fd6825d7b0f014adb03d3981074a43753c0b8be
+  reference_rev: 851bf6e806efd8d0a36b00ddf55e13ccb7b8cd0a
+  lineage_scope: direct
+- id: pb-core-granite-reap-025
+  stack: moe
+  kind: expert_drop_reap
+  subject: sasa2000/granite-3.1-1b-a400m-instruct-reap-pruned-025
+  reference: ibm-granite/granite-3.1-1b-a400m-instruct
+  expected: related
+  evidence:
+    confidence: verified
+    sources:
+    - "https://huggingface.co/sasa2000/granite-3.1-1b-a400m-instruct-reap-pruned-025/resolve/d8985e7b4a6738bec7af422b526072b4d649b89e/README.md"
+    - "https://huggingface.co/sasa2000/granite-3.1-1b-a400m-instruct-reap-pruned-025/resolve/d8985e7b4a6738bec7af422b526072b4d649b89e/config.json"
+    - "https://huggingface.co/ibm-granite/granite-3.1-1b-a400m-instruct/resolve/0da7a48b0276d500ce5922fd2b33944091fc6c09/README.md"
+    - "https://huggingface.co/ibm-granite/granite-3.1-1b-a400m-instruct/resolve/0da7a48b0276d500ce5922fd2b33944091fc6c09/config.json"
+    note: REAP expert drop of granite-3.1-1b-a400m-instruct from 32 to 24 experts (ratio 0.25); survivors copied, not merged.
+  subject_rev: d8985e7b4a6738bec7af422b526072b4d649b89e
+  reference_rev: 0da7a48b0276d500ce5922fd2b33944091fc6c09
+  lineage_scope: direct
+- id: pb-core-qwen3-30b-ream
+  stack: moe
+  kind: expert_merge_ream
+  subject: SamsungSAILMontreal/Qwen3-30B-A3B-Instruct-2507-REAM
+  reference: Qwen/Qwen3-30B-A3B-Instruct-2507
+  expected: related
+  evidence:
+    confidence: verified
+    sources:
+    - "https://huggingface.co/SamsungSAILMontreal/Qwen3-30B-A3B-Instruct-2507-REAM/resolve/91483d84e702c1849caf2771c7706ad2ec0739ea/README.md"
+    - "https://huggingface.co/SamsungSAILMontreal/Qwen3-30B-A3B-Instruct-2507-REAM/resolve/91483d84e702c1849caf2771c7706ad2ec0739ea/config.json"
+    - "https://huggingface.co/Qwen/Qwen3-30B-A3B-Instruct-2507/resolve/0d7cf23991f47feeb3a57ecb4c9cee8ea4a17bfe/README.md"
+    - "https://huggingface.co/Qwen/Qwen3-30B-A3B-Instruct-2507/resolve/0d7cf23991f47feeb3a57ecb4c9cee8ea4a17bfe/config.json"
+    - "https://arxiv.org/abs/2604.04356"
+    note: REAM expert merge of Qwen3-30B-A3B-Instruct-2507 from 128 to 96 experts; some groups averaged, not a REAP drop.
+  subject_rev: 91483d84e702c1849caf2771c7706ad2ec0739ea
+  reference_rev: 0d7cf23991f47feeb3a57ecb4c9cee8ea4a17bfe
+  lineage_scope: direct
+- id: pb-core-lfm25-abliterated
+  stack: moe
+  kind: abliterate
+  subject: huihui-ai/Huihui-LFM2.5-8B-A1B-abliterated
+  reference: LiquidAI/LFM2.5-8B-A1B
+  expected: related
+  evidence:
+    confidence: inferred
+    sources:
+    - "https://huggingface.co/huihui-ai/Huihui-LFM2.5-8B-A1B-abliterated/resolve/572587e7c968cdd150c93e54d0d5b64bfb4469ae/README.md"
+    - "https://huggingface.co/api/models/LiquidAI/LFM2.5-8B-A1B/revision/5dd22602c2e9f6a097b1de4c4efe0658b605015c"
+    note: Abliteration of LFM2.5-8B-A1B; same 32-expert MoE layout.
+  subject_rev: 572587e7c968cdd150c93e54d0d5b64bfb4469ae
+  reference_rev: 5dd22602c2e9f6a097b1de4c4efe0658b605015c
+  lineage_scope: direct
+- id: pb-core-lfm25-opus-distil
+  stack: moe
+  kind: distill_cross
+  subject: reaperdoesntknow/LFM2.5-8B-A1B-Opus-Distil
+  reference: LiquidAI/LFM2.5-8B-A1B
+  expected: related
+  evidence:
+    confidence: inferred
+    sources:
+    - "https://huggingface.co/reaperdoesntknow/LFM2.5-8B-A1B-Opus-Distil/resolve/c2a7037d33c74f0e4c13d80cfe3719df3748da05/README.md"
+    - "https://huggingface.co/api/models/LiquidAI/LFM2.5-8B-A1B/revision/5dd22602c2e9f6a097b1de4c4efe0658b605015c"
+    note: SFT of LFM2.5-8B-A1B on Claude teacher data; weight parent is LFM2.5, not the teacher. Same MoE layout.
+  subject_rev: c2a7037d33c74f0e4c13d80cfe3719df3748da05
+  reference_rev: 5dd22602c2e9f6a097b1de4c4efe0658b605015c
+  lineage_scope: direct
+- id: pb-core-smollm-smollm2-strangers
+  stack: dense
+  kind: neg_cross
+  subject: HuggingFaceTB/SmolLM-1.7B
+  reference: HuggingFaceTB/SmolLM2-1.7B
+  expected: unrelated
+  evidence:
+    confidence: inferred
+    sources:
+    - "https://huggingface.co/api/models/HuggingFaceTB/SmolLM-1.7B/revision/d7449ff7241c863f3e8accc475155f0f97afa011"
+    - "https://huggingface.co/api/models/HuggingFaceTB/SmolLM2-1.7B/revision/effd688a12921b4cc83e3312b6feb579f70f9c71"
+    - "https://huggingface.co/HuggingFaceTB/SmolLM2-1.7B/resolve/effd688a12921b4cc83e3312b6feb579f70f9c71/README.md"
+    - "https://arxiv.org/abs/2502.02737"
+    note: Same layout (hidden 2048, 24 layers, 32 heads, vocab 49152); SmolLM2 is from-scratch, not continued training of SmolLM-1.7B.
+  subject_rev: d7449ff7241c863f3e8accc475155f0f97afa011
+  reference_rev: effd688a12921b4cc83e3312b6feb579f70f9c71
+  challenge:
+    type: unrelated_reference
+- id: pb-core-llama2-granite7b-strangers
+  stack: dense
+  kind: neg_cross
+  subject: ibm-granite/granite-7b-base
+  reference: meta-llama/Llama-2-7b-hf
+  expected: unrelated
+  evidence:
+    confidence: inferred
+    sources:
+    - "https://huggingface.co/api/models/ibm-granite/granite-7b-base/revision/3694001fa74a2aa9a6eff07774cbcb68b73e78f2"
+    - "https://huggingface.co/api/models/meta-llama/Llama-2-7b-hf/revision/01c7f73d771dfac7d292323805ebc428287df4f9"
+    - "https://huggingface.co/ibm-granite/granite-7b-base/resolve/3694001fa74a2aa9a6eff07774cbcb68b73e78f2/README.md"
+    note: Granite-7B-base is a from-scratch Llama-2-7B layout replica; not a finetune of Llama-2-7b-hf.
+  subject_rev: 3694001fa74a2aa9a6eff07774cbcb68b73e78f2
+  reference_rev: 01c7f73d771dfac7d292323805ebc428287df4f9
+  challenge:
+    type: unrelated_reference
+- id: pb-core-pds-bsl-470m
+  stack: dense
+  kind: neg_cross
+  subject: Data-Selection/PDS-470M
+  reference: Data-Selection/BSL-470M
+  expected: unrelated
+  evidence:
+    confidence: inferred
+    sources:
+    - "https://huggingface.co/api/models/Data-Selection/PDS-470M/revision/899c684d7bdc4dfcd08fec714ca6541896ce9822"
+    - "https://huggingface.co/api/models/Data-Selection/BSL-470M/revision/1581b9dc66ba9b9b170fbbeaa108701f5ea354cd"
+    - "https://huggingface.co/Data-Selection/PDS-470M/resolve/899c684d7bdc4dfcd08fec714ca6541896ce9822/README.md"
+    - "https://huggingface.co/Data-Selection/BSL-470M/resolve/1581b9dc66ba9b9b170fbbeaa108701f5ea354cd/README.md"
+    - "https://arxiv.org/abs/2410.07064"
+    note: Same Mistral config, both pretrained from scratch on different CC data mixes; neither is a finetune of the other.
+  subject_rev: 899c684d7bdc4dfcd08fec714ca6541896ce9822
+  reference_rev: 1581b9dc66ba9b9b170fbbeaa108701f5ea354cd
+  challenge:
+    type: unrelated_reference
