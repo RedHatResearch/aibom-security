@@ -11,7 +11,6 @@ from __future__ import annotations
 
 import argparse
 import json
-import random
 import sys
 import time
 from collections import Counter
@@ -21,15 +20,14 @@ from pathlib import Path
 from typing import Any
 
 import numpy as np
-import yaml
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
+from _lib.pairs import all_pairs  # noqa: E402
 
 METHOD = "origin-tracer-approximation"
 PAPER = "https://arxiv.org/abs/2505.19466"
-FIXTURES = ROOT / "fixtures.yaml"
 
 # These are intentionally ordinary words rather than a corpus.  The method's
 # probe is one token, so tokenizers are checked and words are skipped when
@@ -71,14 +69,10 @@ DEFAULT_PROBE_WORDS = (
 # below also requires an explicit decoder layer/MLP/attention module layout.
 SUPPORTED_MODEL_TYPES = {
     "baichuan",
-    "gemma",
-    "gemma2",
-    "gemma3",
     "llama",
     "mistral",
     "mixtral",
     "olmo",
-    "olmo2",
     "phi",
     "phi3",
     "qwen2",
@@ -127,6 +121,9 @@ DEVIATIONS = (
     "MoE tracing is experimental under --allow-moe and assumes unchanged router "
     "and expert functions; missing routes, oracle precision, material progress, or "
     "nonzero rank produces UNSUPPORTED; default config preflight rejects MoE models.",
+    "Families that norm the attention output before the residual add or wrap "
+    "the MLP in its own norms (gemma2, gemma3, olmo2) are excluded: their layer "
+    "forward does not match the z_residual + mlp(norm(z_residual)) reconstruction.",
 )
 
 
@@ -142,7 +139,6 @@ class DecoderSpec:
     layers: list[Any]
     intermediate_norms: list[Any]
     mlps: list[Any]
-    attentions: list[Any]
 
 
 @dataclass
@@ -154,26 +150,13 @@ class ProbeBatch:
     token_mismatches: list[dict[str, Any]]
 
 
-def _fixture_pairs() -> dict[str, tuple[str, str]]:
-    """Read both active and deferred shared fixtures without downloading them."""
-
-    with FIXTURES.open() as handle:
-        raw = yaml.safe_load(handle) or {}
-    pairs: dict[str, tuple[str, str]] = {}
-    for section in ("pairs", "deferred"):
-        for label, spec in (raw.get(section) or {}).items():
-            if isinstance(spec, dict) and spec.get("ref") and spec.get("sus"):
-                pairs[str(label)] = (str(spec["ref"]), str(spec["sus"]))
-    return pairs
-
-
 def _pair_from_args(
     args: argparse.Namespace,
 ) -> tuple[str | None, str | None, str | None, str | None]:
     """Resolve a fixture or explicit pair; return a human-readable error, not a parser exit."""
 
     if args.pair:
-        pairs = _fixture_pairs()
+        pairs = all_pairs()
         if args.pair not in pairs:
             return None, None, None, f"unknown fixture pair {args.pair!r}"
         fixture_base, fixture_candidate = pairs[args.pair]
@@ -270,7 +253,6 @@ def _architecture_hint(config: Any) -> bool:
             "llama",
             "mistral",
             "mixtral",
-            "gemma",
             "qwen",
             "olmo",
             "phi",
@@ -429,7 +411,6 @@ def inspect_decoder_spec(model: Any) -> DecoderSpec:
     layer_path, layers = _find_decoder_layers(model)
     intermediate_norms: list[Any] = []
     mlps: list[Any] = []
-    attentions: list[Any] = []
     for index, layer in enumerate(layers):
         norm = _child_module(layer, INTERMEDIATE_NORM_NAMES)
         mlp = _child_module(layer, MLP_NAMES)
@@ -437,6 +418,18 @@ def inspect_decoder_spec(model: Any) -> DecoderSpec:
         if norm is None or mlp is None or attention is None:
             raise UnsupportedArchitecture(
                 f"layer {index} lacks an explicit post-attention norm, MLP, and attention module"
+            )
+        # The reconstruction model is z_residual + mlp(norm(z_residual)).
+        # Layouts that wrap the MLP in its own norms (gemma2/gemma3/olmo2
+        # pre/post_feedforward_layernorm) violate that formula and would
+        # fabricate rank, so they are rejected here.
+        if any(
+            hasattr(layer, name)
+            for name in ("pre_feedforward_layernorm", "post_feedforward_layernorm")
+        ):
+            raise UnsupportedArchitecture(
+                f"layer {index} wraps the MLP in its own norm; the reconstruction "
+                "model assumes z_residual + mlp(norm(z_residual))"
             )
         attention_names = {name.split(".")[0] for name, _ in attention.named_parameters()}
         has_v = bool(attention_names & V_PARAMETER_NAMES)
@@ -448,13 +441,11 @@ def inspect_decoder_spec(model: Any) -> DecoderSpec:
             )
         intermediate_norms.append(norm)
         mlps.append(mlp)
-        attentions.append(attention)
     return DecoderSpec(
         layer_path=layer_path,
         layers=layers,
         intermediate_norms=intermediate_norms,
         mlps=mlps,
-        attentions=attentions,
     )
 
 
@@ -879,11 +870,12 @@ def _direct_delta_diagnostics(delta: Any) -> dict[str, Any]:
     values = np.linalg.svd(matrix.numpy(), compute_uv=False)
     leading = float(values[0]) if len(values) else 0.0
     threshold = max(1e-12, leading * 1e-6)
+    # The vector L2 norm of a flattened matrix is its Frobenius norm.
+    norm = float(torch.linalg.vector_norm(matrix).item())
     return {
         "available": True,
         "shape": [int(value) for value in matrix.shape],
-        "l2_norm": float(torch.linalg.vector_norm(matrix).item()),
-        "frobenius_norm": float(torch.linalg.vector_norm(matrix).item()),
+        "frobenius_norm": norm,
         "mean_squared_delta": float(torch.mean(matrix**2).item()),
         "singular_values": [float(value) for value in values[:16]],
         "effective_rank": int(np.count_nonzero(values > threshold)),
@@ -1217,7 +1209,9 @@ def sampled_rank_diagnostics(
     rng = np.random.default_rng(seed)
     cycle_results: list[dict[str, Any]] = []
     ranks: list[int] = []
-    for cycle in range(cycles):
+    sampled_all_rows = sample_size >= probe_count
+    effective_cycles = 1 if sampled_all_rows else cycles
+    for cycle in range(effective_cycles):
         if sample_size < probe_count:
             indices = np.sort(rng.choice(probe_count, size=sample_size, replace=False))
         else:
@@ -1236,6 +1230,10 @@ def sampled_rank_diagnostics(
         )
     return {
         "sample_size": int(sample_size),
+        # When the row sample covers every probe row, each cycle would
+        # decompose the identical matrix; report one cycle instead of
+        # identical copies.
+        "sampled_all_rows": bool(sampled_all_rows),
         "cycles": cycle_results,
         "minimum_rank": int(min(ranks)) if ranks else None,
     }
@@ -1303,7 +1301,7 @@ def _load_models_and_tokenizers(
     model_kwargs = _hf_kwargs(args)
     model_dtype = _dtype_for(torch, args.dtype)
     if model_dtype is not None:
-        model_kwargs["torch_dtype"] = model_dtype
+        model_kwargs["dtype"] = model_dtype
     base_model = AutoModelForCausalLM.from_pretrained(base_model_id, **model_kwargs)
     candidate_model = AutoModelForCausalLM.from_pretrained(candidate_model_id, **model_kwargs)
     base_model.to(device)
@@ -1858,7 +1856,7 @@ def build_parser() -> argparse.ArgumentParser:
         "--probe-count",
         type=int,
         default=8,
-        help="maximum shared one-token word probes (default: 8)",
+        help="maximum shared one-token word probes (default: 8, minimum: 3)",
     )
     parser.add_argument("--probe-words", help="comma-separated deterministic word override")
     parser.add_argument(
@@ -1895,8 +1893,10 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 def _validate_args(args: argparse.Namespace, parser: argparse.ArgumentParser) -> None:
-    if args.probe_count < 2:
-        parser.error("--probe-count must be at least 2")
+    if args.probe_count < 3:
+        # A 2-row matrix has a single log-gap, so any nonzero result would
+        # report rank 1 regardless of the data.
+        parser.error("--probe-count must be at least 3")
     if args.cycles < 1:
         parser.error("--cycles must be at least 1")
     if args.reconstruction_steps < 1:
@@ -1949,8 +1949,9 @@ def main(argv: list[str] | None = None) -> int:
                 }
             )
         else:
-            random.seed(args.seed)
-            np.random.seed(args.seed)
+            # Determinism comes from the seeded Generator in
+            # sampled_rank_diagnostics and the fixed probe word list; no global
+            # RNG is consumed, so nothing is seeded here.
             result = run_analysis(label, base_model, candidate_model, args)
     except (UnsupportedArchitecture, ValueError) as exc:
         result = {

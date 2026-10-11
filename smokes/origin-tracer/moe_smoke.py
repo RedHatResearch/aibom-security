@@ -29,16 +29,21 @@ def _load_origin_tracer() -> Any:
     return module
 
 
-def _find_v_parameter(model: Any, layer_index: int) -> tuple[str, Any]:
+def _find_v_parameter(model: Any, layer_index: int, v_names: set[str]) -> tuple[str, Any]:
     candidates: list[tuple[str, Any]] = []
     for name, parameter in model.named_parameters():
         parts = name.lower().replace("/", ".").split(".")
         if len(parts) < 2 or parts[-1] != "weight":
             continue
-        if parts[-2] not in {"v_proj", "value_proj", "value"}:
+        if parts[-2] not in v_names:
             continue
-        layer_marker = f"layers.{layer_index}"
-        if layer_marker in ".".join(parts):
+        # Match the layer path segment exactly: a substring test would also
+        # hit layers.10, layers.11, ... for layers.1.
+        try:
+            layer_segment = parts[parts.index("layers") + 1]
+        except ValueError:
+            continue
+        if layer_segment == str(layer_index):
             candidates.append((name, parameter))
     if len(candidates) != 1:
         names = [name for name, _ in candidates]
@@ -49,34 +54,25 @@ def _find_v_parameter(model: Any, layer_index: int) -> tuple[str, Any]:
 
 
 def _make_candidate(
+    origin_tracer: Any,
     model_id: str,
     candidate_dir: Path,
     layer_index: int,
     delta: float,
-    cache_dir: Path | None,
-    revision: str | None,
-    local_files_only: bool,
-    dtype: str,
+    args: argparse.Namespace,
 ) -> str:
     import torch
     from transformers import AutoModelForCausalLM, AutoTokenizer
 
-    kwargs: dict[str, Any] = {"local_files_only": local_files_only}
-    if cache_dir is not None:
-        kwargs["cache_dir"] = str(cache_dir.expanduser())
-    if revision:
-        kwargs["revision"] = revision
-    if dtype != "auto":
-        kwargs["torch_dtype"] = {
-            "float32": torch.float32,
-            "float16": torch.float16,
-            "bfloat16": torch.bfloat16,
-        }[dtype]
+    kwargs = origin_tracer._hf_kwargs(args)
+    model_dtype = origin_tracer._dtype_for(torch, args.dtype)
+    if model_dtype is not None:
+        kwargs["dtype"] = model_dtype
     model = AutoModelForCausalLM.from_pretrained(model_id, **kwargs)
-    tokenizer = AutoTokenizer.from_pretrained(
-        model_id, **{k: v for k, v in kwargs.items() if k != "torch_dtype"}
+    tokenizer = AutoTokenizer.from_pretrained(model_id, **origin_tracer._hf_kwargs(args))
+    parameter_name, parameter = _find_v_parameter(
+        model, layer_index, origin_tracer.V_PARAMETER_NAMES
     )
-    parameter_name, parameter = _find_v_parameter(model, layer_index)
     if delta == 0.0:
         raise ValueError("--delta must be nonzero so the candidate has one controlled V update")
     with torch.no_grad():
@@ -159,14 +155,12 @@ def main(argv: list[str] | None = None) -> int:
 
     try:
         candidate_model = _make_candidate(
+            origin_tracer,
             args.base_model,
             candidate_dir,
             args.layer,
             args.delta,
-            args.cache_dir,
-            args.revision,
-            args.local_files_only,
-            args.dtype,
+            args,
         )
         smoke_args = [
             "--allow-moe",
