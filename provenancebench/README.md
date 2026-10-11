@@ -12,6 +12,9 @@ fixed so results can be compared across methods and iterations.
 The benchmark uses model weights, configuration, and MoE structure where
 available. It does not use model outputs, watermarking, or parent retrieval.
 
+Background and usage notes live on the
+[wiki](https://github.com/RedHatResearch/aibom-security/wiki/ProvenanceBench).
+
 ## Files
 
 | File | Purpose |
