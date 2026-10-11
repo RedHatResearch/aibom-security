@@ -40,7 +40,7 @@ Monorepo — each top-level directory is an independently buildable component.
 aibom-security/
 ├── cli/                 # the `aibom` umbrella command
 ├── verifier/            # aibom_verifier: the provenance verification pipeline
-├── server/              # aibom-serve: REST verify server for pipeline submissions
+├── provenancebench/     # ProvenanceBench: fixed pairwise provenance benchmark (#36)
 ├── smokes/              # survey runnable checks (#26); not product / not CI
 ├── docker-compose.yml   # local PoC stack only (see docs/poc-compose.md)
 └── pyproject.toml       # uv workspace root

@@ -35,6 +35,9 @@ uv run pbench-eval --cohort core
 uv run pbench-eval --cohort all
 ```
 
+The harness resolves bench data relative to this checkout. `pbench-eval` is
+not usable from an installed wheel; run it from a clone of this repository.
+
 Run `smoke` first, then `core`, then `all`. For a focused run:
 
 ```bash
@@ -69,14 +72,38 @@ detector answers that case with `abstain`.
 
 ## Detector contract
 
-Implement `score()` in `detect.py`. It returns:
+Implement `score()` in `detect.py`:
+
+```python
+def score(
+    subject: str,
+    reference: str,
+    *,
+    subject_rev: str | None = None,
+    reference_rev: str | None = None,
+    stack: str,
+) -> Result:
+```
+
+`subject` and `reference` are Hub repo ids; `subject_rev` and `reference_rev`
+are the full immutable SHAs pinned in `pairs.yaml` — pass them to
+`huggingface_hub` (for example `snapshot_download(repo_id, revision=rev)`)
+so every run scores the same bytes. `stack` is `dense` or `moe`.
+
+It returns:
 
 ```python
 Result(
     verdict="related" | "unrelated" | "abstain",
     score=float | None,
     diagnostics={...},
+    note="",
+    abstain_reason=None,
 )
 ```
+
+`score` is null when the method abstains; `note` is a short free-text line and
+`abstain_reason` a short token such as `method_not_implemented`. The harness
+never passes labels, evidence, or kind to the detector.
 
 The current detector is a stub that abstains on every case.

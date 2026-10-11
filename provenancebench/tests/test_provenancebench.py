@@ -191,9 +191,19 @@ def test_eval_writes_pairwise_method_and_review_artifacts(tmp_path: Path) -> Non
     assert len(method_cases) == len(smoke_ids)
     assert len(review_cases) == len(smoke_ids)
     assert method_trailer["n_cases"] == len(smoke_ids)
-    assert {"manifest_sha256", "cohort_sha256", "method_sha256"} <= method_meta["hashes"].keys()
+    assert {"manifest_sha256", "selection_sha256", "method_sha256"} <= method_meta["hashes"].keys()
     assert (
-        not {"expected", "evidence", "correct", "mismatch", "error_class"} & method_cases[0].keys()
+        not {
+            "expected",
+            "evidence",
+            "kind",
+            "lineage_scope",
+            "challenge",
+            "correct",
+            "mismatch",
+            "error_class",
+        }
+        & method_cases[0].keys()
     )
     assert {"expected", "evidence", "correct", "mismatch", "error_class"} <= review_cases[0].keys()
     assert sum(row["n"] for row in review_trailer["by_kind"].values()) == len(smoke_ids)

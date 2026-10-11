@@ -98,7 +98,7 @@ def _resolve_ids(
             "mode": "cohort",
             "requested": cohort,
             "resolved_ids": resolved_ids,
-            "cohort_sha256": canonical_sha256({"name": cohort, **cohort_row}),
+            "selection_sha256": canonical_sha256({"name": cohort, **cohort_row}),
         }
     elif ids is not None:
         resolved_ids = list(ids)
@@ -106,7 +106,7 @@ def _resolve_ids(
             "mode": "ids",
             "requested": resolved_ids,
             "resolved_ids": resolved_ids,
-            "cohort_sha256": canonical_sha256({"ids": resolved_ids}),
+            "selection_sha256": canonical_sha256({"ids": resolved_ids}),
         }
     else:
         resolved_ids = [case["id"] for case in cases]
@@ -114,7 +114,7 @@ def _resolve_ids(
             "mode": "manifest",
             "requested": None,
             "resolved_ids": resolved_ids,
-            "cohort_sha256": canonical_sha256({"ids": resolved_ids}),
+            "selection_sha256": canonical_sha256({"ids": resolved_ids}),
         }
     if not resolved_ids:
         msg = "selection resolved no case ids"
@@ -202,7 +202,6 @@ def _method_case_record(
         "type": "case",
         "id": case["id"],
         "stack": case["stack"],
-        "kind": case["kind"],
         "subject": subject,
         "subject_rev": subject_rev,
         "reference": reference,
@@ -222,6 +221,7 @@ def _review_case_record(method_case: dict[str, Any], case: dict[str, Any]) -> di
     return {
         **method_case,
         "expected": expected,
+        "kind": case["kind"],
         "evidence": case["evidence"],
         "context": case.get("context"),
         "lineage_scope": case.get("lineage_scope"),
@@ -346,7 +346,7 @@ def run_eval(
     _assert_artifact_pair_is_new(out_path, review_path)
     hashes = {
         **manifest_hashes(root),
-        "cohort_sha256": selection["cohort_sha256"],
+        "selection_sha256": selection["selection_sha256"],
         "method_sha256": method_sha256,
     }
     meta_base = {
