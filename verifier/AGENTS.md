@@ -61,6 +61,11 @@ PoC orchestration code lives in this package; root `docker-compose.yml` builds t
 - `arch_hash` normalizes Transformers absent-vs-default config fields (e.g. `head_dim`, `mlp_bias`) before hashing.
 - FR-8 abandoned: no new lineage JSON fields; `VerificationResult` / `RunResult` are the public contract.
 - Reference smoke pair: `SultanR/SmolTulu-1.7b-Instruct` vs `HuggingFaceTB/SmolLM2-1.7B`.
+- Never compare LayerNorm/RMSNorm tensors for provenance without
+  mean-centering: raw LN cosine ≈ 0.99 between *unrelated* models
+  (initialization prior, not lineage). Evidence, numbers, and the
+  controlled GPT-2 repro: the caution section of
+  [`smokes/solar-vs-glm/README.md`](../smokes/solar-vs-glm/README.md).
 
 ## Logging
 
