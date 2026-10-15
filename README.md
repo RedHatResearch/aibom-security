@@ -63,8 +63,6 @@ Contributing workflow and PR conventions: [AGENTS.md](AGENTS.md).
 
 | Doc | For |
 |-----|-----|
-| [docs/job-contract.md](docs/job-contract.md) | Host pipeline integrators |
-| [docs/poc-compose.md](docs/poc-compose.md) | Local Compose PoC (laptop only) |
 | [verifier/AGENTS.md](verifier/AGENTS.md) | Verifier internals and backends |
 | [smokes/README.md](smokes/README.md) | Fingerprint survey checks |
 | [AGENTS.md](AGENTS.md) | Board protocol and agent workflow |
