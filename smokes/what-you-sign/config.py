@@ -97,16 +97,61 @@ class QuantPlan:
 QUANT_TYPES = ("Q4_K_M", "Q5_K_M", "IQ4_XS", "Q8_0")
 
 # The hash-matrix expectation, pre-registered before any run:
-# (build_i, build_j) -> expected byte-identical?
+# (build_a, build_b) -> expected byte-identical per quant type.
 # Paper Fig. 2a at 1.5B (x86 gcc vs arm64 clang):
 #   default vs default:        differ on Q4_K_M, Q5_K_M, IQ4_XS; Q8_0 equal
 #   contraction-off (either) : equal on all four
 # Our arm64-default vs arm64-nocontract pair is the paper's §V single-machine
 # proxy (exact at 1.5B: x86 default == arm64 contraction-off); the
 # x86_64-default column then tests the cross-arch claim on one machine.
-EXPECTED_HASH_MATRIX = {
-    # pair key: (build_a, build_b) -> {quant: expectation} handled in smoke.py
+EXPECTED_EQUAL: dict[tuple[str, str], dict[str, bool]] = {
+    # arm64 default vs arm64 contraction-off: the paper's single-machine
+    # proxy pair — divergence expected on all three scale-search types.
+    ("arm64-default", "arm64-nocontract"): {
+        "Q4_K_M": False,
+        "Q5_K_M": False,
+        "IQ4_XS": False,
+        "Q8_0": True,
+    },
+    # x86_64 baseline default vs arm64 contraction-off: paper claims the
+    # x86-64 baseline build (no FMA) is uncontracted, so bit-identical.
+    ("x86_64-default", "arm64-nocontract"): {
+        "Q4_K_M": True,
+        "Q5_K_M": True,
+        "IQ4_XS": True,
+        "Q8_0": True,
+    },
+    # x86_64 baseline default vs arm64 default: divergence expected (the
+    # arm64 default contracts FMA).
+    ("x86_64-default", "arm64-default"): {
+        "Q4_K_M": False,
+        "Q5_K_M": False,
+        "IQ4_XS": False,
+        "Q8_0": True,
+    },
 }
+
+# Paper §IV 'card' column, 0.5B edition: per-tensor payload-equality of the
+# stock-preset regeneration vs the published Q4_K_M, per build.
+# Measured 2026-10-20, identical across all three builds (deterministic
+# under the pins).
+CARD_ALONE_EXPECTED = {"matched": 126, "type_mismatched": 32, "total": 290}
+
+# Paper §IV recipe gap, 0.5B edition: published Q4_K_M tensors whose
+# per-tensor type differs from the stock Q4_K_M preset. Measured 2026-10-20.
+RECIPE_GAP_EXPECTED = 32
+
+# Paper §IV imatrix-dominates relation, 0.5B edition: with the full
+# published recipe pinned, the residual published-vs-regenerated XOR
+# fraction (publisher's unshipped imatrix) stays ≥ 0.10 per build — well
+# above the ~8e-5 contraction beta. Measured ≈ 0.1483 on 2026-10-20; the
+# bound is the relation, not the exact float.
+IMATRIX_GAP_MIN_FRAC = 0.10
+
+# Paper §VI detection floor, 0.5B edition: our measured floor must not
+# exceed the paper's 0.02% Q4_K floor at 1.5B. Measured 0.01% (0.0001)
+# on 2026-10-20.
+FLOOR_MAX = 0.02
 
 # Detection-floor probe (paper §VI): natural variance R_nat = arm64-default
 # rebuild vs reference (arm64-nocontract, the designated measurement
@@ -132,9 +177,10 @@ DEFAULT_HARNESS_ROOT = (
 CENSUS_REPOS_FILE = "exp/EXP03-ecosystem-census/data/frozen_repos_top200.txt"
 CENSUS_SCRIPT = "exp/EXP02-census-tool/scripts/census.py"
 # Pre-registered expectations, re-verified against a fresh harness run on
-# 2026-10-20: 0 bit-exact verifiable of the repos scored; 148
-# repos now error out — deleted/gated/unreadable header, counted in n_error,
-# not a failure); every scored repo lacks the env/version record.
+# 2026-10-20: 0 bit-exact verifiable of the repos scored; 148 of the 197
+# scored repos source-reconstructible; 3 repos now error out
+# (deleted/gated/unreadable header, counted in n_error, not a failure);
+# every scored repo lacks the env/version record.
 CENSUS_EXPECTED = {"n_repos": 200, "bit_exact_verifiable": 0, "source_reconstructible": 148}
 # ---------------------------------------------------------------------------
 # b9222 trial-repo re-derivation (paper §IV Table III, the positive control):

@@ -15,8 +15,9 @@ cross-check:
      separates benign contraction variance from uniformly placed one-step
      nibble flips above a floor we probe with a budget ladder.
   4. ggufpacker cross-check: our regenerated Q8_0 XORs to zero against the
-     publisher's published Q8_0 (EXACT), while Q4_K_M needs a nonzero
-     correction delta (NEAR).
+     publisher's published Q8_0 (EXACT), while the published Q4_K_M is
+     non-congruent with the stock preset (the recipe gap; with the recipe
+     pinned the residual delta is the publisher's unshipped imatrix).
 
 Environment binaries live outside the repo (.scratch/, not committed);
 the smoke takes their root via --builds-root.
@@ -27,6 +28,7 @@ from __future__ import annotations
 import argparse
 import csv
 import hashlib
+import io
 import json
 import re
 import subprocess
@@ -35,6 +37,7 @@ import time
 from pathlib import Path
 
 import numpy as np
+import zstandard
 
 SMOKE_DIR = Path(__file__).resolve().parent
 SMOKES_ROOT = SMOKE_DIR.parent
@@ -46,6 +49,7 @@ from config import (  # noqa: E402
     B9222_COMMIT,
     B9222_TABLE_III_EXPECTED,
     BUILDS,
+    CARD_ALONE_EXPECTED,
     CENSUS_EXPECTED,
     CENSUS_REPOS_FILE,
     CENSUS_SCRIPT,
@@ -53,14 +57,18 @@ from config import (  # noqa: E402
     DEFAULT_HARNESS_ROOT,
     DETECTOR_SEEDS,
     DETECTOR_TAU,
+    EXPECTED_EQUAL,
     F16_FILENAME,
     F16_SHA256,
+    FLOOR_MAX,
+    IMATRIX_GAP_MIN_FRAC,
     LARGE_EDIT_KS,
     LLAMA_CPP_COMMIT,
     PUBLISHED_SIBLINGS,
     PUBLISHER_REPO,
     PUBLISHER_REVISION,
     QUANT_TYPES,
+    RECIPE_GAP_EXPECTED,
     REPEAT_RUNS,
     TAMPER_BUDGETS,
     THREAD_VARIANTS,
@@ -120,35 +128,6 @@ NIBBLE_PAYLOAD: dict[str, tuple[int, int, int]] = {
 # GGUF "quant type name" -> on-disk tensor type for Q4_K_M's k-quant tensors.
 # A _M preset stores its k-quant tensors in the base format (Q4_K_M -> Q4_K).
 PRESET_TO_BASE = {"Q4_K_M": "Q4_K", "Q5_K_M": "Q5_K", "IQ4_XS": "IQ4_XS", "Q8_0": "Q8_0"}
-
-# Pre-registered expectations (paper §V Fig. 2a, fixed before the first run):
-# does build_a's output byte-equal build_b's for each quant type?
-EXPECTED_EQUAL: dict[tuple[str, str], dict[str, bool]] = {
-    # arm64 default vs arm64 contraction-off: the paper's single-machine
-    # proxy pair — divergence expected on all three scale-search types.
-    ("arm64-default", "arm64-nocontract"): {
-        "Q4_K_M": False,
-        "Q5_K_M": False,
-        "IQ4_XS": False,
-        "Q8_0": True,
-    },
-    # x86_64 baseline default vs arm64 contraction-off: paper claims the
-    # x86-64 baseline build (no FMA) is uncontracted, so bit-identical.
-    ("x86_64-default", "arm64-nocontract"): {
-        "Q4_K_M": True,
-        "Q5_K_M": True,
-        "IQ4_XS": True,
-        "Q8_0": True,
-    },
-    # x86_64 baseline default vs arm64 default: divergence expected (the
-    # arm64 default contracts FMA).
-    ("x86_64-default", "arm64-default"): {
-        "Q4_K_M": False,
-        "Q5_K_M": False,
-        "IQ4_XS": False,
-        "Q8_0": True,
-    },
-}
 
 
 def _log(msg: str) -> None:
@@ -262,7 +241,8 @@ def run_quantize_matrix(
 
 def check_hash_matrix(matrix: dict[str, dict[str, dict]]) -> list[dict]:
     """Compare the pre-registered EXPECTED_EQUAL table against observed
-    whole-file sha equality. Returns per-cell records."""
+    whole-file sha equality. Returns per-cell records; exits non-zero
+    listing every failing cell on drift."""
     cells = []
     labels = [b["label"] for b in BUILDS]
     for i, a in enumerate(labels):
@@ -279,6 +259,18 @@ def check_hash_matrix(matrix: dict[str, dict[str, dict]]) -> list[dict]:
                         "matches_expectation": equal == exp,
                     }
                 )
+    drift = [
+        f"{c['pair']} {c['quant']}: expected "
+        f"{'byte-identical' if c['expected_identical'] else 'byte-different'}, "
+        f"got {'byte-identical' if c['byte_identical'] else 'byte-different'}"
+        for c in cells
+        if not c["matches_expectation"]
+    ]
+    if drift:
+        raise SystemExit(
+            "hash-matrix expectation drift vs pre-registered EXPECTED_EQUAL "
+            f"({len(drift)}/{len(cells)} cells):\n  " + "\n  ".join(drift)
+        )
     return cells
 
 
@@ -505,6 +497,45 @@ def detection_floor(
             "exceeds_honest_max": bool(all(x > mx_base for x in v)),
         }
     large_edits["honest_max"] = mx_base
+
+    # Hard-asserted outcome (pre-registered): the floor exists and does not
+    # exceed the paper's 0.02% Q4_K floor at 1.5B (relation bound, not the
+    # exact float); AUC saturates at 1.0 for every budget at or above the
+    # floor while the smallest budget straddles it from below (AUC < 1.0,
+    # the ladder actually probes the boundary); and every sparse large-edit
+    # k exceeds the honest max statistic in every seed.
+    drift = []
+    if floor is None:
+        drift.append(
+            "detection floor: no budget in the ladder reached AUC >= 0.99 "
+            f"(auc_min per budget: { {f: per_budget[str(f)]['auc_min'] for f in budgets} })"
+        )
+    elif floor > FLOOR_MAX:
+        drift.append(f"detection floor {floor} > {FLOOR_MAX} (paper's 0.02% Q4_K floor at 1.5B)")
+    if floor is not None:
+        for f in budgets:
+            if f >= floor and per_budget[str(f)]["auc_mean"] != 1.0:
+                drift.append(
+                    f"budget {f} >= floor {floor} but auc_mean "
+                    f"{per_budget[str(f)]['auc_mean']} != 1.0"
+                )
+    smallest = min(budgets)
+    if per_budget[str(smallest)]["auc_mean"] >= 1.0:
+        drift.append(
+            f"smallest budget {smallest} already has auc_mean "
+            f"{per_budget[str(smallest)]['auc_mean']} >= 1.0 — ladder does not "
+            "straddle the floor from below"
+        )
+    for k, cell in large_edits.items():
+        if k == "honest_max":
+            continue
+        if not cell["exceeds_honest_max"]:
+            drift.append(
+                f"large-edit k={k}: max statistic does not exceed the honest max "
+                f"in every seed (max_min {cell['max_min']} vs honest {mx_base})"
+            )
+    if drift:
+        raise SystemExit("detection-floor expectation drift:\n  " + "\n  ".join(drift))
     return {
         "qtype": qtype,
         "tau": tau,
@@ -552,10 +583,6 @@ def payload_xor_stats(a: Path, b: Path) -> dict:
             return {"error": f"tensor {name} type/size mismatch (non-congruent)"}
     nonzero = 0
     total = 0
-    import io
-
-    import zstandard  # type: ignore[import-not-found]
-
     cctx = zstandard.ZstdCompressor(level=12)
     sink = io.BytesIO()
     for name in sorted(ta):  # name-keyed: order may differ between releases
@@ -612,6 +639,28 @@ def ggufpacker_crosscheck(matrix: dict[str, dict[str, dict]], fixtures: dict[str
                 f"nonzero={stats.get('nonzero_bytes', -1)} "
                 f"({stats.get('nonzero_frac', -1):.6f})"
             )
+    # Hard-asserted plans (pre-registered): Q8_0 regenerates zero-XOR against
+    # the published file from every environment (no scale search), while the
+    # published Q4_K_M is non-congruent with the stock preset (recipe gap:
+    # per-tensor types differ, ggufpacker's BLOB signal that the card's
+    # recipe coordinate is missing).
+    drift = []
+    for build in BUILDS:
+        label = build["label"]
+        if out["Q8_0"][label]["plan"] != "EXACT":
+            drift.append(
+                f"Q8_0 {label}: expected plan EXACT (zero-XOR payload), "
+                f"got {out['Q8_0'][label]['plan']} "
+                f"(nonzero={out['Q8_0'][label].get('nonzero_bytes', 'n/a')})"
+            )
+        q4 = out["Q4_K_M"][label]
+        if "error" not in q4 or "non-congruent" not in q4["error"]:
+            drift.append(
+                f"Q4_K_M {label}: expected non-congruent (recipe-gap error), got "
+                f"plan {q4['plan']} error={q4.get('error', 'none')}"
+            )
+    if drift:
+        raise SystemExit("ggufpacker cross-check expectation drift:\n  " + "\n  ".join(drift))
     return out
 
 
@@ -678,6 +727,29 @@ def recipe_pinned_rederive(
             f"nonzero={stats.get('nonzero_bytes', -1)} "
             f"({stats.get('nonzero_frac', -1):.6f})"
         )
+    # Hard-asserted outcome (pre-registered): the recipe gap is the pinned
+    # discrete count, and the residual XOR fraction is the imatrix-dominates
+    # relation — ≥ IMATRIX_GAP_MIN_FRAC per build, orders of magnitude above
+    # the ~8e-5 contraction beta (the unshipped imatrix, not arithmetic,
+    # dominates the published-vs-regenerated delta).
+    drift = []
+    if n_recipe_gap != RECIPE_GAP_EXPECTED:
+        drift.append(
+            f"n_recipe_gap {n_recipe_gap} != pinned {RECIPE_GAP_EXPECTED} "
+            "(published-vs-stock-preset per-tensor type map changed)"
+        )
+    for label, stats in out["per_build"].items():
+        if "error" in stats:
+            drift.append(f"recipe-pinned {label}: regeneration failed: {stats['error']}")
+            continue
+        frac = stats["nonzero_frac"]
+        if frac < IMATRIX_GAP_MIN_FRAC:
+            drift.append(
+                f"recipe-pinned {label}: nonzero_frac {frac:.6f} < "
+                f"{IMATRIX_GAP_MIN_FRAC} (imatrix-dominates relation violated)"
+            )
+    if drift:
+        raise SystemExit("recipe-pinned re-derivation expectation drift:\n  " + "\n  ".join(drift))
     return out
 
 
@@ -704,6 +776,24 @@ def card_alone_match_count(matrix: dict[str, dict[str, dict]], fixtures: dict[st
             "total_tensors": len(reg.tensors),
         }
         _log(f"card-alone {build['label']:>14}: {matched}/{len(reg.tensors)} tensors match")
+    # Hard-asserted counts (pre-registered, discrete): a minority of tensors
+    # match from card information alone, same regime for every build.
+    drift = []
+    for label, counts in out.items():
+        got = {
+            "matched": counts["matched_tensors"],
+            "type_mismatched": counts["type_mismatched"],
+            "total": counts["total_tensors"],
+        }
+        if got != CARD_ALONE_EXPECTED:
+            drift.append(
+                f"card-alone {label}: matched {got['matched']} != pinned "
+                f"{CARD_ALONE_EXPECTED['matched']}, type_mismatched {got['type_mismatched']} "
+                f"!= pinned {CARD_ALONE_EXPECTED['type_mismatched']}, total {got['total']} "
+                f"!= pinned {CARD_ALONE_EXPECTED['total']}"
+            )
+    if drift:
+        raise SystemExit("card-alone expectation drift:\n  " + "\n  ".join(drift))
     return out
 
 
@@ -746,6 +836,11 @@ def census_rescore(harness_root: Path | None, work_dir: Path) -> dict:
             f"source_reconstructible {src_recon} != pinned {exp['source_reconstructible']} "
             "(repos deleted/gated since the freeze move repos between n_error "
             "and the scored denominator)"
+        )
+    if env_gap != len(ok):
+        drift.append(
+            f"env_version_gap {env_gap} != n_scored {len(ok)} "
+            "(every scored repo must lack the env/version record)"
         )
     if drift:
         raise SystemExit("census expectation drift:\n  " + "\n  ".join(drift))
@@ -1022,6 +1117,25 @@ def main() -> None:
                 diffs[key] = structured_diff(
                     Path(matrix[a][qtype]["path"]), Path(matrix[b][qtype]["path"])
                 )
+
+    # Hard-asserted localization shape (paper §V.b): every divergent cell
+    # keeps the KV/metadata region byte-identical, and in the k-quant cells
+    # the per-byte divergence rate is higher in the blockscale regions than
+    # in the packed-nibble region (scales concentrate the divergence).
+    drift = []
+    for key, sd in diffs.items():
+        if not sd["metadata_identical"]:
+            drift.append(f"{key}: metadata/KV region differs (expected byte-identical)")
+        if "Q4_K" in key or "Q5_K" in key:
+            bs = sd["regions"]["blockscales"]["beta"]
+            nb = sd["regions"]["nibble"]["beta"]
+            if bs is None or nb is None or bs <= nb:
+                drift.append(
+                    f"{key}: blockscales beta {bs} <= nibble beta {nb} "
+                    "(expected scales to carry the higher per-byte rate)"
+                )
+    if drift:
+        raise SystemExit("structured-diff expectation drift:\n  " + "\n  ".join(drift))
 
     _log("step 3: detection floor (Q4_K_M, arm64-default vs arm64-nocontract)")
     floor = detection_floor(

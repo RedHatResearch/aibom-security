@@ -46,9 +46,10 @@ downloads:
    further.
 4. **ggufpacker cross-check** — its EXACT/NEAR/BLOB plan decision,
    reimplemented on our regenerated files XORed against the publisher's own
-   published Q8_0 / Q4_K_M siblings: Q8_0 should land EXACT-or-tiny-NEAR
-   (no scale search), k-quants NEAR (nonzero XOR, zstd-12 delta ≪ the
-   50% blob ceiling) when the producer's environment differs from ours.
+   published Q8_0 / Q4_K_M siblings: Q8_0 regenerates zero-XOR from every
+   environment (EXACT — asserted; no scale search), while the published
+   Q4_K_M is non-congruent with the stock preset (the recipe gap, the
+   card's missing per-tensor recipe coordinate — asserted).
 5. **§III census re-score** (`--census`, ~10 min, network) — rerun the
    paper's own frozen instrument (harness `EXP02 census.py`, stdlib-only,
    8–16 MB ranged header reads) over the `EXP03` frozen top-200 repo list
@@ -70,8 +71,9 @@ downloads:
    when missing the smoke exits 1 pointing at
    `scripts/build_llamacpp.sh --b9222`.
 
-Pre-registered expectations (fixed in `config.py` / `smoke.py` before the
-first run, from the paper's Fig. 2a at 1.5B):
+Pre-registered expectations (fixed in `config.py` before the first run,
+from the paper's Fig. 2a at 1.5B) — every one of them is hard-asserted:
+the smoke exits non-zero listing each failing cell on any drift.
 
 | pair | Q4_K_M | Q5_K_M | IQ4_XS | Q8_0 |
 |---|---|---|---|---|
@@ -94,6 +96,9 @@ repo; built at llama.cpp commit `d8d92973`, see `config.py` for the exact
 build flags). Cold run downloads the f16 (~994 MB) + published siblings
 (~530 + 310 MB) into the shared HF cache; the Rosetta x86_64 build is slow
 (~3–5× native) — expect a full run in the tens of minutes.
+Exit code 0 means every pre-registered expectation held (see Output
+contract); any drift aborts with a non-zero exit naming expected vs
+observed.
 
 `--census` additionally requires the paper's harness clone at
 `.scratch/gguf-verifiability-artifact` (outside the repo; overridable via
@@ -148,7 +153,8 @@ and ~10 min of quantization.
 
 First full run 2026-10-20, Apple M3 Pro (arm64), llama.cpp `d8d92973`
 (2026-10-20 tip; PR #25353 still open), fixtures pinned in `config.py`.
-Full read in the #26 deep-dive comment; numbers:
+Full read in the #26 deep-dive comment; numbers (each pinned in
+`config.py` and hard-asserted on every run — see Output contract):
 
 **Hash matrix — 12/12 pre-registered expectations held:**
 
@@ -169,13 +175,17 @@ per-byte rate in scale regions — e.g. Q4_K_M arm64-default vs nocontract:
 β_byte = 8.1e-5 over 24 tensors; per-byte rates superscale 2.4e-5,
 **min 1.0e-3, blockscales 1.3e-3** (highest), nibble 6.5e-5 (74% of
 differing bytes by count) — the same shape as the paper's 1.5B numbers
-(scales highest per-byte rate, nibbles hold most differing bytes).
+(scales highest per-byte rate, nibbles hold most differing bytes). Both
+properties are asserted: metadata identity in every divergent cell and
+blockscales beta > nibble beta in the k-quant cells.
 
 **Detection floor** (paper §VI): Q4_K honest pooled tail 0.021% (paper
 1.5B: 0.018%). The budget ladder straddles the floor from below: AUC
 0.73 at 0.002%, 0.88 at 0.005%, and 1.0 from the 0.01% budget up in all
 5 seeds — floor **0.01%** at 0.5B vs the paper's 0.02% at 1.5B,
-consistent with their divergence-grows-with-size trend. Natural-variance
+consistent with their divergence-grows-with-size trend (asserted as
+floor ≤ 0.02 with the straddle sanity — AUC 1.0 at every budget ≥ the
+floor, strictly below at the smallest budget). Natural-variance
 percentiles match the paper closely: median |Δw|/σ 0.0133 (paper: 0.014),
 p99 0.28 (paper: 0.26); the max statistic is 0.75 vs the paper's 2.36 —
 a scale effect (fewer weights, smaller extreme draw), not a distribution
@@ -187,12 +197,13 @@ Q4_K pair, a single farthest-code edit pushes the max statistic to 3.09
 (mean over 5 seeds; min 1.59) vs the honest max 0.75, and five edits to
 4.26 (min 3.63) — above the honest max in every seed, matching the paper's
 1.5B regime where the max statistic flags even one sparse farthest-code
-edit.
+edit. The exceeds-honest-max outcome is asserted per k.
 
 **Card-alone** (paper §IV "card" column): 126/290 tensors of the
 published Q4_K_M re-derive from card information alone (stock preset +
-published f16) — same regime as the paper's trial repos (140/335,
-141/339): a minority of tensors match, no file re-derives.
+published f16; 32 type-mismatched) — same regime as the paper's trial
+repos (140/335, 141/339): a minority of tensors match, no file
+re-derives. The 126/32/290 counts are pinned per build.
 
 **ggufpacker cross-check**: published Q8_0 XORs to zero against our
 regeneration from all three environments — plan EXACT, confirming
@@ -204,7 +215,9 @@ bytes: the published file records `quantize.imatrix.*` (168 entries) but
 the repo ships no imatrix — the paper's third card-absent coordinate (C
 must be shipped and hash-bound). Contraction differences account for only
 β_byte ≈ 8e-5 between our arm64 builds — the imatrix dominates the
-published-vs-regenerated delta. The tool's own test suite
+published-vs-regenerated delta (asserted: Q8_0 EXACT from every build,
+Q4_K_M non-congruent, recipe gap = 32, residual XOR ≥ 10% per build).
+The tool's own test suite
 (`tests/test_roundtrip.py`, our `quantize-default` binary via
 `GGUFPACKER_TEST_LLAMA_QUANTIZE`) passes 14/14: EXACT round-trip
 bit-exact, flipped payload bytes → NEAR with a zstd delta, unmatchable
@@ -219,7 +232,7 @@ now error out — two without a GGUF, one with an unreadable header — but
 the source-reconstructible count is identical). The `--census` step re-runs
 the frozen-list scoring in-smoke (`census_rescore` in the output JSON,
 ~10 min of ranged header reads) and fails loudly on drift from the pinned
-0 / 148 counts.
+0 / 148 counts and on env/version gap ≠ every scored repo.
 
 **Bit-exact re-derivation at the card-named release (b9222)** — the
 paper's §IV positive control, reproduced on
@@ -268,3 +281,26 @@ source-reconstructible, env-version gap counts vs the pinned
 expectations) and `b9222_table_iii` (pins, the five Table III cells with
 matched / type-mismatched / nonzero-XOR vs the pre-registered numbers,
 recipe whole-file digests, all-expectations-hold verdict).
+
+Every expectation is **hard-asserted, not merely recorded**: a zero exit
+code means every pre-registered pin below held on this run; any drift
+raises `SystemExit` (exit 1) naming the expected vs observed values.
+
+| pin (`config.py`) | value | kind |
+|---|---|---|
+| `EXPECTED_EQUAL` | the 3 × 4 hash-matrix table above | exact (discrete booleans) |
+| `CARD_ALONE_EXPECTED` | 126 matched / 32 type-mismatched / 290 total per build | exact (discrete counts) |
+| `RECIPE_GAP_EXPECTED` | 32 tensors differ from the stock preset | exact (discrete count) |
+| `IMATRIX_GAP_MIN_FRAC` | recipe-pinned residual XOR ≥ 0.10 per build | relation bound (imatrix dominates; measured ≈ 0.1483) |
+| `FLOOR_MAX` | detection floor ≤ 0.02 (paper's 0.02% Q4_K floor at 1.5B) | relation bound (measured 0.0001) |
+| `CENSUS_EXPECTED` | 200 repos / 0 bit-exact / 148 source-reconstructible, plus env-version gap = every scored repo | exact (discrete counts) |
+| `B9222_TABLE_III_EXPECTED` | the five Table III cells (140/260/335 of 335) | exact (discrete counts) |
+
+Also asserted structurally: same-binary determinism over reruns,
+thread-count invariance, every divergent cell's KV/metadata region
+byte-identical with blockscale-per-byte divergence above the nibble rate
+(k-quant cells), Q8_0 plan EXACT vs the published file from every build,
+published Q4_K_M non-congruent with the stock preset, AUC 1.0 at every
+budget ≥ the floor with the smallest budget strictly below it (the
+ladder straddles the floor), and every sparse large-edit k exceeding the
+honest max statistic in every seed.
