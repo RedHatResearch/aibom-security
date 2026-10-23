@@ -34,6 +34,7 @@ import re
 import subprocess
 import sys
 import time
+from collections.abc import Iterator
 from pathlib import Path
 
 import numpy as np
@@ -64,6 +65,8 @@ from config import (  # noqa: E402
     IMATRIX_GAP_MIN_FRAC,
     LARGE_EDIT_KS,
     LLAMA_CPP_COMMIT,
+    PUBLISHED_Q4_K_M_FILE,
+    PUBLISHED_Q8_0_FILE,
     PUBLISHED_SIBLINGS,
     PUBLISHER_REPO,
     PUBLISHER_REVISION,
@@ -566,6 +569,34 @@ def detection_floor(
 # ---------------------------------------------------------------------------
 
 
+def write_recipe_file(path: Path, type_map: dict[str, str]) -> None:
+    """Write a llama-quantize --tensor-type-file pinning a per-tensor type
+    map. Each line anchors the tensor name (^re.escape(name)$):
+    llama-quantize matches tensor names with std::regex_search and applies
+    the first match, so a bare name=type line is a wildcard that can also
+    match other tensors."""
+    path.write_text("\n".join(f"^{re.escape(n)}$={t}" for n, t in sorted(type_map.items())) + "\n")
+
+
+def check_congruence(ta: dict, tb: dict) -> str | None:
+    """None if the two name-keyed tensor maps are layout-congruent (same
+    names, same per-tensor type and byte length), else an error message."""
+    if set(ta) != set(tb):
+        return "tensor name sets differ (non-congruent)"
+    for name in sorted(ta):
+        if ta[name].tensor_type != tb[name].tensor_type or ta[name].n_bytes != tb[name].n_bytes:
+            return f"tensor {name} type/size mismatch (non-congruent)"
+    return None
+
+
+def tensor_payload_pairs(ta: dict, tb: dict) -> Iterator[tuple[str, bytes, bytes]]:
+    """Walk two name-keyed tensor maps by tensor name (order may differ
+    between releases), yielding (name, payload_a, payload_b) for every
+    name present in both."""
+    for name in sorted(set(ta) & set(tb)):
+        yield name, ta[name].data.tobytes(), tb[name].data.tobytes()
+
+
 def payload_xor_stats(a: Path, b: Path) -> dict:
     """XOR the tensor-data regions of two layout-congruent GGUFs: nonzero
     count, fraction, compressed size (zstd level 12, ggufpacker's delta
@@ -576,19 +607,15 @@ def payload_xor_stats(a: Path, b: Path) -> dict:
     ra, rb = GGUFReader(str(a)), GGUFReader(str(b))
     ta = {t.name: t for t in ra.tensors}
     tb = {t.name: t for t in rb.tensors}
-    if set(ta) != set(tb):
-        return {"error": "tensor name sets differ (non-congruent)"}
-    for name in sorted(ta):
-        if ta[name].tensor_type != tb[name].tensor_type or ta[name].n_bytes != tb[name].n_bytes:
-            return {"error": f"tensor {name} type/size mismatch (non-congruent)"}
+    error = check_congruence(ta, tb)
+    if error is not None:
+        return {"error": error}
     nonzero = 0
     total = 0
     cctx = zstandard.ZstdCompressor(level=12)
     sink = io.BytesIO()
-    for name in sorted(ta):  # name-keyed: order may differ between releases
-        xa = np.frombuffer(ta[name].data.tobytes(), np.uint8)
-        xb = np.frombuffer(tb[name].data.tobytes(), np.uint8)
-        x = xa ^ xb
+    for _, da, db in tensor_payload_pairs(ta, tb):
+        x = np.frombuffer(da, np.uint8) ^ np.frombuffer(db, np.uint8)
         nonzero += int((x != 0).sum())
         total += x.size
         sink.write(x.tobytes())
@@ -617,8 +644,8 @@ def ggufpacker_crosscheck(matrix: dict[str, dict[str, dict]], fixtures: dict[str
     """
     out = {}
     for qtype, published_name in (
-        ("Q8_0", "Qwen2.5-0.5B-Instruct-Q8_0.gguf"),
-        ("Q4_K_M", "Qwen2.5-0.5B-Instruct-Q4_K_M.gguf"),
+        ("Q8_0", PUBLISHED_Q8_0_FILE),
+        ("Q4_K_M", PUBLISHED_Q4_K_M_FILE),
     ):
         pub = fixtures[published_name]
         out[qtype] = {}
@@ -676,7 +703,7 @@ def recipe_pinned_rederive(
     (quantize.imatrix.* KV keys present, no .imatrix file in the repo) —
     the paper's third card-absent coordinate C.
     """
-    pub = fixtures["Qwen2.5-0.5B-Instruct-Q4_K_M.gguf"]
+    pub = fixtures[PUBLISHED_Q4_K_M_FILE]
     rp = GGUFReader(str(pub))
     inv = {v.value: v.name.lower() for v in GGMLQuantizationType}
     pub_types = {t.name: inv[int(t.tensor_type)] for t in rp.tensors}
@@ -692,7 +719,7 @@ def recipe_pinned_rederive(
     # wholesale; a diff-only override file leaves unlisted tensors to the
     # preset's own heuristics, which differ across llama.cpp releases).
     recipe_file = work_dir / "recipe_overrides.txt"
-    recipe_file.write_text("\n".join(f"{n}={t}" for n, t in sorted(pub_types.items())))
+    write_recipe_file(recipe_file, pub_types)
     out = {
         "published_kv": {
             "imatrix_file_recorded": "quantize.imatrix.file" in rp.fields,
@@ -758,7 +785,7 @@ def card_alone_match_count(matrix: dict[str, dict[str, dict]], fixtures: dict[st
     of the stock-preset regeneration vs the published Q4_K_M, by tensor
     name, skipping type-mismatched tensors (paper: 140/335 and 141/339
     for the two families)."""
-    pub = GGUFReader(str(fixtures["Qwen2.5-0.5B-Instruct-Q4_K_M.gguf"]))
+    pub = GGUFReader(str(fixtures[PUBLISHED_Q4_K_M_FILE]))
     tp = {t.name: t for t in pub.tensors}
     out = {}
     for build in BUILDS:
@@ -938,12 +965,10 @@ def tensor_xor_counts(path_a: Path, path_b: Path) -> dict:
     a = {t.name: t for t in GGUFReader(str(path_a)).tensors}
     b = {t.name: t for t in GGUFReader(str(path_b)).tensors}
     matched = type_mismatched = length_mismatched = nonzero_bytes = 0
-    for name in sorted(set(a) & set(b)):
-        ta, tb = a[name], b[name]
-        if ta.tensor_type != tb.tensor_type:
+    for name, da, db in tensor_payload_pairs(a, b):
+        if a[name].tensor_type != b[name].tensor_type:
             type_mismatched += 1
             continue
-        da, db = ta.data.tobytes(), tb.data.tobytes()
         if len(da) != len(db):
             length_mismatched += 1
             continue
@@ -989,9 +1014,7 @@ def b9222_table_iii(binaries: dict[str, Path], fixtures: dict[str, Path], work_d
     # types wholesale, ^escaped$ so each line matches exactly one tensor).
     rp = GGUFReader(str(published))
     recipe_file = work_dir / "b9222_recipe_Q4_K_M.txt"
-    recipe_file.write_text(
-        "\n".join(f"^{re.escape(t.name)}$={_ttype_name(t).lower()}" for t in rp.tensors) + "\n"
-    )
+    write_recipe_file(recipe_file, {t.name: _ttype_name(t).lower() for t in rp.tensors})
 
     runs = [
         # (run key, build label, mode)

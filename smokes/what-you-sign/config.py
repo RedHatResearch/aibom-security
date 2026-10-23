@@ -30,7 +30,9 @@ F16_SHA256 = "f1ad9d1174ce6ab47b584d522634c47e411b75bffdffd9a4e106e21e882392e5"
 
 # Published sibling artifacts from the same repo, used for the ggufpacker
 # cross-check (PLAN_EXACT vs PLAN_NEAR claim) on the publisher's own files.
-PUBLISHED_SIBLINGS = ("Qwen2.5-0.5B-Instruct-Q8_0.gguf", "Qwen2.5-0.5B-Instruct-Q4_K_M.gguf")
+PUBLISHED_Q8_0_FILE = "Qwen2.5-0.5B-Instruct-Q8_0.gguf"
+PUBLISHED_Q4_K_M_FILE = "Qwen2.5-0.5B-Instruct-Q4_K_M.gguf"
+PUBLISHED_SIBLINGS = (PUBLISHED_Q8_0_FILE, PUBLISHED_Q4_K_M_FILE)
 
 # ---------------------------------------------------------------------------
 # Execution environments E (paper §V): three llama.cpp builds at one pinned
