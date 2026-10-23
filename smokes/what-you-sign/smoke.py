@@ -838,8 +838,16 @@ def census_rescore(harness_root: Path | None, work_dir: Path) -> dict:
     out_csv = work_dir / "census_rescore.csv"
     cmd = ["python3", str(script), "--repos-file", str(repos_file), "--out", str(out_csv)]
     _log("step 7: census re-score (frozen top-200, ~10 min, ranged header reads)")
-    res = subprocess.run(cmd, capture_output=True, text=True)
-    if res.returncode != 0:
+    # The harness scorer has no retry of its own and issues ~200 sequential
+    # range requests, so one transient reset aborts the whole sweep. Retry
+    # once; a persistent failure still fails loudly.
+    for attempt in (1, 2):
+        res = subprocess.run(cmd, capture_output=True, text=True)
+        if res.returncode == 0:
+            break
+        if attempt == 1:
+            _log("census: transient failure, retrying once")
+            continue
         raise SystemExit(f"census run failed:\n{res.stderr[-2000:]}")
     for line in res.stdout.splitlines():
         if line.startswith(("===", "  ")):
