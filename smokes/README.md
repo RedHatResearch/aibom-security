@@ -17,6 +17,7 @@ Runnable checks for the [#26](https://github.com/RedHatResearch/aibom-security/i
 | Solar-vs-GLM | [`solar-vs-glm/`](solar-vs-glm/) | LN raw-vs-centered cosine reversal, GPT-2 control | [#26 Solar-vs-GLM](https://github.com/RedHatResearch/aibom-security/issues/26#issuecomment-6141604873) · pbench pairs |
 | LoRA-Hash | [`lora-hash/`](lora-hash/) | LoRA delta-W extremum hash, Hamming matching | [#26 LoRA-Hash](https://github.com/RedHatResearch/aibom-security/issues/26#issuecomment-6141610002) · pbench pairs + synthetic corpus |
 | TRACE s_H | [`trace-sft/`](trace-sft/) | Checkpoint-update geometry, NNLS harmful-objective score | [#26 TRACE](https://github.com/RedHatResearch/aibom-security/issues/26#issuecomment-6141610015) · self-trained LoRA trajectories |
+| What-you-sign | [`what-you-sign/`](what-you-sign/) | GGUF re-derivability: FP-contraction divergence, recipe/imatrix gaps, detection floor, ggufpacker EXACT/NEAR | [#26 What You Sign](https://github.com/RedHatResearch/aibom-security/issues/26#issuecomment-6289519448) |
 
 Shared helpers: [`_lib/`](_lib/) (Hub load, fixture pairs).
 

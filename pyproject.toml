@@ -29,6 +29,7 @@ smokes = [
     "pyyaml>=6.0",
     "safetensors>=0.5",
     "scipy>=1.14",
+    "zstandard>=0.23",
     "torch>=2.5",
     "transformers>=4.50",
 ]
