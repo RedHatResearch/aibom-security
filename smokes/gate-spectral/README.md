@@ -2,8 +2,8 @@
 
 Weight-level reimplementation of the **GATE spectral fingerprint** from
 **"Model-intrinsic, Weight-level, and Training-free Spectral Fingerprinting
-for Large Language Models"** (He, Chen, Xiong, Zhao, Wu; Guizhou Normal
-University / BLCU / Shanghai University;
+for Large Language Models"** (Yanan He, Yanli Chen, Ling Xiong, Gejian Zhao,
+Hanzhou Wu; Guizhou Normal University / BLCU / Shanghai University;
 [arXiv:2610.30626v1](https://arxiv.org/abs/2610.30626), 22 Oct 2026).
 Given two checkpoints, the method computes one spectral-entropy scalar per
 gate projection, pools the depth profile into eight numbers, and decides
@@ -24,7 +24,8 @@ when reusing:
 @article{he2026gate,
   title  = {Model-intrinsic, Weight-level, and Training-free Spectral
             Fingerprinting for Large Language Models},
-  author = {He and Chen and Xiong and Zhao and Wu},
+  author = {Yanan He and Yanli Chen and Ling Xiong and Gejian Zhao and
+            Hanzhou Wu},
   journal = {arXiv preprint arXiv:2610.30626},
   year   = {2026}
 }
@@ -103,9 +104,9 @@ Per pair: CKA, signed Pearson, `anticorrelation_collision`
 both sides), `layers_per_segment`, `low_signal_profile` (`profile_cv < 0.02`),
 and the sensitivity panel below.
 
-## MoE extension (disclosure language, verbatim)
+## MoE extension (ours; not in the paper)
 
-> **MoE extension (ours; not in the paper).** He et al. (arXiv:2610.30626) define the GATE spectral feature only for dense decoder-only models with gated FFNs — one gate projection per layer — and do not evaluate MoE checkpoints. ProvenanceBench's MoE cohort requires a rule. We extend the feature as follows: for each layer, every gate-like FFN tensor (routed-expert gates, the shared-expert gate where present, and the dense FFN gate for dense layers inside MoE models; router/logit matrices excluded) contributes the paper's per-tensor statistic — top-min(r, q) singular values normalized over the retained set, spectral entropy, exp(H) — and the layer scalar is the arithmetic mean of these values. Segmented pooling (s=8), linear CKA, and the τ=0.9 operating point are unchanged. On dense models this degenerates exactly to the paper's definition. The arithmetic mean is chosen because it is exactly invariant to expert duplication (naive upcycling), unbiased under expert subsetting (expert drop), and introduces no expert-count-dependent term; shared-only, expert-only, geometric-mean, and concatenated-spectrum variants are recorded in diagnostics for every MoE pair. This extension is a design choice of this reproduction and is untested by the paper's authors; MoE results should be read with that in mind.
+> **MoE extension (ours; not in the paper).** He et al. (arXiv:2610.30626) define the GATE spectral feature only for dense decoder-only models with gated FFNs — one gate projection per layer — and do not evaluate MoE checkpoints. ProvenanceBench's MoE cohort requires a rule. We extend the feature as follows: for each layer, every gate-like FFN tensor (routed-expert gates, the shared-expert gate where present, and the dense FFN gate for dense layers inside MoE models; router/logit matrices excluded) contributes the paper's per-tensor statistic — top-min(r, q) singular values normalized over the retained set, spectral entropy, exp(H) — and the layer scalar is the arithmetic mean of these values. Segmented pooling (s=8), linear CKA, and the τ=0.9 operating point are unchanged. On dense models this degenerates exactly to the paper's definition. The arithmetic mean is chosen because it is exactly invariant to expert duplication (naive upcycling), unbiased under random expert subsetting (expectation over uniformly drawn subsets), and introduces no expert-count-dependent term; shared-only, expert-only, geometric-mean, and concatenated-spectrum variants are recorded in diagnostics for every MoE pair. This extension is a design choice of this reproduction and is untested by the paper's authors; MoE results should be read with that in mind.
 
 Routers are excluded in every family — a router maps `d_m -> n_experts` and
 never passes an activation before the UP product. The five name collisions
@@ -184,7 +185,7 @@ Pre-registered interpretations (fixed before the first run):
 ## Running
 
 ```bash
-# the nine-pair smoke cohort (cold run downloads ~20 GB at full-checkpoint
+# the nine-pair smoke cohort (cold run downloads ~20–24 GB at full-checkpoint
 # sizes into the shared HF cache; less when Range reads fetch only gates)
 uv run --group smokes python smokes/gate-spectral/smoke.py
 
@@ -208,12 +209,12 @@ lazily and only when a `pytorch_model.bin` checkpoint is read.
 
 ## Cost
 
-Q8_0 is chosen for the granite GGUF pair (closest to the parent numerics);
-the repo pins a revision but not a file, so the loader records the chosen
-filename and every tensor's quant type in diagnostics. All pairs reuse the
-shared HF cache; the unique download for the nine-pair smoke cohort is
-roughly 20–24 GB at full-checkpoint sizes, less when Range reads fetch only
-the gate tensors (GGUF pairs stay full-file).
+The granite GGUF pair's file choice and its pinning caveat are under
+Deviations (#4); the loader records the chosen filename and every tensor's
+quant type in diagnostics. All pairs reuse the shared HF cache; the unique
+download for the nine-pair smoke cohort is roughly 20–24 GB at
+full-checkpoint sizes, less when Range reads fetch only the gate tensors
+(GGUF pairs stay full-file).
 
 | pair | checkpoints downloaded | approx. |
 |---|---|---|
@@ -231,10 +232,12 @@ Extraction streams: each gate matrix is reduced to its singular spectrum as
 soon as it is sliced, and only the spectrum plus name/role/shape metadata is
 retained. Peak RAM is therefore one tensor plus spectra, not every gate
 matrix in the checkpoint. That is what makes core-cohort pairs at 30B scale
-feasible — e.g. the Qwen3-30B REAM pair (48 layers × 128 experts, `[768,2048]`
-gates) would otherwise need ≈67.6 GB of fp32 gates in RAM; streaming peaks
-at one expert matrix, and Range reads cut that pair's traffic to ≈38.7 GB
-instead of a 107.6 GB snapshot.
+feasible — e.g. the Qwen3-30B REAM pair (48 layers × 128 experts in the
+subject, 48 × 96 in the reference; `[768,2048]` gates) would otherwise need
+≈67.6 GB of fp32 gates in RAM for both sides together; streaming peaks at
+one expert matrix, and Range reads cut that pair's traffic to ≈38.7 GB
+instead of a 107.6 GB snapshot. Both figures are computed from tensor
+shapes, not measured.
 
 Safetensors shards are fetched with HTTP Range reads, one gate tensor at a
 time: an 8-byte GET supplies the header length, `HfApi().get_safetensors_metadata`
@@ -264,21 +267,52 @@ vector cannot be scored), so it is a miss when it contradicts an expectation.
 The summary lists each bucket by pair id; `expectation_held` is true only for
 `held`; exit 0 iff `missed` is empty.
 
+### Default-cohort outcome (measured 2026-10-26, runs/20261026T230514311838Z-c4720f53c3c6)
+
+Recorded after the first run — the pre-registered part is the interpretation
+list under Fixtures — so this is an observation, not a prediction. Two of
+the nine pairs miss, both characterized method-population findings rather
+than implementation defects:
+
+- **`pb-smoke-qwen25-awq` (~0.41, missed).** AWQ is int4 group-128; its
+  quantization noise is comparable to the parent's smaller retained singular
+  values (0.28–0.45× σ_125 across layers, median 0.32, measured from the
+  pinned weights; not recorded in the run artifact), and a q=896 gate keeps
+  only the top 128 singular values (14.3 % of the spectrum). The noise
+  saturates that retained set, the per-layer entropy flattens, and the pooled
+  profile drifts toward the generic random-bulk shape. The paper tested GPTQ
+  only, at 7B with q=3584, where the top 128 values are 3.6 % of the spectrum
+  — this fixture sits far outside that regime. The miss landed below the
+  pre-registered 0.85–0.95 band; the noise-floor reading was developed after
+  the result.
+- **`pb-smoke-qwen3-upcycle` (~0.84, missed).** The partition upcycle carves
+  the parent's 3072-neuron MLP into 6×384 routed plus 768 shared experts and
+  then trains 10B tokens, exceeding the paper's tested transforms. The miss
+  was pre-registered in the interpretation list above.
+
+The default run therefore exits 1 with exactly these two misses; the other
+seven pairs hold (the two unrelated hard negatives stay well below τ). The
+same core's bench runs are the core cohort in
+`provenancebench/runs/20261027T012533790066Z-15a9bc583089.*`, with the
+gpt2-fineweb pair re-scored in
+`provenancebench/runs/20261027T140739956978Z-466779299e34.*`.
+
 ## Scope and known limits
 
 - **Dense-primary.** The paper evaluates dense decoder-only gated-FFN models.
   The MoE rule is ours (see the disclosure block) and every MoE result must be
   read as an extension, not a paper reproduction.
 - **Population gap.** The paper has no same-architecture independently
-  pretrained negative; ours do (`Llama-3.2-1B` vs `SmolLM2-1.7B` share
-  `[8192, 2048]` gates, q = 2048; granite-MoE vs SmolLM2). The paper's
-  structure-matched subset is AUROC 1.0000 at r=128 but 0.9800 at r=64, so
-  collision risk on shared U-shaped depth profiles is real and untested by
-  the authors.
-- **τ headroom.** τ=0.9 sits 0.0108 above the paper's robust-min (GPTQ Int8
-  0.9108) and 0.025 above Int4 (0.9256); unrelated max 0.2288 was achieved
-  only on cross-dimension, cross-data-regime pairs. A quantized pair landing
-  in 0.85–0.95 is the paper's margin measured honestly, not a bug.
+  pretrained negative; ours include one. `Llama-3.2-1B` vs `SmolLM2-1.7B` is
+  the same-geometry case — both share q=2048, with gate shapes `[8192, 2048]`
+  and `[6144, 2048]` — and granite-MoE vs SmolLM2 is the cross-stack case
+  (q=512 vs q=2048). The paper's structure-matched subset is AUROC 1.0000 at
+  r=128 but 0.9800 at r=64, so collision risk on shared U-shaped depth
+  profiles is real and untested by the authors.
+- **τ headroom.** The paper's robust-min (GPTQ Int8 0.9108) clears τ by only
+  0.0108, and Int4 (0.9256) by 0.0256; unrelated max 0.2288 was achieved only
+  on cross-dimension, cross-data-regime pairs. A quantized pair landing in
+  0.85–0.95 is the paper's margin measured honestly, not a bug.
 - **Sign-insensitivity.** CKA squares the Pearson coefficient: an
   anticorrelated depth profile can score as high as its mirror image. The
   signed value and `anticorrelation_collision` flag are emitted for every
@@ -292,19 +326,22 @@ The summary lists each bucket by pair id; `expectation_held` is true only for
 - **MoE aggregation.** Averaging 32 experts shrinks profile variance
   (~1/32), flattening the curve toward the generic random-bulk shape. The
   upcycle model is a *partition* upcycle (not a copy) followed by 10B tokens
-  of continued pretraining, so it may not match its dense parent at τ.
+  of continued pretraining, so it may not match its dense parent at τ. The
+  mean is unbiased only under uniformly random expert subsetting; a
+  saliency-ranked drop (REAP) biases each layer's scalar by roughly
+  (n_drop/n_keep)·δ, which is visible in the granite-reap miss (0.8163).
 - **Quantization.** AWQ is int4 group-128 with zero-points; quantization
   noise comparable to small singular values shifts the top-128 entropy.
   FP8-dynamic is near-lossless for spectra; GGUF k-quants add block-structured
-  noise (Q8_0 chosen). MXFP4 (gpt-oss) is dequantized in numpy — E2M1 nibbles,
+  noise. MXFP4 (gpt-oss) is dequantized in numpy — E2M1 nibbles,
   E8M0 block exponents, gate = even columns after the layout transpose — and
   is bit-exact against `transformers.integrations.mxfp4` on random fixtures.
   AQLM/GPTQ/QuIP/GSQ have no dequantizer here and abstain as
   `format_unreadable`.
 - **Formats.** Safetensors shards are parsed header-first (8-byte header
-  length + JSON + tensor bytes) or range-read per gate tensor, so only gate
-  tensors are materialized and float8/bf16 decode through `ml_dtypes` without
-  torch. `pytorch_model.bin` (single-file, sharded `pytorch_model-NNNNN-of-NNNNN.bin`,
+  length + JSON + tensor bytes), or range-read per gate tensor (mechanism
+  under Cost), so only gate tensors are materialized and float8/bf16 decode
+  through `ml_dtypes` without torch. `pytorch_model.bin` (single-file, sharded `pytorch_model-NNNNN-of-NNNNN.bin`,
   or index-declared) is read with `torch.load(weights_only=True)`; torch is
   imported lazily and the pickle-safe mode refuses arbitrary payloads. GGUF
   goes through `gguf.GGUFReader`; an unknown GGML type code (a fork's
@@ -319,29 +356,6 @@ The summary lists each bucket by pair id; `expectation_held` is true only for
   rows are multiplied by that scale after the cast, so the feature measures
   the deployment-time weight matrix rather than the stored quantization grid
   (the same principle as the AWQ path applying its dequantization scales).
-
-### Expected outcome on the default cohort
-
-Two of the nine default pairs miss their pre-registered expectation. Both are
-characterized method-population findings, not implementation defects — the
-numeric audit, the property selftests, and the AWQ/GGUF round-trips are all
-green:
-
-- **`pb-smoke-qwen25-awq` (~0.41, missed).** AWQ is int4 group-128; its
-  quantization noise floor is about 0.45× the parent's σ₁₂₅ at this scale,
-  and a q=896 gate keeps only the top 128 singular values (14.3 % of the
-  spectrum). The noise saturates that retained set, the per-layer entropy
-  flattens, and the pooled profile approaches the generic random-bulk shape
-  (`low_signal_profile` fires). The paper tested GPTQ only, at 7B with
-  q=3584, where the top 128 values are 3.6 % of the spectrum — this fixture
-  sits far outside that regime.
-- **`pb-smoke-qwen3-upcycle` (~0.84, missed).** The partition upcycle carves
-  the parent's 3072-neuron MLP into 6×384 routed plus 768 shared experts and
-  then trains 10B tokens, exceeding the paper's tested transforms. The miss
-  was pre-registered in the interpretation list above.
-
-The default run therefore exits 1 with exactly these two misses; the other
-seven pairs hold (the two unrelated hard negatives stay well below τ).
 
 ## Output contract
 

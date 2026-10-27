@@ -11,7 +11,7 @@ related iff CKA >= tau = 0.9; no forward passes or outputs are involved.
 Provenance: the numeric core below is the same audited implementation as
 ``smokes/gate-spectral/`` (paper-only reimplementation from Eq. 1-6). That
 core passed an independent numeric audit to machine epsilon and the smoke's
-30-check offline selftest; this file inlines it so the benchmark has no
+35-check offline selftest; this file inlines it so the benchmark has no
 dependency on smoke code. House conventions are the pinned ones: fp32 SVD
 input and fp64 entropy arithmetic, EPS=1e-12 in the Eq. (2) denominator
 only, r_eff = min(r, q), per-layer arithmetic mean over gate tensors, s=8
@@ -23,10 +23,11 @@ gate-like FFN tensor per layer (routed-expert gates, a shared-expert gate,
 and the dense FFN gate of dense layers inside an MoE model; router/logit
 matrices excluded) contributes the paper's per-tensor statistic, and the
 layer scalar is their arithmetic mean. That mean is invariant to expert
-duplication (naive upcycling), unbiased under expert subsetting, and
-degenerates exactly to the paper on dense models. Pooling, linear CKA, and
-tau=0.9 are unchanged. This extension is a design choice of this
-reproduction, untested by the paper's authors.
+duplication (naive upcycling), unbiased under random expert subsetting
+(expectation over uniformly drawn subsets), and degenerates exactly to the
+paper on dense models. Pooling, linear CKA, and tau=0.9 are unchanged. This
+extension is a design choice of this reproduction, untested by the paper's
+authors.
 
 Label blindness: the detector reads only the repo ids, revisions, and stack
 passed to ``score()``. It never opens the curated pair manifest, labels,
@@ -57,7 +58,7 @@ from huggingface_hub import (
     hf_hub_url,
     snapshot_download,
 )
-from huggingface_hub.errors import GatedRepoError, RepositoryNotFoundError
+from huggingface_hub.errors import GatedRepoError, RepositoryNotFoundError, RevisionNotFoundError
 
 Verdict = Literal["related", "unrelated", "abstain"]
 
@@ -954,10 +955,17 @@ def _extract_safetensors(
     """Extract gate spectra from a reader (plain/FP8, AWQ int4, or MXFP4 blocks)."""
     layers: dict[int, list[TensorSpectrum]] = {}
     kinds: set[str] = set()
+    plain_storage = False
     if quant_method == "awq":
         _accumulate(layers, kinds, _awq_items(reader))
     elif quant_method == "mxfp4":
-        _accumulate_mxfp4(layers, kinds, reader, repo_id)
+        _accumulate_mxfp4(layers, kinds, reader)
+        if not layers:
+            # Declared MXFP4 but stored plain (a bf16 re-save with a stale
+            # config): read the shards as they are, exactly as the smoke does.
+            # Recorded in provenance because this module has no log channel.
+            plain_storage = True
+            _accumulate(layers, kinds, _gate_items(reader))
     else:
         _accumulate(layers, kinds, _gate_items(reader))
     source = {
@@ -968,6 +976,8 @@ def _extract_safetensors(
         "step": step,
         "fetch": "range" if range_reads else "snapshot",
     }
+    if plain_storage:
+        source["mxfp4_plain_storage"] = True
     return _finish_extraction(layers, kinds, "safetensors", source)
 
 
@@ -975,14 +985,18 @@ def _accumulate_mxfp4(
     layers: dict[int, list[TensorSpectrum]],
     kinds: set[str],
     reader: _SafetensorsReader,
-    repo_id: str,
 ) -> None:
-    """Dequantize MXFP4 expert gate+up blocks into per-expert gate spectra."""
+    """Dequantize MXFP4 expert gate+up blocks into per-expert gate spectra.
+
+    A config that declares ``quant_method='mxfp4'`` but ships no packed blocks
+    stores plain weights (stale-config bf16 re-save); this function then keeps
+    nothing and the caller re-reads the shards as plain. A missing ``_scales``
+    beside real blocks is still structural: the bench raises, unlike the smoke,
+    which skips such an entry (no pair hits either path today).
+    """
     block_names = [name for name in reader.names() if _MXFP4_GATE_BLOCKS.search(name)]
     if not block_names:
-        raise FormatUnreadable(
-            f"{repo_id}: quant_method='mxfp4' but no .experts.gate_up_proj_blocks tensors"
-        )
+        return
     for name in block_names:
         layer = _last_layer_index(name)
         if layer is None:
@@ -1225,6 +1239,12 @@ def _load_pytorch_bin(repo_id: str, revision: str | None) -> Extraction:
 def _read_pytorch_bin(repo_id: str, revision: str | None) -> Extraction:
     """Read a TinyMixtral-style flat state dict and keep only gate spectra.
 
+    Single-file ``pytorch_model.bin`` only: sharded
+    (``pytorch_model-NNNNN-of-NNNNN.bin``) and index-declared checkpoints are
+    not joined here, unlike the smoke's shard- and index-aware ``_load_bin``.
+    No current pair needs them; a sharded-only repo abstains as
+    ``format_unreadable`` rather than scoring half a model.
+
     torch is imported here rather than at module scope: it is an optional
     dependency, and every other checkpoint format must keep working in an
     environment that does not ship it.
@@ -1264,9 +1284,11 @@ def _load_gate_tensors(repo_id: str, revision: str | None) -> Extraction:
         )
     try:
         files = _repo_files(repo_id, revision)
-    except (GatedRepoError, RepositoryNotFoundError) as exc:
-        # A license-gated or missing checkpoint is a structural abstain, not
-        # a scoring failure (e.g. meta-llama/Llama-3.2-1B needs a token).
+    except (GatedRepoError, RepositoryNotFoundError, RevisionNotFoundError) as exc:
+        # A license-gated, missing, or Hub-unresolvable checkpoint is a
+        # structural abstain, not a scoring failure (e.g.
+        # meta-llama/Llama-3.2-1B needs a token; by-SHA tree resolution
+        # can also 404 transiently on the Hub side).
         raise FormatUnreadable(
             f"{repo_id}: inaccessible at this revision ({type(exc).__name__})"
         ) from exc
@@ -1300,6 +1322,10 @@ def _source_summary(extraction: Extraction) -> dict:
         source["quant_method"] = extraction.source.get("quant_method")
         source["step"] = extraction.source.get("step")
         source["fetch"] = extraction.source.get("fetch")
+        if extraction.source.get("mxfp4_plain_storage"):
+            # Declared MXFP4, stored plain: the provenance record is the only
+            # trace of the fallback (this module never writes to stderr).
+            source["mxfp4_plain_storage"] = True
     elif extraction.format == "pytorch_bin":
         source["file"] = extraction.source.get("file")
     return source

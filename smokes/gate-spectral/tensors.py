@@ -696,6 +696,7 @@ def _store_mxfp4(
     for base, parts in _mxfp4_pairs(source.index).items():
         layer = _mxfp4_gate_layer(base)
         if layer is None:
+            # Smoke-only skip: a non-gptoss_fused base is ignored here; the bench raises.
             continue
         gates = _mxfp4_gates(base, source.read(parts["blocks"]), source.read(parts["scales"]))
         kinds.add("gptoss_fused")
