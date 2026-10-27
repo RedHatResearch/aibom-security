@@ -1104,11 +1104,21 @@ name = "provenancebench"
 version = "0.1.0"
 source = { editable = "provenancebench" }
 dependencies = [
+    { name = "gguf" },
+    { name = "huggingface-hub" },
+    { name = "ml-dtypes" },
+    { name = "numpy" },
     { name = "pyyaml" },
 ]
 
 [package.metadata]
-requires-dist = [{ name = "pyyaml", specifier = ">=6.0" }]
+requires-dist = [
+    { name = "gguf", specifier = ">=0.10" },
+    { name = "huggingface-hub", specifier = ">=0.34" },
+    { name = "ml-dtypes", specifier = ">=0.5" },
+    { name = "numpy", specifier = ">=2.0" },
+    { name = "pyyaml", specifier = ">=6.0" },
+]
 
 [[package]]
 name = "psycopg"

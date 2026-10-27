@@ -6,6 +6,10 @@ readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
     "pyyaml>=6.0",
+    "numpy>=2.0",
+    "ml-dtypes>=0.5",
+    "gguf>=0.10",
+    "huggingface_hub>=0.34",
 ]
 
 [project.scripts]

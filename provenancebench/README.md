@@ -38,6 +38,10 @@ uv run pbench-eval --cohort all
 The harness resolves bench data relative to this checkout. `pbench-eval` is
 not usable from an installed wheel; run it from a clone of this repository.
 
+Runtime dependencies are declared in `provenancebench/pyproject.toml`;
+`uv sync --all-packages` installs them. `torch` is optional and only needed for
+legacy `pytorch_model.bin` checkpoints.
+
 Run `smoke` first, then `core`, then `all`. For a focused run:
 
 ```bash
@@ -106,4 +110,16 @@ Result(
 `abstain_reason` a short token such as `method_not_implemented`. The harness
 never passes labels, evidence, or kind to the detector.
 
-The current detector is a stub that abstains on every case.
+The current detector is the GATE spectral fingerprint: for every gate-like FFN
+matrix it takes the fp32 SVD at extraction time and keeps only the singular
+values, pools the per-layer spectral-entropy profile into eight depth segments,
+and returns `related` when the linear-CKA similarity of the two profiles is at
+least 0.9 and `unrelated` below it. Weights are read without full snapshots:
+safetensors shards are fetched tensor by tensor over HTTP range requests (with a
+cached snapshot as fallback), GGUF files are dequantized with `gguf.quants`,
+legacy `pytorch_model.bin` checkpoints (TinyMixtral layout) go through
+`torch.load(..., weights_only=True)`, AWQ int4 and FP8 compressed-tensors gates
+are dequantized in-process, and packed MXFP4 expert blocks are dequantized before
+the SVD. It abstains only when a checkpoint is structurally unreadable, has no
+gate-like FFN tensors, or the two profiles are degenerate (`degenerate_profile`:
+a constant pooled profile leaves no variance to correlate).

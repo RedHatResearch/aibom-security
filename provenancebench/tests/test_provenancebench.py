@@ -10,7 +10,7 @@ import pytest
 import yaml
 
 from pbench import load
-from pbench.eval import _resolve_ids, run_eval
+from pbench.eval import _load_detect, _resolve_ids, run_eval
 from pbench.load import bench_root, case_by_id, load_cases, load_cohort, load_cohorts, load_kinds
 
 
@@ -134,6 +134,35 @@ def test_detector_cannot_read_ground_truth() -> None:
         assert term not in detect_src
 
 
+def test_detect_supports_new_families() -> None:
+    """Core-cohort patterns classify offline (no weights, no network)."""
+    detect = _load_detect(bench_root())
+
+    assert detect._classify("gpt_neox.layers.3.mlp.dense_4h_to_h.weight") == (
+        "gpt_neox_fallback",
+        3,
+        "dense",
+    )
+    # dense_h_to_4h is the UP branch of the gated FFN, not the gate.
+    assert detect._classify("gpt_neox.layers.3.mlp.dense_h_to_4h.weight") is None
+    assert detect._classify("model.language_model.layers.5.mlp.gate_proj.weight") == (
+        "dense_gate",
+        5,
+        "dense",
+    )
+    assert detect._classify("backbone.layers.7.mixer.down_proj.weight") == (
+        "nemotron_fallback",
+        7,
+        "dense",
+    )
+    # Stacked experts: axis 0 is the expert axis and the pass-through branch
+    # keeps each expert matrix intact (no row split, no de-interleave).
+    assert detect._classify("layers.4.moe.gate_proj") == ("tinymixtral_stacked", 4, "routed")
+    assert "tinymixtral_stacked" in detect._STACKED_KINDS
+    # Speculative-decoding head nested like a decoder layer: anchored regex.
+    assert detect._classify("mtp.layers.0.mlp.gate_proj.weight") is None
+
+
 def test_always_related_is_caught_by_class_behavior(tmp_path: Path) -> None:
     root = _copy_bench(tmp_path)
     _write_detector(root, "related", score="1.0")
@@ -175,6 +204,9 @@ def test_unsupported_maps_abstain_to_correct(tmp_path: Path) -> None:
 
 def test_eval_writes_pairwise_method_and_review_artifacts(tmp_path: Path) -> None:
     root = _copy_bench(tmp_path)
+    # The real detector loads weights (network); this test exercises harness
+    # artifact shape, so swap in the same offline detector the other tests use.
+    _write_detector(root, "abstain", score="None")
     smoke_ids = load_cohort("smoke", root)["ids"]
     run_path = root / "runs" / "smoke.method.jsonl"
 
