@@ -34,10 +34,12 @@ runs fully offline (synthetic tensors, no network).
 from __future__ import annotations
 
 import argparse
+import io
 import json
 import sys
 import tempfile
 import time
+from contextlib import redirect_stderr
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -721,6 +723,161 @@ def _new_capability_checks(rng: np.random.Generator) -> list[tuple[str, bool, di
     return checks
 
 
+# ---------------------------------------------------------------------------
+# Untrusted-surface regressions: hostile safetensors headers, Hub 404s, and
+# range responses that ignore the Range header.
+# ---------------------------------------------------------------------------
+
+
+def _write_shard(
+    directory: Path, header: object, data: bytes = b"", header_len: int | None = None
+) -> Path:
+    """Write one synthetic safetensors shard with an arbitrary length prefix."""
+    raw = bytes(header) if isinstance(header, (bytes, bytearray)) else json.dumps(header).encode()
+    length = len(raw) if header_len is None else header_len
+    path = directory / "model.safetensors"
+    path.write_bytes(int(length).to_bytes(8, "little") + raw + data)
+    return path
+
+
+def _malicious_shard_checks() -> list[tuple[str, bool, dict]]:
+    """Untrusted headers are rejected as FormatUnreadable, never allocated."""
+    probes: list[tuple[str, object, bytes, int | None, str | None]] = [
+        # header, data, header_len override, tensor to read after opening
+        (
+            "negative_shape",
+            {"x": {"dtype": "F32", "shape": [-1, 4], "data_offsets": [0, -4]}},
+            b"\x00" * 16,
+            None,
+            "x",
+        ),
+        ("header_overflow", {}, b"", 2**62, None),
+        ("truncated_header", b'{"x": {', b"", 1024, None),
+        ("list_header", [1, 2, 3], b"", None, None),
+        (
+            "end_beyond_file",
+            {"x": {"dtype": "F32", "shape": [4], "data_offsets": [0, 16]}},
+            b"\x00" * 4,
+            None,
+            "x",
+        ),
+    ]
+    checks: list[tuple[str, bool, dict]] = []
+    with tempfile.TemporaryDirectory() as tmp:
+        for name, header, data, header_len, tensor in probes:
+            directory = Path(tmp) / name
+            directory.mkdir()
+            shard = _write_shard(directory, header, data, header_len)
+            raised = False
+            detail = "accepted"
+            try:
+                source = next(tensors._local_sources([shard]))
+                if tensor is not None:
+                    source.read(tensor)
+            except tensors.FormatUnreadable as exc:
+                raised = True
+                detail = str(exc)
+            except Exception as exc:  # noqa: BLE001 — any other failure is the defect
+                detail = f"uncaught {type(exc).__name__}: {exc}"
+            checks.append((f"malicious_shard_{name}", raised, {"detail": detail}))
+    return checks
+
+
+def _revision_404() -> Exception:
+    """A real ``RevisionNotFoundError`` for offline error-path probes."""
+    import httpx
+    from huggingface_hub.errors import RevisionNotFoundError
+
+    request = httpx.Request("GET", "https://huggingface.co/api/models/probe/revision/0")
+    return RevisionNotFoundError(
+        "revision not found", response=httpx.Response(404, request=request)
+    )
+
+
+def _hub_error_check() -> dict:
+    """A by-SHA tree 404 is an abstain entry, not a run abort."""
+    spec = PairSpec(
+        pair_id="pb-hub-404-probe",
+        stack="dense",
+        kind="neg_cross",
+        expected="unrelated",
+        subject="probe/subject",
+        reference="probe/reference",
+        subject_rev="0" * 40,
+        reference_rev="0" * 40,
+    )
+    original_files = tensors._repo_files
+    original_config = tensors.load_config
+
+    def raise_404(repo_id: str, revision: str) -> list[str]:
+        raise _revision_404()
+
+    tensors._repo_files = raise_404
+    tensors.load_config = lambda *args, **kwargs: {}
+    try:
+        with redirect_stderr(io.StringIO()):
+            entry = run_pair(spec, "hard_negative", "unrelated", None)
+    finally:
+        tensors._repo_files = original_files
+        tensors.load_config = original_config
+    return {
+        "verdict": entry.get("verdict"),
+        "reason": entry.get("reason"),
+        "outcome": entry.get("outcome"),
+    }
+
+
+class _FakeStreamResponse:
+    """Minimal httpx stream response that counts body reads."""
+
+    def __init__(self, status_code: int) -> None:
+        self.status_code = status_code
+        self.headers: dict[str, str] = {}
+        self.body_reads = 0
+
+    def raise_for_status(self) -> None:
+        return None
+
+    def iter_bytes(self):
+        self.body_reads += 1
+        yield b"\x00" * 4096
+
+
+class _FakeStreamClient:
+    """get_session() stand-in exposing the httpx ``stream`` context manager."""
+
+    def __init__(self, response: _FakeStreamResponse) -> None:
+        self._response = response
+
+    def stream(self, method, url, *, headers=None, timeout=None):
+        response = self._response
+
+        class _Context:
+            def __enter__(self):
+                return response
+
+            def __exit__(self, *exc_info):
+                return False
+
+        return _Context()
+
+
+def _range_streaming_check() -> dict:
+    """A non-206 answer never reads the body (no full-shard buffering)."""
+    response = _FakeStreamResponse(200)
+    original = tensors.get_session
+    tensors.get_session = lambda: _FakeStreamClient(response)
+    raised = False
+    try:
+        try:
+            tensors._range_get("probe/repo", "0" * 40, "model.safetensors", 0, 7)
+        except tensors._RangeUnavailable:
+            raised = True
+    finally:
+        tensors.get_session = original
+    return {"raised": raised, "body_reads": response.body_reads}
+
+
 def run_selftest() -> int:
     """Exercise the full scoring path offline; exit 0 on success."""
     started = time.perf_counter()
@@ -1067,6 +1224,28 @@ def run_selftest() -> int:
                 for entry, expected, want in outcome_cases
             ),
             {"cases": len(outcome_cases), "outcomes": sorted({want for *_, want in outcome_cases})},
+        )
+    )
+
+    # 16b) Untrusted surfaces: hostile shard headers, a by-SHA Hub 404, and a
+    # range response that ignores Range.
+    checks.extend(_malicious_shard_checks())
+    hub = _hub_error_check()
+    checks.append(
+        (
+            "hub_404_abstain",
+            hub["verdict"] == "abstain"
+            and hub["reason"] == "format_unreadable"
+            and hub["outcome"] == OUTCOME_SKIPPED_FORMAT,
+            hub,
+        )
+    )
+    streaming = _range_streaming_check()
+    checks.append(
+        (
+            "range_streaming_rejects_non_206",
+            streaming["raised"] and streaming["body_reads"] == 0,
+            streaming,
         )
     )
 

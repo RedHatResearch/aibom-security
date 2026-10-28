@@ -64,6 +64,7 @@ to ``snapshot_download`` and the local reader.
 from __future__ import annotations
 
 import json
+import math
 import re
 import sys
 import time
@@ -77,7 +78,7 @@ import numpy as np
 from _gate import R_DEFAULT, TensorSpectrum, svd_spectrum
 from gguf import GGUFReader
 from huggingface_hub import HfApi, get_session, hf_hub_download, hf_hub_url, snapshot_download
-from huggingface_hub.errors import GatedRepoError, RepositoryNotFoundError
+from huggingface_hub.errors import GatedRepoError, RepositoryNotFoundError, RevisionNotFoundError
 from huggingface_hub.utils import get_token
 
 # AWQ GEMM packing constants (AutoAWQ convention): 4-bit values, eight per
@@ -444,6 +445,8 @@ def dequantize_awq_gemm(
     # AutoAWQ reverses per 8-wide block (arange(n).view(-1, 8)[:, REVERSE]),
     # so each block gets its own offset, not a tiled pattern.
     n_cols = iweight.shape[1]
+    if n_cols % AWQ_PACK_NUM:
+        raise FormatUnreadable(f"AWQ packed columns {n_cols} are not a multiple of {AWQ_PACK_NUM}")
     blocks = np.arange(n_cols).reshape(-1, AWQ_PACK_NUM)
     reverse = blocks[:, AWQ_REVERSE_ORDER].reshape(-1)
     iweight = iweight[:, reverse]
@@ -570,13 +573,45 @@ def _mxfp4_pairs(names: Iterable[str]) -> dict[str, dict[str, str]]:
 # Minimal safetensors reader (float8/bf16 through ml_dtypes, no torch).
 # ---------------------------------------------------------------------------
 
+#: Safetensors layout: 8-byte little-endian header length, JSON header, data.
+_HEADER_BYTES = 8
+#: Plausibility bound for a shard header (guards a non-safetensors response).
+_HEADER_MAX_BYTES = 100 * 1024 * 1024
+#: Largest element count one tensor may declare (int64 index space).
+_MAX_ELEMENT_COUNT = 2**63
+
 
 def _read_header(path: Path) -> tuple[dict, int]:
-    """Header dict and absolute data offset of a safetensors shard."""
+    """Header dict and absolute data offset of a safetensors shard.
+
+    The header is untrusted: its length prefix, its JSON, and every entry are
+    validated before any tensor bytes are sought, so a malformed shard can
+    neither request a multi-gigabyte read nor crash outside ``FormatUnreadable``.
+    """
+    size = path.stat().st_size
     with open(path, "rb") as handle:
-        header_len = int.from_bytes(handle.read(8), "little")
-        header = json.loads(handle.read(header_len))
-    return header, 8 + header_len
+        prefix = handle.read(_HEADER_BYTES)
+        if len(prefix) != _HEADER_BYTES:
+            raise FormatUnreadable(
+                f"{path.name}: shorter than the {_HEADER_BYTES}-byte header prefix"
+            )
+        header_len = int.from_bytes(prefix, "little")
+        if not 0 < header_len <= _HEADER_MAX_BYTES:
+            raise FormatUnreadable(f"{path.name}: implausible header length {header_len}")
+        if _HEADER_BYTES + header_len > size:
+            raise FormatUnreadable(
+                f"{path.name}: header length {header_len} runs past the file end ({size} bytes)"
+            )
+        raw = handle.read(header_len)
+    try:
+        header = json.loads(raw)
+    except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+        raise FormatUnreadable(f"{path.name}: header is not valid JSON ({exc})") from exc
+    if not isinstance(header, dict) or not all(
+        isinstance(entry, dict) for entry in header.values()
+    ):
+        raise FormatUnreadable(f"{path.name}: header is not a dict of tensor entries")
+    return header, _HEADER_BYTES + header_len
 
 
 @dataclass(frozen=True)
@@ -591,33 +626,61 @@ def _local_sources(shards: Iterable[Path]) -> Iterator[_ShardSource]:
     """Sources for shards on disk; headers are parsed as each shard is reached."""
     for shard in shards:
         header, data_start = _read_header(shard)
+        size = shard.stat().st_size
 
-        def read_tensor(name: str, header=header, shard=shard, data_start=data_start) -> np.ndarray:
-            return _read_tensor(shard, header[name], data_start)
+        def read_tensor(
+            name: str,
+            header=header,
+            shard=shard,
+            data_start=data_start,
+            size=size,
+        ) -> np.ndarray:
+            return _read_tensor(shard, header[name], data_start, size)
 
         yield _ShardSource(header, read_tensor)
 
 
-def _tensor_layout(info: Mapping, label: str) -> tuple[object, tuple[int, ...], int]:
-    """Validated ``(dtype, shape, element count)`` from one header entry."""
+def _tensor_layout(info: Mapping, label: str) -> tuple[object, tuple[int, ...], int, int, int]:
+    """Validated ``(dtype, shape, count, begin, end)`` from one header entry."""
     try:
-        dtype = SAFETENSORS_DTYPES[info["dtype"]]
-    except KeyError as exc:
-        raise FormatUnreadable(f"{label}: unsupported safetensors dtype {info['dtype']}") from exc
-    shape = tuple(int(d) for d in info["shape"])
-    begin, end = (int(offset) for offset in info["data_offsets"])
-    count = int(np.prod(shape, dtype=np.int64))
+        dtype_name = info["dtype"]
+        shape = tuple(int(dimension) for dimension in info["shape"])
+        begin, end = (int(offset) for offset in info["data_offsets"])
+    except (KeyError, TypeError, ValueError) as exc:
+        raise FormatUnreadable(
+            f"{label}: malformed tensor entry ({type(exc).__name__}: {exc})"
+        ) from exc
+    try:
+        dtype = SAFETENSORS_DTYPES[dtype_name]
+    except (KeyError, TypeError) as exc:
+        # TypeError covers an unhashable tag (e.g. a list); KeyError an unknown one.
+        raise FormatUnreadable(f"{label}: unsupported safetensors dtype {dtype_name!r}") from exc
+    if any(dimension < 0 for dimension in shape):
+        raise FormatUnreadable(f"{label}: negative shape dimension in {shape}")
+    count = math.prod(shape)
+    if not 0 < count <= _MAX_ELEMENT_COUNT:
+        raise FormatUnreadable(f"{label}: implausible element count {count} for {shape}")
+    if begin < 0 or end < begin:
+        raise FormatUnreadable(f"{label}: invalid data_offsets [{begin}, {end}]")
     if end - begin != count * np.dtype(dtype).itemsize:
-        raise FormatUnreadable(f"{label}: byte length mismatch for {info['dtype']} {shape}")
-    return dtype, shape, count
+        raise FormatUnreadable(f"{label}: byte length mismatch for {dtype_name} {shape}")
+    return dtype, shape, count, begin, end
 
 
-def _read_tensor(path: Path, info: Mapping, data_start: int) -> np.ndarray:
+def _read_tensor(path: Path, info: Mapping, data_start: int, size: int) -> np.ndarray:
     """Read one tensor by header entry; native dtype (float8/bf16 preserved)."""
-    dtype, shape, count = _tensor_layout(info, path.name)
+    dtype, shape, count, begin, end = _tensor_layout(info, path.name)
+    if end > size - data_start:
+        raise FormatUnreadable(
+            f"{path.name}: tensor bytes [{begin}, {end}) run past the data section"
+        )
     with open(path, "rb") as handle:
-        handle.seek(data_start + int(info["data_offsets"][0]))
+        handle.seek(data_start + begin)
+        # count is validated positive: np.fromfile treats a negative count as
+        # "read to EOF", which must never be reachable from a header.
         array = np.fromfile(handle, dtype=dtype, count=count)
+    if array.size != count:
+        raise FormatUnreadable(f"{path.name}: short read ({array.size}/{count} elements)")
     return array.reshape(shape)
 
 
@@ -683,6 +746,11 @@ def _awq_items(packed: Mapping[str, dict[str, np.ndarray]]) -> list[tuple[str, n
         if not {"qweight", "qzeros", "scales"} <= parts.keys():
             raise FormatUnreadable(f"{base}: incomplete AWQ packed tensors {sorted(parts)}")
         qweight, qzeros, scales = (parts[field] for field in ("qweight", "qzeros", "scales"))
+        if qzeros.shape[0] == 0 or qweight.shape[0] % qzeros.shape[0]:
+            raise FormatUnreadable(
+                f"{base}: AWQ qweight rows {qweight.shape[0]} do not group by "
+                f"qzeros rows {qzeros.shape[0]}"
+            )
         group_size = qweight.shape[0] // qzeros.shape[0]
         # dequantize returns [in, out]; HF .weight is [out, in].
         items.append((base + ".weight", dequantize_awq_gemm(qweight, qzeros, scales, group_size).T))
@@ -735,10 +803,7 @@ def _load_mxfp4(
 # HTTP Range reads: fetch only the gate tensors, never a whole shard.
 # ---------------------------------------------------------------------------
 
-#: Safetensors header length prefix.
-_HEADER_BYTES = 8
-#: Plausibility bound for a shard header (guards a non-safetensors response).
-_HEADER_MAX_BYTES = 100 * 1024 * 1024
+#: Timeout for one range GET: a stalled server must not hang the benchmark.
 _RANGE_TIMEOUT_SECONDS = 60
 
 
@@ -756,17 +821,41 @@ def _range_headers(byte_range: str) -> dict[str, str]:
     return headers
 
 
-def _range_get(repo_id: str, revision: str, filename: str, byte_range: str) -> bytes:
-    """One partial-content GET; a non-206 answer means no Range support."""
-    response = get_session().get(
-        hf_hub_url(repo_id, filename, revision=revision),
-        headers=_range_headers(byte_range),
-        timeout=_RANGE_TIMEOUT_SECONDS,
-    )
-    response.raise_for_status()
-    if response.status_code != 206:
-        raise _RangeUnavailable(f"{filename}: HTTP {response.status_code} for {byte_range}")
-    return response.content
+def _read_range_body(response, expected: int, label: str) -> bytes:
+    """Read at most ``expected`` bytes of a partial-content response."""
+    if "content-range" not in response.headers:
+        raise _RangeUnavailable(f"{label}: HTTP 206 without Content-Range")
+    body = bytearray()
+    for chunk in response.iter_bytes():
+        body += chunk[: max(expected - len(body), 0)]
+        if len(body) >= expected:
+            break
+    if len(body) != expected:
+        raise _RangeUnavailable(f"{label}: short read ({len(body)}/{expected} bytes)")
+    return bytes(body)
+
+
+def _range_get(repo_id: str, revision: str, filename: str, start: int, end: int) -> bytes:
+    """One streaming inclusive-range GET; a non-206 answer means no Range support.
+
+    ``stream=True`` semantics: the 206 check happens before any body byte is
+    buffered, so a server that ignores ``Range`` (200 plus the whole shard, or
+    an intermediary that strips the header) cannot make this process hold a
+    shard in memory. Only up to the requested span is ever read.
+    """
+    if start < 0 or end < start:
+        raise _RangeUnavailable(f"{filename!r}: invalid range [{start}, {end}]")
+    url = hf_hub_url(repo_id, filename, revision=revision)
+    headers = _range_headers(f"bytes={start}-{end}")
+    with get_session().stream(
+        "GET", url, headers=headers, timeout=_RANGE_TIMEOUT_SECONDS
+    ) as response:
+        response.raise_for_status()
+        if response.status_code != 206:
+            raise _RangeUnavailable(
+                f"{filename!r}: HTTP {response.status_code} for bytes={start}-{end}"
+            )
+        return _read_range_body(response, end - start + 1, repr(filename))
 
 
 def _remote_data_start(repo_id: str, revision: str, filename: str) -> int:
@@ -775,7 +864,7 @@ def _remote_data_start(repo_id: str, revision: str, filename: str) -> int:
     Only the 8-byte length prefix is fetched; dtype/shape/offsets come from
     ``HfApi().get_safetensors_metadata``, so the header JSON never downloads.
     """
-    prefix = _range_get(repo_id, revision, filename, f"bytes=0-{_HEADER_BYTES - 1}")
+    prefix = _range_get(repo_id, revision, filename, 0, _HEADER_BYTES - 1)
     if len(prefix) != _HEADER_BYTES:
         raise _RangeUnavailable(f"{filename}: short header prefix ({len(prefix)} bytes)")
     header_len = int.from_bytes(prefix, "little")
@@ -793,11 +882,8 @@ def _remote_tensor(
     name: str,
 ) -> np.ndarray:
     """One tensor's bytes via Range, decoded like ``_read_tensor``."""
-    dtype, shape, _ = _tensor_layout(info, filename)
-    begin, end = (int(offset) for offset in info["data_offsets"])
-    raw = _range_get(
-        repo_id, revision, filename, f"bytes={data_start + begin}-{data_start + end - 1}"
-    )
+    dtype, shape, _, begin, end = _tensor_layout(info, filename)
+    raw = _range_get(repo_id, revision, filename, data_start + begin, data_start + end - 1)
     if len(raw) != end - begin:
         raise _RangeUnavailable(f"{filename}: short read for {name} ({len(raw)}/{end - begin})")
     return np.frombuffer(raw, dtype=dtype).reshape(shape)
@@ -830,7 +916,7 @@ def _retry_call(label: str, fn):
         if attempt > 1:
             _reset_hub_session()
             wait = DOWNLOAD_BACKOFF_SECONDS[min(attempt - 2, len(DOWNLOAD_BACKOFF_SECONDS) - 1)]
-            _log(f"[download] retry {attempt}/{DOWNLOAD_ATTEMPTS} {label} in {wait:g}s")
+            _log(f"[download] retry {attempt}/{DOWNLOAD_ATTEMPTS} {label!r} in {wait:g}s")
             time.sleep(wait)
         try:
             return fn()
@@ -878,7 +964,10 @@ def load_config(repo_id: str, revision: str, cache_dir: Path | None) -> dict:
     except Exception:  # noqa: BLE001 — absent/inaccessible config is optional
         return {}
     with open(path) as handle:
-        return json.load(handle)
+        try:
+            return json.load(handle)
+        except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+            raise FormatUnreadable(f"{repo_id}: config.json is not valid JSON ({exc})") from exc
 
 
 def _quant_method(config: Mapping) -> str | None:
@@ -985,7 +1074,11 @@ def _resolve_step(config: Mapping, files: Iterable[str]) -> int | None:
     if not steps:
         return None  # flat checkpoint layout; config "step" is not a directory
     config_step = config.get("step")
-    return int(config_step) if config_step is not None and int(config_step) in steps else max(steps)
+    try:
+        preferred = int(config_step) if config_step is not None else None
+    except (TypeError, ValueError):
+        preferred = None  # an untrusted config value never selects a directory
+    return preferred if preferred in steps else max(steps)
 
 
 def _safetensors_index(repo_id: str, revision: str, step: int | None) -> dict[str, dict[str, dict]]:
@@ -1055,7 +1148,7 @@ def _load_safetensors_remote(
         if not layers:
             # Declared MXFP4 but stored plain (bf16 re-save with a stale
             # config): read the shards as they are.
-            _log(f"[mxfp4] {repo_id}: no gate_up_proj_blocks; reading shards as-is")
+            _log(f"[mxfp4] {repo_id!r}: no gate_up_proj_blocks; reading shards as-is")
             _load_plain(sources, layers, kinds)
     else:
         _load_plain(sources, layers, kinds)
@@ -1101,7 +1194,7 @@ def _load_safetensors_snapshot(
             if not layers:
                 # Declared MXFP4 but stored plain (bf16 re-save with a stale
                 # config): read the shards as they are.
-                _log(f"[mxfp4] {repo_id}: no gate_up_proj_blocks; reading shards as-is")
+                _log(f"[mxfp4] {repo_id!r}: no gate_up_proj_blocks; reading shards as-is")
         if not layers:
             _load_plain(_local_sources(shards), layers, kinds)
     source = {
@@ -1123,26 +1216,41 @@ def _load_safetensors(
     step: int | None,
     range_read: bool = True,
 ) -> Extraction:
-    """Safetensors checkpoint: range-read the gates when possible, else snapshot."""
-    if range_read:
-        try:
-            return _load_safetensors_remote(repo_id, revision, quant_method, step)
-        except FormatUnreadable:
-            raise
-        except Exception as exc:  # noqa: BLE001 — any range failure means fall back
-            _log(
-                f"[range] {repo_id}: {type(exc).__name__}: {exc} "
-                "— falling back to snapshot_download"
-            )
-    return _load_safetensors_snapshot(repo_id, revision, cache_dir, quant_method, step)
+    """Safetensors checkpoint: range-read the gates when possible, else snapshot.
+
+    An untrusted header may fail in an unbounded number of ways (bad JSON,
+    hostile offsets, a list where a dict belongs); every non-structural failure
+    inside either attempt maps to ``FormatUnreadable`` so one odd checkpoint
+    abstains instead of aborting the sweep.
+    """
+    try:
+        if range_read:
+            try:
+                return _load_safetensors_remote(repo_id, revision, quant_method, step)
+            except FormatUnreadable:
+                raise
+            except Exception as exc:  # noqa: BLE001 — any range failure means fall back
+                _log(
+                    f"[range] {repo_id!r}: {type(exc).__name__}: {exc!r} "
+                    "— falling back to snapshot_download"
+                )
+        return _load_safetensors_snapshot(repo_id, revision, cache_dir, quant_method, step)
+    except FormatUnreadable:
+        raise
+    except Exception as exc:  # noqa: BLE001 — untrusted checkpoint container
+        raise FormatUnreadable(
+            f"{repo_id}: safetensors unreadable ({type(exc).__name__}: {exc!r})"
+        ) from exc
 
 
 def _bin_shards(files: Iterable[str], index: Mapping | None) -> list[str]:
     """PyTorch state-dict files (single, sharded, or index-declared)."""
-    if index is not None:
-        shards = sorted({str(name) for name in index.get("weight_map", {}).values()})
-        if shards:
-            return shards
+    if isinstance(index, Mapping):
+        weight_map = index.get("weight_map")
+        if isinstance(weight_map, Mapping):
+            shards = sorted({str(name) for name in weight_map.values()})
+            if shards:
+                return shards
     return sorted(
         name
         for name in files
@@ -1166,7 +1274,12 @@ def _load_bin(
     if index_name is not None:
         index_path = _download_file(repo_id, revision, index_name, cache_dir)
         with open(index_path) as handle:
-            index = json.load(handle)
+            try:
+                index = json.load(handle)
+            except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+                raise FormatUnreadable(f"{index_name}: index is not valid JSON ({exc})") from exc
+        if not isinstance(index, Mapping):
+            raise FormatUnreadable(f"{index_name}: index is not a JSON object")
         names = [name for name in names if name != index_name]
     shards = _bin_shards(names, index)
     if not shards:
@@ -1220,9 +1333,10 @@ def load_gate_tensors(
         )
     try:
         files = _repo_files(repo_id, revision)
-    except (GatedRepoError, RepositoryNotFoundError) as exc:
-        # A license-gated or missing checkpoint is a structural abstain, not
-        # a scoring failure (e.g. meta-llama/Llama-3.2-1B needs a token).
+    except (GatedRepoError, RepositoryNotFoundError, RevisionNotFoundError) as exc:
+        # A license-gated, missing, or Hub-unresolvable checkpoint is a
+        # structural abstain, not a scoring failure (e.g. meta-llama/Llama-3.2-1B
+        # needs a token; by-SHA tree resolution can also 404 transiently).
         raise FormatUnreadable(
             f"{repo_id}: inaccessible at this revision ({type(exc).__name__})"
         ) from exc

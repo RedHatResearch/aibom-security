@@ -133,8 +133,8 @@ only the pair-id list is hardcoded here. Nine smoke-cohort pairs, all
 
 | pbench id | subject vs reference | stack | kind | expected |
 |---|---|---|---|---|
-| `pb-smoke-qwen25-awq` | Qwen2.5-0.5B-Instruct-AWQ vs Qwen2.5-0.5B-Instruct | dense | quant (AWQ int4) | related |
-| `pb-smoke-qwen25-fp8` | Qwen2.5-0.5B-Instruct-FP8-dynamic vs Qwen2.5-0.5B-Instruct | dense | quant (FP8) | related |
+| `pb-smoke-qwen25-awq` | Qwen2.5-0.5B-Instruct-AWQ vs Qwen2.5-0.5B-Instruct | dense | quant | related |
+| `pb-smoke-qwen25-fp8` | Qwen2.5-0.5B-Instruct-FP8-dynamic vs Qwen2.5-0.5B-Instruct | dense | quant | related |
 | `pb-smoke-smoltulu` | SmolTulu-1.7b-Instruct vs SmolLM2-1.7B | dense | sft | related |
 | `pb-smoke-qwen3-sft` | Qwen3-0.6B vs Qwen3-0.6B-Base | dense | sft | related |
 | `pb-smoke-llama-smol-cross` | Llama-3.2-1B vs SmolLM2-1.7B | dense | neg_cross | unrelated |
@@ -142,6 +142,11 @@ only the pair-id list is hardcoded here. Nine smoke-cohort pairs, all
 | `pb-smoke-granite-gguf` | QuantFactory granite-3.1-1b-a400m-base-GGUF vs …-base | moe | quant_gguf_rehost | related |
 | `pb-smoke-granite-smol-cross` | granite-3.1-1b-a400m-base vs SmolLM2-1.7B | moe vs dense | neg_cross | unrelated |
 | `pb-smoke-qwen3-upcycle` | moe-600m-qwen3-upcycle vs Qwen3-0.6B-Base | moe | upcycle_naive | related |
+
+The `kind` column is the literal `kind` from `pairs.yaml`. The two `quant`
+rows are both a quantized subject against its unquantized reference — AWQ
+int4 for `pb-smoke-qwen25-awq`, FP8-dynamic for `pb-smoke-qwen25-fp8`; the
+format detail lives here rather than in the table.
 
 Extraction patterns exercised by members of this cohort: dense
 `mlp.gate_proj`; granite's fused `block_sparse_moe.input_linear`
@@ -232,8 +237,8 @@ Extraction streams: each gate matrix is reduced to its singular spectrum as
 soon as it is sliced, and only the spectrum plus name/role/shape metadata is
 retained. Peak RAM is therefore one tensor plus spectra, not every gate
 matrix in the checkpoint. That is what makes core-cohort pairs at 30B scale
-feasible — e.g. the Qwen3-30B REAM pair (48 layers × 128 experts in the
-subject, 48 × 96 in the reference; `[768,2048]` gates) would otherwise need
+feasible — e.g. the Qwen3-30B REAM pair (48 layers × 96 experts in the
+subject, 48 × 128 in the reference; `[768,2048]` gates) would otherwise need
 ≈67.6 GB of fp32 gates in RAM for both sides together; streaming peaks at
 one expert matrix, and Range reads cut that pair's traffic to ≈38.7 GB
 instead of a 107.6 GB snapshot. Both figures are computed from tensor
@@ -267,7 +272,10 @@ vector cannot be scored), so it is a miss when it contradicts an expectation.
 The summary lists each bucket by pair id; `expectation_held` is true only for
 `held`; exit 0 iff `missed` is empty.
 
-### Default-cohort outcome (measured 2026-10-26, runs/20261026T230514311838Z-c4720f53c3c6)
+### Default-cohort outcome (measured 2026-10-26)
+
+Artifact: `provenancebench/runs/20261026T230514311838Z-c4720f53c3c6.*` — a
+pbench-eval artifact; no smoke-CLI artifact exists for this cohort.
 
 Recorded after the first run — the pre-registered part is the interpretation
 list under Fixtures — so this is an observation, not a prediction. Two of
@@ -343,7 +351,9 @@ gpt2-fineweb pair re-scored in
   under Cost), so only gate tensors are materialized and float8/bf16 decode
   through `ml_dtypes` without torch. `pytorch_model.bin` (single-file, sharded `pytorch_model-NNNNN-of-NNNNN.bin`,
   or index-declared) is read with `torch.load(weights_only=True)`; torch is
-  imported lazily and the pickle-safe mode refuses arbitrary payloads. GGUF
+  imported lazily and the pickle-safe mode refuses arbitrary payloads (that
+  guarantee requires torch ≥ 2.6: earlier releases had a `weights_only`
+  bypass, CVE-2025-32434, so pin the floor in any env where `.bin` is scored). GGUF
   goes through `gguf.GGUFReader`; an unknown GGML type code (a fork's
   non-standard blocks) becomes an abstain, not a crash. The GPT-2-style
   `mlp.c_proj` fallback from the paper's † footnote, and the disclosed
@@ -375,7 +385,7 @@ One JSON object on stdout:
       "reference": {"repo_id": "...", "revision": "<pinned sha>"},
       "expected_verdict": "related",
       "verdict": "related" | "unrelated" | "abstain",
-      "cka": 0.9871, "signed_pearson": 0.9935,
+      "cka": 0.9997, "signed_pearson": 0.9999,
       "anticorrelation_collision": false, "structure_matched": true,
       "layers_per_segment": {"subject": [3,3,3,3,3,3,3,3],
                              "reference": [3,3,3,3,3,3,3,3]},
@@ -390,7 +400,7 @@ One JSON object on stdout:
                     "q_values": [512], "tensors": [{"name": "...",
                     "layer": 0, "role": "routed", "shape": [512, 1024],
                     "q": 512, "r_eff": 128, "spectrum_fraction": 0.25}, ...],
-                    "profile_cv": 0.043, "profile": [/* 8 values */],
+                    "profile_cv": 0.0031, "profile": [/* 8 values */],
                     "layers_per_segment": [3,3,3,3,3,3,3,3]},
         "reference": {...}
       },
@@ -446,7 +456,15 @@ downloads) and covers every property the contract pre-registers:
     `.bin` stacked extraction through the real `_load_bin` with
     `torch.load(weights_only=True)`, and the GGUF unknown-type-code guard
     (`GGUFReader` `ValueError` ⇒ `FormatUnreadable`);
-21. expectation-outcome classification.
+21. expectation-outcome classification;
+22. malicious-shard rejection: five untrusted safetensors headers (negative
+    shape dimension with negative offsets, header length 2^62, truncated
+    header, list-shaped header, tensor bytes past the file end) each raise
+    `FormatUnreadable` instead of allocating or reading to EOF;
+23. a by-SHA `RevisionNotFoundError` from the Hub becomes an abstain entry
+    (`skipped_format`), never a run abort;
+24. a non-206 range response is rejected before the body is read (streaming),
+    so a server that ignores `Range` cannot buffer a whole shard.
 
 ## Deviations from the paper
 

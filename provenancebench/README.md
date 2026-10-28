@@ -107,8 +107,9 @@ Result(
 ```
 
 `score` is null when the method abstains; `note` is a short free-text line and
-`abstain_reason` a short token such as `method_not_implemented`. The harness
-never passes labels, evidence, or kind to the detector.
+`abstain_reason` a short token — the current detector emits `format_unreadable`,
+`no_gate_tensors`, or `degenerate_profile`. The harness never passes labels,
+evidence, or kind to the detector.
 
 The current detector is the GATE spectral fingerprint: for every gate-like FFN
 matrix it takes the fp32 SVD at extraction time and keeps only the singular
@@ -117,9 +118,17 @@ and returns `related` when the linear-CKA similarity of the two profiles is at
 least 0.9 and `unrelated` below it. Weights are read without full snapshots:
 safetensors shards are fetched tensor by tensor over HTTP range requests (with a
 cached snapshot as fallback), GGUF files are dequantized with `gguf.quants`,
-legacy `pytorch_model.bin` checkpoints (TinyMixtral layout) go through
+legacy `pytorch_model.bin` checkpoints (TinyMixtral layout, single-file only:
+sharded or index-declared `.bin` checkpoints abstain as `format_unreadable`,
+unlike the smoke's shard-aware loader) go through
 `torch.load(..., weights_only=True)`, AWQ int4 and FP8 compressed-tensors gates
 are dequantized in-process, and packed MXFP4 expert blocks are dequantized before
 the SVD. It abstains only when a checkpoint is structurally unreadable, has no
 gate-like FFN tensors, or the two profiles are degenerate (`degenerate_profile`:
 a constant pooled profile leaves no variance to correlate).
+
+Non-gated architectures are scored through the paper's own †-style
+down-projection fallback (GPT-2 `mlp.c_proj`, GPTNeoX `mlp.dense_4h_to_h`,
+Nemotron-H `mixer.down_proj`), so core-cohort numbers for those pairs
+(`pb-core-nemotron-h-4b`, `pb-core-gpt2-fineweb-fp8`) read a substituted down
+projection, not the gate branch.
