@@ -10,7 +10,7 @@ import pytest
 import yaml
 
 from pbench import load
-from pbench.eval import _resolve_ids, run_eval
+from pbench.eval import _load_detect, _resolve_ids, run_eval
 from pbench.load import bench_root, case_by_id, load_cases, load_cohort, load_cohorts, load_kinds
 
 
@@ -134,6 +134,35 @@ def test_detector_cannot_read_ground_truth() -> None:
         assert term not in detect_src
 
 
+def test_detect_supports_new_families() -> None:
+    """Core-cohort patterns classify offline (no weights, no network)."""
+    detect = _load_detect(bench_root())
+
+    assert detect._classify("gpt_neox.layers.3.mlp.dense_4h_to_h.weight") == (
+        "gpt_neox_fallback",
+        3,
+        "dense",
+    )
+    # dense_h_to_4h is the UP branch of the gated FFN, not the gate.
+    assert detect._classify("gpt_neox.layers.3.mlp.dense_h_to_4h.weight") is None
+    assert detect._classify("model.language_model.layers.5.mlp.gate_proj.weight") == (
+        "dense_gate",
+        5,
+        "dense",
+    )
+    assert detect._classify("backbone.layers.7.mixer.down_proj.weight") == (
+        "nemotron_fallback",
+        7,
+        "dense",
+    )
+    # Stacked experts: axis 0 is the expert axis and the pass-through branch
+    # keeps each expert matrix intact (no row split, no de-interleave).
+    assert detect._classify("layers.4.moe.gate_proj") == ("tinymixtral_stacked", 4, "routed")
+    assert "tinymixtral_stacked" in detect._STACKED_KINDS
+    # Speculative-decoding head nested like a decoder layer: anchored regex.
+    assert detect._classify("mtp.layers.0.mlp.gate_proj.weight") is None
+
+
 def test_always_related_is_caught_by_class_behavior(tmp_path: Path) -> None:
     root = _copy_bench(tmp_path)
     _write_detector(root, "related", score="1.0")
@@ -175,6 +204,9 @@ def test_unsupported_maps_abstain_to_correct(tmp_path: Path) -> None:
 
 def test_eval_writes_pairwise_method_and_review_artifacts(tmp_path: Path) -> None:
     root = _copy_bench(tmp_path)
+    # The real detector loads weights (network); this test exercises harness
+    # artifact shape, so swap in the same offline detector the other tests use.
+    _write_detector(root, "abstain", score="None")
     smoke_ids = load_cohort("smoke", root)["ids"]
     run_path = root / "runs" / "smoke.method.jsonl"
 
@@ -261,6 +293,128 @@ def test_artifact_pair_is_preflight_immutable(tmp_path: Path) -> None:
 
     assert not method_path.exists()
     assert review_path.read_text(encoding="utf-8") == "existing review artifact\n"
+
+
+def _write_shard(
+    directory: Path, header: object, data: bytes = b"", header_len: int | None = None
+) -> Path:
+    """Write one synthetic safetensors shard with an arbitrary length prefix."""
+    raw = bytes(header) if isinstance(header, (bytes, bytearray)) else json.dumps(header).encode()
+    length = len(raw) if header_len is None else header_len
+    path = directory / "model.safetensors"
+    path.write_bytes(int(length).to_bytes(8, "little") + raw + data)
+    return path
+
+
+def test_snapshot_reader_rejects_malicious_shards(tmp_path: Path) -> None:
+    """Hostile safetensors headers abstain as FormatUnreadable, never allocate."""
+    detect = _load_detect(bench_root())
+    probes = [
+        (
+            "negative_shape",
+            {"x": {"dtype": "F32", "shape": [-1, 4], "data_offsets": [0, -4]}},
+            b"\x00" * 16,
+            None,
+            "x",
+        ),
+        ("header_overflow", {}, b"", 2**62, None),
+        ("truncated_header", b'{"x": {', b"", 1024, None),
+        ("list_header", [1, 2, 3], b"", None, None),
+        (
+            "end_beyond_file",
+            {"x": {"dtype": "F32", "shape": [4], "data_offsets": [0, 16]}},
+            b"\x00" * 4,
+            None,
+            "x",
+        ),
+    ]
+    for name, header, data, header_len, tensor in probes:
+        directory = tmp_path / name
+        directory.mkdir()
+        _write_shard(directory, header, data, header_len)
+        with pytest.raises(detect.FormatUnreadable):
+            reader = detect._SnapshotReader(directory, None)
+            if tensor is not None:
+                reader.read(tensor)
+
+
+class _FakeStreamResponse:
+    """Minimal httpx stream response that counts body reads."""
+
+    def __init__(self, status_code: int) -> None:
+        self.status_code = status_code
+        self.headers: dict[str, str] = {}
+        self.body_reads = 0
+
+    def raise_for_status(self) -> None:
+        return None
+
+    def iter_bytes(self):
+        self.body_reads += 1
+        yield b"\x00" * 4096
+
+
+class _FakeStreamClient:
+    """get_session() stand-in exposing the httpx ``stream`` context manager."""
+
+    def __init__(self, response: _FakeStreamResponse) -> None:
+        self._response = response
+
+    def stream(self, method, url, *, headers=None, timeout=None):
+        response = self._response
+
+        class _Context:
+            def __enter__(self):
+                return response
+
+            def __exit__(self, *exc_info):
+                return False
+
+        return _Context()
+
+
+def test_range_get_rejects_non_206_without_reading_body(monkeypatch) -> None:
+    """A server that ignores Range never gets its body buffered."""
+    detect = _load_detect(bench_root())
+    response = _FakeStreamResponse(200)
+    monkeypatch.setattr(detect, "get_session", lambda: _FakeStreamClient(response))
+    reader = object.__new__(detect._RangeReader)
+    reader._repo_id = "probe/repo"
+    reader._revision = "0" * 40
+    reader._token = None
+    reader._urls = {}
+
+    with pytest.raises(RuntimeError, match="ignored the range request"):
+        reader._get("model.safetensors", 0, 7)
+    assert response.body_reads == 0
+
+
+def test_hub_revision_404_is_an_abstain(monkeypatch) -> None:
+    """A by-SHA tree 404 abstains at both the loader and the score boundary."""
+    import httpx
+    from huggingface_hub.errors import RevisionNotFoundError
+
+    detect = _load_detect(bench_root())
+    response = httpx.Response(
+        404,
+        request=httpx.Request("GET", "https://huggingface.co/api/models/probe/revision/0"),
+    )
+
+    def raise_404(repo_id, revision=None):
+        raise RevisionNotFoundError("revision not found", response=response)
+
+    monkeypatch.setattr(detect, "_load_config", lambda *args, **kwargs: {})
+    monkeypatch.setattr(detect, "_repo_files", raise_404)
+    result = detect.score("probe/subject", "probe/reference", stack="dense")
+    assert result.verdict == "abstain"
+    assert result.abstain_reason == "format_unreadable"
+
+    # The snapshot fallback can also 404 after the listing succeeds; the
+    # boundary clause in score() must convert that too.
+    monkeypatch.setattr(detect, "_load_gate_tensors", raise_404)
+    result = detect.score("probe/subject", "probe/reference", stack="dense")
+    assert result.verdict == "abstain"
+    assert result.abstain_reason == "format_unreadable"
 
 
 def _copy_bench(tmp_path: Path) -> Path:
