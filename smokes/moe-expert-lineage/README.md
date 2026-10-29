@@ -260,7 +260,7 @@ Disclosures — parts that are ours, not in the spec:
   expected three-parent basis, and the scorer had skipped off-basis entries. The scorer now
   records the injected suspect's label, gain, α-length, top component and top component weight
   regardless of basis; the verdict rule (one `merged` label, on-basis, in-band, gain ≥ 0.30,
-  kept parents exact) is unchanged. The committed `results.json` carries the reporting fix from
+  kept parents exact) is unchanged. The run's `results.json` carries the reporting fix from
   the final pass after the rebase; every verdict and every original number is identical.
 - Scale-repeat gate raised **300 → 600 s** in the review follow-up: runtime only, disclosed here
   rather than silently absorbed. It gates the OLMoE repeat, never a verdict.
@@ -506,8 +506,7 @@ uv run --group smokes python smokes/moe-expert-lineage/smoke.py
 ```
 
 Artifacts: `.scratch/moe-expert-lineage/<model>/<variant>/` (safetensors + manifest; per-variant
-sizes are in `results.json` under `file_bytes` — delete the tree to reclaim space) and
-[`results.json`](results.json) next to this file. Exit 0 means the smoke ran and every
+sizes are in `results.json` under `file_bytes` — delete the tree to reclaim space) and `results.json` next to this file (gitignored). Exit 0 means the smoke ran and every
 expectation is labelled held or missed — a miss is a finding, not a process failure; exit 1 only if
 the primary parent is unusable. `results.json` is written before any table is printed, so a
 reporting error cannot lose a run. Stdout is the per-layer table plus the expectation verdicts; the
