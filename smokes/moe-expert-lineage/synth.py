@@ -16,7 +16,7 @@ from pathlib import Path
 
 import numpy as np
 import torch
-from config import ARCHES, MERGE_ALPHA, SHALLOW_ALPHA
+from config import ARCHES, MERGE_ALPHA, SHALLOW_ALPHA, VARIANT_ORDINAL
 from huggingface_hub import constants
 from safetensors import safe_open
 from safetensors.torch import save_file
@@ -174,6 +174,11 @@ def build_layer(
             return out, out_router.clone(), truth
         perm = rng.permutation(len(out))
         truth["perm"] = [int(p) for p in perm]
+        # ``perm`` maps output slot -> pre-permutation slot, over the E-1
+        # post-merge slots: slot 0 is the merged expert and slot j>=1 is parent
+        # j+1. Record the truth in the written checkpoint's slot space.
+        truth["suspect_slot"] = int(np.flatnonzero(perm == 0)[0])
+        truth["kept"] = [int(np.flatnonzero(perm == p - 1)[0]) for p in range(2, n)]
         return (
             [out[int(perm[s])] for s in range(len(out))],
             out_router[torch.as_tensor(perm)].clone(),
@@ -222,8 +227,8 @@ def router_name(arch: str, layer: int) -> str:
     return ARCHES[arch]["router"].format(layer=layer)
 
 
-def layer_rng(
-    variant: str, layer: int, seed: int, variants: tuple[str, ...]
-) -> np.random.Generator:
-    """Independent, reproducible stream per (variant, layer), derived from the seed."""
-    return np.random.default_rng([seed, variants.index(variant), layer])
+def layer_rng(variant: str, layer: int, seed: int) -> np.random.Generator:
+    """Independent stream per (variant, layer), keyed by the frozen variant ordinal."""
+    if variant not in VARIANT_ORDINAL:
+        raise ValueError(f"unknown variant {variant!r}")
+    return np.random.default_rng([seed, VARIANT_ORDINAL[variant], layer])

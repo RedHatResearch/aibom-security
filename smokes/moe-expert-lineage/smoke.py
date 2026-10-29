@@ -1,6 +1,6 @@
 """MoE expert-lineage smoke — Experiment A (issue #26).
 
-Builds five derived TinyMixtral checkpoints with known ground truth, writes them
+Builds six derived TinyMixtral checkpoints with known ground truth, writes them
 to ``.scratch/moe-expert-lineage/<variant>/`` as safetensors, then runs the
 label-blind weights-only detector over the written files. Scores the
 pre-registered expectations in README.md and writes ``results.json``.
@@ -14,6 +14,7 @@ import time
 from datetime import UTC, datetime
 from pathlib import Path
 
+import numpy as np
 import torch
 
 ROOT = Path(__file__).resolve().parent
@@ -68,7 +69,7 @@ def run_variant(
                 layer,
                 layer_experts,
                 router,
-                synth.layer_rng(variant, layer, SEED, VARIANTS),
+                synth.layer_rng(variant, layer, SEED),
             )
             truth[layer] = ground_truth
             counts[layer] = len(built)
@@ -100,7 +101,9 @@ def run_variant(
             )
         if manifest.get("tensor_file") != "model.safetensors":
             raise detect.DetectionError(f"unsupported tensor_file {manifest.get('tensor_file')!r}")
-        reader = detect.CheckpointReader(out_dir, detect.TensorSpec(**ARCHES[arch]))
+        reader = detect.CheckpointReader(
+            out_dir, detect.TensorSpec(**ARCHES[arch]), tensor_file=manifest["tensor_file"]
+        )
     except Exception as exc:  # noqa: BLE001
         print(f"SKIP {model['label']}/{variant}: {type(exc).__name__}: {exc}")
         rec.update(
@@ -126,6 +129,7 @@ def run_variant(
                     count,
                     SEED,
                     exact_cos=EXACT_COS,
+                    near_exact_cos=NEAR_EXACT_COS,
                     parent_desc=parent_desc[layer],
                 )
             )
@@ -151,8 +155,18 @@ def evaluate(
     total = len(reports)
     complete = len(scored) == total
     claim = next(item["claim"] for item in EXPECTATIONS if item["variant"] == variant)
-    gains = [m["gain"] for r in scored for m in r["merges"] if m["gain"] is not None]
-    summary: dict = {"layers": total, "scored": len(scored)}
+    # Every suspect is fitted; ``merges`` holds only the merged labels, so the
+    # "no fit reaches gain >= 0.30" claims must be read off all classifications.
+    fits = [entry for report in scored for entry in report["classifications"]]
+    gains = [entry["gain"] for entry in fits if entry["gain"] is not None]
+    degenerate = [entry for entry in fits if entry["degenerate"]]
+    over_gain = [gain for gain in gains if gain >= MERGE_GAIN_MIN]
+    summary: dict = {
+        "layers": total,
+        "scored": len(scored),
+        "fits": len(fits),
+        "degenerate_fits": len(degenerate),
+    }
 
     if variant == "permuted":
         exact = [r for r in scored if r["matched"] == experts]
@@ -176,18 +190,21 @@ def evaluate(
             and r["missing"] == truth[r["layer"]]["dropped"]
             and not r["new"]
         ]
-        held = complete and len(structure) == total and all(g < MERGE_GAIN_MIN for g in gains)
+        held = complete and len(structure) == total and not over_gain
+        gain_text = (
+            f"{len(fits)} fits ({len(gains)} with gain, {len(degenerate)} degenerate), "
+            f"max gain {max(gains):.4f}"
+            if gains
+            else f"{len(fits)} fits ({len(degenerate)} degenerate), no defined gain"
+        )
         observed = (
             f"{len(structure)}/{total} layers at {experts - 2}/{experts} exact, "
-            "missing == injected drops, no new expert; "
-            + (
-                f"{len(gains)} mixture fits, max gain {max(gains):.4f}"
-                if gains
-                else "0 mixture fits"
-            )
+            f"missing == injected drops, no new expert; {gain_text}"
         )
         summary.update(
-            exact_layers=len(structure), fits=len(gains), max_gain=max(gains) if gains else None
+            exact_layers=len(structure),
+            max_gain=max(gains) if gains else None,
+            over_gain_fits=len(over_gain),
         )
 
     elif variant == "merged_shallow":
@@ -223,27 +240,40 @@ def evaluate(
         structure = [
             r
             for r in scored
-            if r["matched"] == experts - 2 and len(r["new"]) == 1 and r["missing"] == [0, 1]
+            if r["matched"] == experts - 2
+            and r["new"] == [truth[r["layer"]]["suspect_slot"]]
+            and r["missing"] == truth[r["layer"]]["merge_parents"]
         ]
-        alphas = [[m["alpha"] for m in r["merges"] if m["basis"] == [0, 1]] for r in scored]
-        alphas = [a[0] for a in alphas if len(a) == 1 and len(a[0]) == 2]
+        aligned = [r for r in scored if r["new"] == [truth[r["layer"]]["suspect_slot"]]]
+        # The fitted entry assigned to the injected merged slot, with the two
+        # injected parents as its components.
+        alphas = [
+            entry["alpha"]
+            for r in scored
+            for entry in r["classifications"]
+            if entry["suspect"] == truth[r["layer"]]["suspect_slot"]
+            and entry["basis"] == truth[r["layer"]]["merge_parents"]
+            and len(entry["alpha"]) == 2
+        ]
         in_band = [
             a
             for a in alphas
             if abs(a[0] - MERGE_ALPHA[0]) <= ALPHA_TOL and abs(a[1] - MERGE_ALPHA[1]) <= ALPHA_TOL
         ]
         merge_gains = [
-            m["gain"]
+            entry["gain"]
             for r in scored
-            for m in r["merges"]
-            if m["basis"] == [0, 1] and m["gain"] is not None
+            for entry in r["classifications"]
+            if entry["suspect"] == truth[r["layer"]]["suspect_slot"]
+            and entry["basis"] == truth[r["layer"]]["merge_parents"]
+            and entry["gain"] is not None
         ]
-        over_gain = [g for g in merge_gains if g >= MERGE_GAIN_MIN]
+        over_merge = [g for g in merge_gains if g >= MERGE_GAIN_MIN]
         held = (
             complete
             and len(structure) == total
             and len(in_band) == total
-            and len(over_gain) == total
+            and len(over_merge) == total
         )
         if alphas:
             mean_a = sum(a[0] for a in alphas) / len(alphas)
@@ -255,16 +285,18 @@ def evaluate(
             alpha_text = "no two-parent mixture fit"
         gain_text = (
             f"gain {min(merge_gains):.4f}..{max(merge_gains):.4f}, "
-            f">= {MERGE_GAIN_MIN} on {len(over_gain)}/{total}"
+            f">= {MERGE_GAIN_MIN} on {len(over_merge)}/{total}"
             if merge_gains
             else "no gain"
         )
         observed = (
             f"{len(structure)}/{total} layers structure "
-            f"({experts - 2} exact, 1 new, 2 missing); {alpha_text}; {gain_text}"
+            f"({experts - 2} exact, 1 new at the injected slot, 2 missing); "
+            f"new == injected slot on {len(aligned)}/{total}; {alpha_text}; {gain_text}"
         )
         summary.update(
             structure_layers=len(structure),
+            alignment_layers=len(aligned),
             alpha_layers=len(in_band),
             alpha_mean=[
                 sum(a[0] for a in alphas) / len(alphas),
@@ -279,23 +311,28 @@ def evaluate(
     else:  # control
         zero = [r for r in scored if r["matched"] == 0]
         max_gain = max(gains) if gains else None
-        held = complete and len(zero) == total and (max_gain is None or max_gain < MERGE_GAIN_MIN)
-        max_cos = max((r["max_assigned_cos"] for r in scored), default=float("nan"))
+        held = complete and len(zero) == total and not over_gain
+        max_cos = max(
+            (r["max_assigned_cos"] for r in scored if r["max_assigned_cos"] is not None),
+            default=None,
+        )
+        gain_text = (
+            f"{len(fits)} fits ({len(gains)} with gain, {len(degenerate)} degenerate), "
+            f"max gain {max_gain:.4f}"
+            if max_gain is not None
+            else f"{len(fits)} fits, no defined gain"
+        )
+        cos_text = f"max assigned cos {max_cos:.4f}; " if max_cos is not None else ""
         observed = (
             f"max exact matches {max((r['matched'] for r in scored), default=-1)}/{experts}; "
-            f"max assigned cos {max_cos:.4f}; "
-            + (
-                f"max mixture gain {max_gain:.4f} over {len(gains)} fits"
-                if max_gain is not None
-                else "no mixture fit"
-            )
+            f"{cos_text}{gain_text}"
         )
         summary.update(
             zero_match_layers=len(zero),
-            fits=len(gains),
             max_gain=max_gain,
+            over_gain_fits=len(over_gain),
             max_assigned_cos=max_cos,
-            max_pair_cos=max((r["max_pair_cos"] for r in scored), default=float("nan")),
+            max_pair_cos=max((r["max_pair_cos"] for r in scored), default=None),
         )
 
     return summary, {"claim": claim, "held": bool(held), "observed": observed}
@@ -390,11 +427,17 @@ def robustness_probe() -> dict:
         def write(case: str, payload: dict, text: dict | None = None) -> Path:
             case_dir = root / case
             case_dir.mkdir(parents=True, exist_ok=True)
+            stale = case_dir / "model.safetensors.index.json"
+            if stale.exists():
+                stale.unlink()
             synth.save_tensors(case_dir / "model.safetensors", payload)
             (case_dir / "manifest.json").write_text(
                 json.dumps(text if text is not None else manifest, indent=2)
             )
             return case_dir
+
+        def write_index(case_dir: Path, document: object) -> None:
+            (case_dir / "model.safetensors.index.json").write_text(json.dumps(document))
 
         def probe(case: str, call) -> None:
             try:
@@ -408,40 +451,126 @@ def robustness_probe() -> dict:
             else:
                 result["cases"].append({"case": case, "skip": "no exception raised", "ok": False})
 
+        def analyze(case_dir: Path, suspect_experts: int = experts) -> dict:
+            return detect.analyze_layer(
+                detect.CheckpointReader(case_dir, spec),
+                layer,
+                experts,
+                detect.CheckpointReader(case_dir, spec),
+                layer,
+                suspect_experts,
+                SEED,
+            )
+
         full = write("missing_tensor", tensors)
         broken = dict(tensors)
         del broken[spec.expert.format(layer=layer, expert=0, role=spec.roles[0])]
         synth.save_tensors(full / "model.safetensors", broken)
-        probe(
-            "missing_tensor",
-            lambda: detect.analyze_layer(
-                detect.CheckpointReader(full, spec),
-                layer,
-                experts,
-                detect.CheckpointReader(full, spec),
-                layer,
-                experts,
-                SEED,
-            ),
-        )
+        probe("missing_tensor", lambda: analyze(full))
 
         truncated = write("truncated_file", tensors)
         (truncated / "model.safetensors").write_bytes(b"not-a-safetensors-header")
-        probe(
-            "truncated_file",
-            lambda: detect.analyze_layer(
-                detect.CheckpointReader(truncated, spec),
-                layer,
-                experts,
-                detect.CheckpointReader(truncated, spec),
-                layer,
-                experts,
-                SEED,
-            ),
-        )
+        probe("truncated_file", lambda: analyze(truncated))
 
         bad_manifest = write("bad_manifest", tensors, {"layers": [], "arch": "mixtral"})
         probe("bad_manifest", lambda: detect.read_manifest(bad_manifest))
+
+        # Untrusted shard index: a redirect must never open a file outside the
+        # checkpoint, and the document must be an object.
+        victim = root / "victim.safetensors"
+        synth.save_tensors(victim, tensors)
+        first = spec.expert.format(layer=layer, expert=0, role=spec.roles[0])
+
+        traversal = write("traversal_index", tensors)
+        write_index(traversal, {"weight_map": {first: "../victim.safetensors"}})
+        probe("traversal_index", lambda: detect.CheckpointReader(traversal, spec))
+
+        absolute = write("absolute_index", tensors)
+        write_index(absolute, {"weight_map": {first: str(victim)}})
+        probe("absolute_index", lambda: detect.CheckpointReader(absolute, spec))
+
+        nonobject = write("nonobject_index", tensors)
+        (nonobject / "model.safetensors.index.json").write_text("[]")
+        probe("nonobject_index", lambda: detect.CheckpointReader(nonobject, spec))
+
+        # A NaN outside the 32x32 descriptor window must still abstain.
+        role = spec.roles[0]
+        row, col = detect.block_origin(SEED, role, layer, (side, side))
+        outside = next(
+            (r, c)
+            for r in range(side)
+            for c in range(side)
+            if not (row <= r < row + detect.BLOCK and col <= c < col + detect.BLOCK)
+        )
+        poisoned = write("nan_outside_window", tensors)
+        payload = dict(tensors)
+        name = spec.expert.format(layer=layer, expert=0, role=role)
+        poisoned_tensor = payload[name].clone()
+        poisoned_tensor[outside] = float("nan")
+        payload[name] = poisoned_tensor
+        synth.save_tensors(poisoned / "model.safetensors", payload)
+
+        def nan_case() -> None:
+            reader = detect.CheckpointReader(poisoned, spec)
+            vector = detect.descriptor(reader, layer, 0, SEED)
+            assert np.isfinite(vector).all(), "NaN reached the sampled descriptor window"
+            detect.analyze_layer(reader, layer, experts, reader, layer, experts, SEED)
+
+        probe("nan_outside_window", nan_case)
+
+        # Manifest count lie: four expert tensors on disk, three declared.
+        hidden = {
+            spec.expert.format(layer=layer, expert=e, role=r): torch.randn(
+                side, side, generator=generator
+            )
+            for e in range(experts + 2)
+            for r in spec.roles
+        }
+        hidden[spec.router.format(layer=layer)] = torch.randn(experts, side, generator=generator)
+        understated = write(
+            "understated_count",
+            hidden,
+            {**manifest, "layers": {str(layer): {"num_experts": experts}}},
+        )
+        probe("understated_count", lambda: analyze(understated, experts))
+
+        # Manifest type strictness.
+        float_count = write(
+            "float_num_experts",
+            tensors,
+            {**manifest, "layers": {str(layer): {"num_experts": 2.9}}},
+        )
+        probe("float_num_experts", lambda: detect.read_manifest(float_count))
+
+        bool_count = write(
+            "bool_num_experts",
+            tensors,
+            {**manifest, "layers": {str(layer): {"num_experts": True}}},
+        )
+        probe("bool_num_experts", lambda: detect.read_manifest(bool_count))
+
+        aliased = write(
+            "aliased_layer_key",
+            tensors,
+            {
+                **manifest,
+                "layers": {
+                    str(layer): {"num_experts": experts},
+                    f"0{layer}": {"num_experts": experts},
+                },
+            },
+        )
+        probe("aliased_layer_key", lambda: detect.read_manifest(aliased))
+
+        deep = root / "deep_manifest"
+        deep.mkdir(parents=True, exist_ok=True)
+        (deep / "manifest.json").write_text("[" * 20_000 + "]" * 20_000)
+        probe("deep_manifest", lambda: detect.read_manifest(deep))
+
+        oversized = root / "oversized_manifest"
+        oversized.mkdir(parents=True, exist_ok=True)
+        (oversized / "manifest.json").write_text(" " * (detect.MAX_METADATA_BYTES + 1))
+        probe("oversized_manifest", lambda: detect.read_manifest(oversized))
     except Exception as exc:  # noqa: BLE001 - the probe itself must never abort the run
         result["all_ok"] = False
         result["error"] = f"{type(exc).__name__}: {exc}"
@@ -460,7 +589,7 @@ def print_model_table(record: dict) -> None:
     print(
         f"\n== {record['label']} — {record['repo']}@{record['revision'][:12]} "
         f"({record['arch']}, {len(record.get('layers', []))} layers, "
-        f"{record['num_experts']} experts, {record['seconds']}s)"
+        f"{record['num_experts']} experts, {record.get('seconds', 'n/a')}s)"
     )
     if record["status"] != "ok":
         print(f"   skipped: {record.get('reason')}")
@@ -483,12 +612,13 @@ def print_model_table(record: dict) -> None:
             best = max(merges, key=lambda m: m["gain"]) if merges else None
             alpha = ", ".join(f"{a:.4f}" for a in best["alpha"]) if best else "-"
             gain = f"{best['gain']:.4f}" if best else "-"
+            max_cos = report["max_pair_cos"]
             print(
                 f"{variant:<15} {report['layer']:>5} "
                 f"{report['matched']:>3}/{report['parent_experts']:<4} "
                 f"{len(report['candidate_pairs']):>5} "
                 f"{_pair_list(report['missing']):<12} {_pair_list(report['new']):<12} "
-                f"{report['max_pair_cos']:>9.6f} {len(report['merges']):>4} "
+                f"{max_cos:>9.6f} {len(report['classifications']):>4} "
                 f"{alpha:<19} {gain:>8}"
             )
 
@@ -523,6 +653,11 @@ def main() -> int:
     assert detect.NEAR_EXACT_COS == NEAR_EXACT_COS, "near-exact band drifted"
     assert detect.MERGE_GAIN_MIN == MERGE_GAIN_MIN, "merge-gain floor drifted"
     assert detect.MIN_COMPONENT == MIN_COMPONENT, "minimum mixture component drifted"
+    if tuple(item["variant"] for item in EXPECTATIONS) != VARIANTS:
+        raise SystemExit(
+            "config.VARIANTS and config.EXPECTATIONS disagree: "
+            f"{VARIANTS} vs {tuple(item['variant'] for item in EXPECTATIONS)}"
+        )
 
     started = time.perf_counter()
     print(
@@ -560,17 +695,6 @@ def main() -> int:
 
     models[0]["robustness"] = robustness_probe()
 
-    for record in models:
-        print_model_table(record)
-    print_expectations(models)
-
-    robustness = models[0]["robustness"]
-    print("\n== structural-skip probe")
-    for case in robustness["cases"]:
-        print(f"{'OK' if case['ok'] else 'FAIL':<5} {case['case']:<15} {case['skip']}")
-    if robustness.get("error"):
-        print(f"probe error: {robustness['error']}")
-
     results = {
         "experiment": "A — MoE expert lineage",
         "command": COMMAND,
@@ -578,15 +702,30 @@ def main() -> int:
         "seed": SEED,
         "descriptor_block": BLOCK,
         "exact_cos": EXACT_COS,
+        "near_exact_cos": NEAR_EXACT_COS,
         "merge_gain_min": MERGE_GAIN_MIN,
         "merge_alpha": list(MERGE_ALPHA),
+        "shallow_alpha": list(SHALLOW_ALPHA),
         "alpha_tol": ALPHA_TOL,
+        "min_component": MIN_COMPONENT,
         "variants": list(VARIANTS),
         "secondary_budget_s": SECONDARY_BUDGET_S,
         "models": models,
         "total_seconds": round(time.perf_counter() - started, 2),
     }
-    RESULTS.write_text(json.dumps(results, indent=2, sort_keys=False) + "\n")
+    # Write before printing: a reporting error must not lose the run.
+    RESULTS.write_text(json.dumps(results, indent=2, allow_nan=False) + "\n")
+
+    for record in models:
+        print_model_table(record)
+    print_expectations(models)
+
+    robustness = models[0]["robustness"]
+    print("\n== structural-skip probe")
+    for case in robustness["cases"]:
+        print(f"{'OK' if case['ok'] else 'FAIL':<5} {case['case']:<20} {case['skip']}")
+    if robustness.get("error"):
+        print(f"probe error: {robustness['error']}")
 
     print(f"\nwrote {RESULTS}")
     print(f"total {results['total_seconds']}s")

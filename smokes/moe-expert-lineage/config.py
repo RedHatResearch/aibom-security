@@ -47,6 +47,23 @@ ARCHES = {
 
 VARIANTS = ("permuted", "pruned", "merged", "merged_shallow", "merged_permuted", "control")
 
+# RNG stream ordinal per variant, frozen. The stream is keyed on this map, not on
+# the position in VARIANTS, so inserting or reordering a variant cannot re-key
+# the streams of the existing ones. Changing an ordinal is a re-baseline.
+VARIANT_ORDINAL = {
+    "permuted": 0,
+    "pruned": 1,
+    "merged": 2,
+    "merged_shallow": 3,
+    "merged_permuted": 4,
+    "control": 5,
+}
+_missing = [variant for variant in VARIANTS if variant not in VARIANT_ORDINAL]
+if _missing:
+    raise RuntimeError(f"VARIANTS without an RNG ordinal: {_missing}")
+if len(set(VARIANT_ORDINAL.values())) != len(VARIANT_ORDINAL):
+    raise RuntimeError("VARIANT_ORDINAL has duplicate streams")
+
 # Descriptor: one BLOCK x BLOCK window per projection.
 BLOCK = 32
 # Pair classification floor, fixed a priori.
@@ -56,7 +73,9 @@ NEAR_EXACT_COS = 0.995
 # "A mixture explains this expert" floor, fixed a priori.
 MERGE_GAIN_MIN = 0.30
 # A component below this share is treated as fit noise, not a merge parent.
-MIN_COMPONENT = 0.04
+# 0.03 == SHALLOW_ALPHA[1] - ALPHA_TOL, so every alpha inside the pre-registered
+# band clears the component gate (re-baselined from 0.04; see README).
+MIN_COMPONENT = 0.03
 # Injected mixture weights for (parent 0, parent 1) and the pre-registered band.
 MERGE_ALPHA = (0.60, 0.40)
 # Shallow merge: 5% of parent 1 is small enough that cosine matching alone
