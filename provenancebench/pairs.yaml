@@ -656,3 +656,27 @@ pairs:
   reference_rev: da2549c8d3e03e6e927594b9060073abdb94e6ba
   challenge:
     type: unrelated_reference
+- id: pb-core-stranger-pds-bsl-1b
+  stack: dense
+  kind: neg_cross
+  subject: Data-Selection/PDS-1B
+  reference: Data-Selection/BSL-1B
+  expected: unrelated
+  context: Scale replicate of pb-core-pds-bsl-470m (same relation at 1B), so the two rows are not
+    statistically independent and a per-pair false-confirm rate over the core cohort counts this
+    relation twice.
+  evidence:
+    confidence: inferred
+    sources:
+    - https://huggingface.co/Data-Selection/PDS-1B/resolve/8540165407da4a03e553f9bd164d60cb56056de1/README.md
+    - https://huggingface.co/Data-Selection/BSL-1B/resolve/19687af3eaa0b5803be5c030b40325e13c253600/README.md
+    - https://huggingface.co/Data-Selection/PDS-1B/resolve/8540165407da4a03e553f9bd164d60cb56056de1/config.json
+    - https://huggingface.co/Data-Selection/BSL-1B/resolve/19687af3eaa0b5803be5c030b40325e13c253600/config.json
+    - https://arxiv.org/abs/2410.07064
+    note: Both Mistral 1B (24 layers, hidden 1536, FFN 6144, 16 heads, vocab 32000) pretrained from
+      scratch on the CC split of RedPajama; BSL-1B is the all-data baseline and PDS-1B the data-selected
+      run, so the two differ in training data, not in shape or lineage.
+  subject_rev: 8540165407da4a03e553f9bd164d60cb56056de1
+  reference_rev: 19687af3eaa0b5803be5c030b40325e13c253600
+  challenge:
+    type: unrelated_reference
