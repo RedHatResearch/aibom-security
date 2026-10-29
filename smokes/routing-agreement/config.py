@@ -1,9 +1,10 @@
 """Pinned fixtures for the routing-agreement smoke (Experiment B).
 
 Everything here is frozen before the first run: model revisions, the probe set,
-the quantization contract (4-bit symmetric RTN, block 32 along the last dim),
-the variant order, and the pre-registered expectation bands. Thresholds are
-never re-tuned after seeing results; a wrong band is recorded as a miss.
+the variant order, and the expectation bands. The quantization grid itself
+(4-bit symmetric RTN, block 32 along the last dim) is defined once in
+``quant.py`` (``BITS``/``BLOCK``) and recorded from there. Thresholds are never
+re-tuned after seeing results; a wrong band is recorded as a miss.
 
 Probe prompts are recorded verbatim so the probe set can be reconstructed
 without this file changing later. Every prompt is tokenized without special
@@ -229,11 +230,11 @@ _PROMPTS: dict[str, list[str]] = {
 PROMPTS = [{"domain": domain, "text": text} for domain in DOMAINS for text in _PROMPTS[domain]]
 
 # ---------------------------------------------------------------------------
-# Quantization contract (frozen) and variants
+# Variants
 # ---------------------------------------------------------------------------
-
-QUANT_BITS = 4
-QUANT_BLOCK = 32
+# The applied quantization grid lives in quant.py (BITS/BLOCK) so the recorded
+# grid and the QDQ calls read one constant; this file owns variant names and
+# their application order only.
 
 # Applied in this order. The order lets every variant be reached from the loaded
 # weights with only the router (a few hundred KB) backed up:
@@ -257,11 +258,15 @@ VARIANT_NOTES = {
 }
 
 # ---------------------------------------------------------------------------
-# Pre-registered expectations (written before the first run)
+# Expectations — E1-E3 pre-registered in the spec; E4-E6 extensions
 # ---------------------------------------------------------------------------
-# Each entry: (id, model label, variant, text, kind, params)
-# kind "min": observed >= param; "lt_variant": observed < other variant;
-# "near_chance": |observed - chance| <= param (absolute tolerance).
+# Each entry is a dict with fields id, model (label), variant, text, kind,
+# param. kind "min": observed >= param; "lt_variant": observed < the variant
+# named by param; "near_chance": |observed - chance| <= param (absolute
+# tolerance). E4-E6 repeat E1-E3's forms at the OLMoE operating point, which the
+# spec's pre-registered table did not cover: E4 carries E1's 0.95 band over
+# unchanged (no k/E rescaling), E5 repeats E2's ordering, and E6 narrows E3's
+# tolerance to 0.01; with OLMoE chance ~2.3e-10 that is a zero test, not a band.
 
 EXPECTATIONS = [
     {

@@ -1,5 +1,5 @@
 {
-  "generated_utc": "2026-10-29T20:12:48+00:00",
+  "generated_utc": "2026-10-29T23:16:14+00:00",
   "smoke": "routing-agreement",
   "spec": ".scratch/specs/moe-p0-and-routing.md \u00b7 Experiment B",
   "seed": 20261029,
@@ -41,9 +41,8 @@
       "revision": "1e3516176a6279ce93923060fcad848dc043af79",
       "dtype": "float32",
       "status": "ok",
-      "load_s": 0.94,
+      "load_s": 1.42,
       "peak_rss_gb_after_load": 5.32,
-      "n_layers": 12,
       "n_experts": 4,
       "top_k": 2,
       "router_params": 12,
@@ -249,6 +248,7 @@
           }
         ]
       },
+      "n_layers": 12,
       "router_logits": {
         "tuple_len": 12,
         "non_null": 12,
@@ -259,7 +259,7 @@
         "top_k": 2,
         "rows": 2304
       },
-      "forward_s": 3.44,
+      "forward_s": 3.29,
       "peak_rss_gb_after_base": 6.11,
       "chance": {
         "set_agreement": 0.16666666666666666,
@@ -267,14 +267,14 @@
         "set_agreement_fraction": "1/C(4,2) = 1/6",
         "mean_jaccard_fraction": "7/18"
       },
-      "projected_total_s": 21.5,
+      "projected_total_s": 21.1,
       "variants_qdq_note": {
         "expert_tensors_quantized": 24,
         "experts_qdq_s": 0.36,
-        "experts_q4_forward_s": 2.51,
+        "experts_q4_forward_s": 1.64,
         "router_tensors_quantized": 12,
         "router_qdq_s": 0.0,
-        "all_q4_forward_s": 2.25
+        "all_q4_forward_s": 2.04
       },
       "variants": {
         "base": {
@@ -530,7 +530,7 @@
         }
       },
       "router_shuffled_seed": 20261029,
-      "elapsed_s": 12.7,
+      "elapsed_s": 10.3,
       "peak_rss_gb": 6.11
     },
     {
@@ -539,9 +539,8 @@
       "revision": "6d84c48581ece794365f2b8e9cfb043c68ade9c5",
       "dtype": "bfloat16",
       "status": "ok",
-      "load_s": 20.3,
-      "peak_rss_gb_after_load": 10.98,
-      "n_layers": 16,
+      "load_s": 25.11,
+      "peak_rss_gb_after_load": 10.0,
       "n_experts": 64,
       "top_k": 8,
       "router_params": 16,
@@ -747,6 +746,7 @@
           }
         ]
       },
+      "n_layers": 16,
       "router_logits": {
         "tuple_len": 16,
         "non_null": 16,
@@ -757,22 +757,22 @@
         "top_k": 8,
         "rows": 2304
       },
-      "forward_s": 33.39,
-      "peak_rss_gb_after_base": 10.98,
+      "forward_s": 88.94,
+      "peak_rss_gb_after_base": 10.0,
       "chance": {
         "set_agreement": 2.25929199850899e-10,
         "mean_jaccard": 0.07054158520641257,
         "set_agreement_fraction": "1/C(64,8) = 1/4426165368",
         "mean_jaccard_fraction": "2810058493/39835488312"
       },
-      "projected_total_s": 220.7,
+      "projected_total_s": 558.8,
       "variants_qdq_note": {
         "expert_tensors_quantized": 32,
-        "experts_qdq_s": 5.09,
-        "experts_q4_forward_s": 31.72,
+        "experts_qdq_s": 26.34,
+        "experts_q4_forward_s": 61.28,
         "router_tensors_quantized": 16,
-        "router_qdq_s": 0.0,
-        "all_q4_forward_s": 31.2
+        "router_qdq_s": 0.03,
+        "all_q4_forward_s": 59.8
       },
       "variants": {
         "base": {
@@ -2048,8 +2048,8 @@
         }
       },
       "router_shuffled_seed": 20261029,
-      "elapsed_s": 154.4,
-      "peak_rss_gb": 14.69
+      "elapsed_s": 340.6,
+      "peak_rss_gb": 10.0
     }
   ],
   "expectations": [
@@ -2132,5 +2132,5 @@
       "verdict": "held"
     }
   ],
-  "total_elapsed_s": 167.3
+  "total_elapsed_s": 351.2
 }

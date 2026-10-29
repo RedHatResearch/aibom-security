@@ -54,6 +54,15 @@ import quant as Q  # noqa: E402
 
 _LAYER_RE = re.compile(r"\.layers\.(\d+)\.")
 
+# Order in which ``run_model`` actually applies the variants. The run order is
+# intrinsic (shuffle first on pristine weights, then QDQ stays applied), so it
+# cannot be derived from ``config.EXECUTION_ORDER``; ``main`` refuses to run
+# unless the config agrees, and the record is written from this constant.
+_APPLIED_ORDER = ("base", "router_shuffled", "experts_q4", "all_q4")
+
+# A model entry with these statuses carries routing measurements.
+_MEASURED_STATUSES = ("ok", "partial")
+
 
 # ---------------------------------------------------------------------------
 # Small utilities
@@ -276,7 +285,7 @@ def apply_experts_q4(model) -> int:
     if not params:
         raise Q.CheckpointTensorError("no expert tensors matched — checkpoint layout unexpected")
     for _, param in params:
-        Q.quantize_dequantize_(param)
+        Q.quantize_dequantize_(param, bits=Q.BITS, block=Q.BLOCK)
     return len(params)
 
 
@@ -288,7 +297,7 @@ def qdq_router(model) -> list[tuple[torch.nn.Parameter, torch.Tensor]]:
     saved = []
     for _, param in params:
         saved.append((param, param.detach().clone()))
-        Q.quantize_dequantize_(param)
+        Q.quantize_dequantize_(param, bits=Q.BITS, block=Q.BLOCK)
     return saved
 
 
@@ -329,6 +338,16 @@ def skipped_entry(spec: dict, reason: str) -> dict:
     }
 
 
+def record_variant_skip(entry: dict, variant: str, exc: Exception) -> None:
+    """Record one variant that could not run; the model continues as ``partial``.
+
+    A malformed expert/router shape is a skip for the affected variant, never a
+    crash and never an ``ok`` model with silently missing variants.
+    """
+    entry.setdefault("variant_skips", {})[variant] = f"{type(exc).__name__}: {exc}"
+    entry["status"] = "partial"
+
+
 def run_model(spec: dict, tokenizer, *, check_budgets: bool) -> dict:
     """Load one model, run every variant, return its results entry."""
     entry: dict = {
@@ -362,7 +381,6 @@ def run_model(spec: dict, tokenizer, *, check_budgets: bool) -> dict:
         getattr(model.config, "num_local_experts", None)
         or getattr(model.config, "num_experts", spec["n_experts"])
     )
-    entry["n_layers"] = int(model.config.num_hidden_layers)
     entry["n_experts"] = n_experts_model
     entry["top_k"] = top_k_model
     entry["router_params"] = len(router_params(model))
@@ -388,6 +406,7 @@ def run_model(spec: dict, tokenizer, *, check_budgets: bool) -> dict:
         )
         return entry
     base_s = time.perf_counter() - t_cap
+    entry["n_layers"] = rl_info["used_layers"]
     entry["router_logits"] = rl_info
     entry["forward_s"] = round(base_s, 2)
     entry["peak_rss_gb_after_base"] = round(peak_rss_gb(), 2)
@@ -396,7 +415,7 @@ def run_model(spec: dict, tokenizer, *, check_budgets: bool) -> dict:
     n_experts = rl_info["n_experts"]
     entry["chance"] = chance_levels(k, n_experts)
 
-    projection = load_s + base_s * len(C.EXECUTION_ORDER) * 1.5
+    projection = load_s + base_s * len(_APPLIED_ORDER) * 1.5
     entry["projected_total_s"] = round(projection, 1)
     if check_budgets:
         if entry["peak_rss_gb_after_base"] > C.OLMOE_RAM_BUDGET_GB:
@@ -466,7 +485,7 @@ def run_model(spec: dict, tokenizer, *, check_budgets: bool) -> dict:
             "per_layer_permutations": [r["perm"] for r in shuffle_info],
         }
     except Exception as exc:
-        entry["shuffle_error"] = f"{type(exc).__name__}: {exc}"
+        record_variant_skip(entry, "router_shuffled", exc)
     finally:
         restore([(p, saved) for _name, p, saved, _perm in shuffled])
 
@@ -507,7 +526,9 @@ def run_model(spec: dict, tokenizer, *, check_budgets: bool) -> dict:
             "note": C.VARIANT_NOTES["all_q4"],
         }
     except Exception as exc:
-        entry["variant_error"] = f"{type(exc).__name__}: {exc}"
+        for name in ("experts_q4", "all_q4"):
+            if name not in variants:
+                record_variant_skip(entry, name, exc)
     finally:
         if saved_router:
             restore(saved_router)
@@ -526,7 +547,13 @@ def run_model(spec: dict, tokenizer, *, check_budgets: bool) -> dict:
 
 
 def evaluate_expectations(model_entries: list[dict]) -> list[dict]:
-    """Mark every pre-registered expectation held/missed/skipped."""
+    """Mark every pre-registered expectation held/missed/skipped.
+
+    A malformed expectation (unknown ``kind``, or a ``param`` that is neither a
+    number nor an available variant) is skipped with the reason recorded, never
+    raised: expectation rows are config data, and one typo must not abort the
+    report after the models have run.
+    """
     by_label = {e["label"]: e for e in model_entries}
     out = []
     for exp in C.EXPECTATIONS:
@@ -539,31 +566,38 @@ def evaluate_expectations(model_entries: list[dict]) -> list[dict]:
             "kind": exp["kind"],
             "param": exp["param"],
         }
+        kind, param = exp["kind"], exp["param"]
+        variants = entry.get("variants", {}) if entry else {}
         if (
             entry is None
-            or entry["status"] != "ok"
-            or exp["variant"] not in entry.get("variants", {})
+            or entry["status"] not in _MEASURED_STATUSES
+            or exp["variant"] not in variants
         ):
             record["verdict"] = "skipped"
             record["observed"] = None
             out.append(record)
             continue
-        observed = entry["variants"][exp["variant"]]["overall_set_agreement"]
+        observed = variants[exp["variant"]]["overall_set_agreement"]
         record["observed"] = observed
-        if exp["kind"] == "min":
-            record["held"] = observed >= exp["param"]
-        elif exp["kind"] == "lt_variant":
-            other = entry["variants"][exp["param"]]["overall_set_agreement"]
-            record["compared_to"] = {"variant": exp["param"], "overall_set_agreement": other}
-            record["held"] = observed < other
-        elif exp["kind"] == "near_chance":
+        if kind == "min" and isinstance(param, (int, float)):
+            held = observed >= param
+        elif kind == "lt_variant" and isinstance(param, str) and param in variants:
+            other = variants[param]["overall_set_agreement"]
+            record["compared_to"] = {"variant": param, "overall_set_agreement": other}
+            held = observed < other
+        elif kind == "near_chance" and isinstance(param, (int, float)):
             chance = entry["chance"]["set_agreement"]
             record["chance"] = chance
             record["delta_from_chance"] = observed - chance
-            record["held"] = abs(observed - chance) <= exp["param"]
-        else:  # pragma: no cover - config typo guard
-            raise ValueError(f"unknown expectation kind {exp['kind']}")
-        record["verdict"] = "held" if record["held"] else "missed"
+            held = abs(observed - chance) <= param
+        else:
+            record["verdict"] = "skipped"
+            record["observed"] = None
+            record["skip_reason"] = f"malformed expectation: kind={kind!r} param={param!r}"
+            out.append(record)
+            continue
+        record["held"] = held
+        record["verdict"] = "held" if held else "missed"
         out.append(record)
     return out
 
@@ -572,12 +606,19 @@ def evaluate_expectations(model_entries: list[dict]) -> list[dict]:
 # Reporting
 # ---------------------------------------------------------------------------
 
-_VARIANTS_SHOWN = ("experts_q4", "all_q4", "router_shuffled")
+# Console columns: every configured non-base variant, in config order. Derived
+# from ``config.VARIANTS`` so a variant cannot silently drop out of the tables.
+_VARIANTS_SHOWN = tuple(name for name in C.VARIANTS if name != "base")
+
+
+def _variant_columns(entry: dict) -> list[tuple[str, dict | None]]:
+    """Configured non-base variants paired with this run's data (``None`` = skipped)."""
+    return [(name, entry["variants"].get(name)) for name in _VARIANTS_SHOWN]
 
 
 def print_model_table(entry: dict) -> None:
     """Per-layer + overall agreement table for one model."""
-    v = entry["variants"]
+    columns = _variant_columns(entry)
     print(
         f"\nmodel {entry['repo_id']} @ {entry['revision'][:8]}  "
         f"dtype={entry['dtype']}  L={entry['n_layers']}  E={entry['n_experts']}  "
@@ -596,35 +637,37 @@ def print_model_table(entry: dict) -> None:
         f"({entry['chance']['set_agreement_fraction']}; "
         f"J={entry['chance']['mean_jaccard_fraction']})"
     )
-    header = f"{'layer':>5} | " + " | ".join(f"{name:>15} {'J':>12}" for name in _VARIANTS_SHOWN)
+    header = f"{'layer':>5} | " + " | ".join(f"{name:>15} {'J':>12}" for name, _data in columns)
     print(header)
     print("-" * len(header))
-    for layer in range(entry["n_layers"]):
+    # Rows come from the captured arrays themselves, not the model's declared
+    # layer count, so a short tuple prints short instead of raising IndexError.
+    n_layers = max(
+        (len(data["per_layer_set_agreement"]) for _name, data in columns if data),
+        default=0,
+    )
+    for layer in range(n_layers):
         cells = []
-        for name in _VARIANTS_SHOWN:
-            data = v.get(name)
-            if data is None:
+        for _name, data in columns:
+            series = data["per_layer_set_agreement"] if data else None
+            if series is None or layer >= len(series):
                 cells.append(f"{'-':>15} {'-':>12}")
             else:
                 cells.append(
-                    f"{data['per_layer_set_agreement'][layer]:>15.6f} "
-                    f"{data['per_layer_mean_jaccard'][layer]:>12.6f}"
+                    f"{series[layer]:>15.6f} {data['per_layer_mean_jaccard'][layer]:>12.6f}"
                 )
         print(f"{layer:>5} | " + " | ".join(cells))
-    cells = []
-    for name in _VARIANTS_SHOWN:
-        data = v.get(name)
-        if data is None:
-            cells.append(f"{'-':>15} {'-':>12}")
-        else:
-            cells.append(
-                f"{data['overall_set_agreement']:>15.6f} {data['overall_mean_jaccard']:>12.6f}"
-            )
+    cells = [
+        f"{'-':>15} {'-':>12}"
+        if data is None
+        else f"{data['overall_set_agreement']:>15.6f} {data['overall_mean_jaccard']:>12.6f}"
+        for _name, data in columns
+    ]
     print(f"{'mean':>5} | " + " | ".join(cells))
     excl = [
-        f"{name}={v[name]['overall_set_agreement_excl_layer0']:.6f}"
-        for name in _VARIANTS_SHOWN
-        if v.get(name) and v[name].get("overall_set_agreement_excl_layer0") is not None
+        f"{name}={data['overall_set_agreement_excl_layer0']:.6f}"
+        for name, data in columns
+        if data and data.get("overall_set_agreement_excl_layer0") is not None
     ]
     if excl:
         print(
@@ -632,6 +675,7 @@ def print_model_table(entry: dict) -> None:
             + "  ".join(excl)
         )
 
+    v = entry["variants"]
     shuffled = v.get("router_shuffled")
     if shuffled and shuffled.get("layer0_relabel_prediction") is not None:
         print(
@@ -641,8 +685,6 @@ def print_model_table(entry: dict) -> None:
             f"(exact={shuffled['layer0_matches_prediction']}); "
             f"fixed points per layer {shuffled['per_layer_fixed_points']}"
         )
-    elif shuffled:
-        print(f"router_shuffled: no layer-0 prediction ({entry.get('shuffle_error')})")
     if v.get("experts_q4") and v.get("all_q4"):
         print(
             "layer-0 isolation (routing independent of expert weights): "
@@ -661,16 +703,21 @@ def print_model_table(entry: dict) -> None:
 
 def print_domain_table(entry: dict) -> None:
     """Overall set agreement split by prompt domain."""
-    v = entry["variants"]
-    header = f"{'domain':>10} | " + " | ".join(f"{n:>14}" for n in _VARIANTS_SHOWN)
+    columns = _variant_columns(entry)
+    header = f"{'domain':>10} | " + " | ".join(f"{name:>14}" for name, _data in columns)
     print(header)
     print("-" * len(header))
     for domain in C.DOMAINS:
-        cells = []
-        for name in _VARIANTS_SHOWN:
-            data = v.get(name)
-            cells.append(f"{data['by_domain'][domain]:.6f}" if data else f"{'-':>14}")
+        cells = [
+            f"{data['by_domain'][domain]:.6f}" if data else f"{'-':>14}" for _name, data in columns
+        ]
         print(f"{domain:>10} | " + " | ".join(cells))
+
+
+def print_variant_skips(entry: dict) -> None:
+    """One SKIP line per variant that could not run."""
+    for variant, reason in entry.get("variant_skips", {}).items():
+        print(f"SKIP {entry['label']}/{variant}: {reason}")
 
 
 def print_expectations(records: list[dict]) -> None:
@@ -700,6 +747,11 @@ def main() -> None:
     )
     parser.add_argument("--threads", type=int, default=min(8, os.cpu_count() or 8))
     args = parser.parse_args()
+    if tuple(C.EXECUTION_ORDER) != _APPLIED_ORDER:
+        parser.error(
+            f"config.EXECUTION_ORDER {tuple(C.EXECUTION_ORDER)} does not match "
+            f"the order run_model applies {_APPLIED_ORDER}"
+        )
     torch.set_num_threads(args.threads)
 
     t_start = time.perf_counter()
@@ -717,7 +769,8 @@ def main() -> None:
     except Exception as exc:  # snapshot incomplete/unusable: skip, never download
         primary = skipped_entry(C.PRIMARY, f"setup failed: {type(exc).__name__}: {exc}")
     entries.append(primary)
-    if primary["status"] == "ok":
+    print_variant_skips(primary)
+    if primary["status"] in _MEASURED_STATUSES:
         print_model_table(primary)
         print("\nper-domain overall set agreement")
         print_domain_table(primary)
@@ -738,7 +791,8 @@ def main() -> None:
         except Exception as exc:  # snapshot incomplete/unusable: skip, never download
             secondary = skipped_entry(C.SECONDARY, f"setup failed: {type(exc).__name__}: {exc}")
         entries.append(secondary)
-        if secondary["status"] == "ok":
+        print_variant_skips(secondary)
+        if secondary["status"] in _MEASURED_STATUSES:
             print_model_table(secondary)
             print("\nper-domain overall set agreement")
             print_domain_table(secondary)
@@ -755,9 +809,9 @@ def main() -> None:
         "seed": C.SEED,
         "seq_len": C.SEQ_LEN,
         "domains": list(C.DOMAINS),
-        "quant": {"bits": C.QUANT_BITS, "block": C.QUANT_BLOCK, "scheme": "symmetric RTN"},
+        "quant": {"bits": Q.BITS, "block": Q.BLOCK, "scheme": "symmetric RTN"},
         "variants": list(C.VARIANTS),
-        "execution_order": list(C.EXECUTION_ORDER),
+        "execution_order": list(_APPLIED_ORDER),
         "variant_notes": C.VARIANT_NOTES,
         "threads": args.threads,
         "models": entries,
@@ -768,7 +822,7 @@ def main() -> None:
     args.out.write_text(json.dumps(payload, indent=2))
     print(f"\nwrote {args.out}  total {payload['total_elapsed_s']}s")
 
-    ran = [e for e in entries if e["status"] == "ok"]
+    ran = [e for e in entries if e["status"] in _MEASURED_STATUSES]
     if not ran:
         print("FAIL: no model produced routing measurements")
         sys.exit(1)

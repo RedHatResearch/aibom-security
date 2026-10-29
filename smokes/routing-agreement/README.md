@@ -5,8 +5,9 @@ routing (the llama.cpp GGUF property)? And how much does quantizing the router
 itself hurt?
 
 Not product code; not CI. Spec: [`.scratch/specs/moe-p0-and-routing.md`](../../.scratch/specs/moe-p0-and-routing.md)
-(Experiment B). This README was written (pre-registration included) **before**
-the first run; results were appended afterwards without changing any band.
+(Experiment B). The E1-E3 pre-registration was written before the first run;
+results were appended afterwards without changing any band. E4-E6 are
+extensions, labelled as such below.
 
 ## Method
 
@@ -24,7 +25,10 @@ the first run; results were appended afterwards without changing any band.
   `torch.topk(logits, min(top_k, E), dim=-1)` → expert ids per (prompt, position).
   The tuple length is checked against `config.num_hidden_layers`; a mismatch is
   adapted (non-null entries, first `n_layers`) and reported in `results.json`
-  (`router_logits.adapted`).
+  (`router_logits.adapted`). The recorded `n_layers` and all per-layer indexing
+  come from the captured tuple (`router_logits.used_layers`), and each array is
+  indexed by its own length, so a short or padded tuple prints short instead of
+  raising.
 - Metric per layer: fraction of scored rows whose top-k expert **set** equals the
   base set (order-insensitive exact match), plus mean Jaccard over the same rows.
   Overall = unweighted mean over layers. Per-domain overall numbers are reported
@@ -87,21 +91,25 @@ and the drawn permutation, not a fitted parameter, and compared exactly. Both
 that prediction and the per-layer fixed-point counts are reported; the identity
 draws (fixed points = E) show how much row churn input drift alone causes.
 
-Runtime/determinism: seed `20261029` for permutations, `torch.set_num_threads(8)`,
-no dropout, `use_cache=False`. Both models and both tokenizers load with
-`local_files_only=True` and `trust_remote_code=False`, so the run never touches
-the network; if the pinned snapshot is incomplete the model is skipped with the
-reason recorded in `results.json` rather than downloaded. Secondary model
-`allenai/OLMoE-1B-7B-0924` @ `6d84c48581ece794365f2b8e9cfb043c68ade9c5` is
-loaded in bfloat16 and repeated with k=8, E=64 **only if** peak RSS stays under
-20 GB and the projected wall time under 600 s; otherwise it is skipped with the
-reason recorded in `results.json`.
+Runtime/determinism: seed `20261029` for permutations,
+`torch.set_num_threads(min(8, CPU count))`, no dropout, `use_cache=False`. Both
+models and both tokenizers load with `local_files_only=True` and
+`trust_remote_code=False`, so the run never touches the network; if the pinned
+snapshot is incomplete the model is skipped with the reason recorded in
+`results.json` rather than downloaded. A variant that raises (for example a
+malformed expert/router shape) is skipped the same way — the model entry gets
+`status: partial` and a `variant_skips` reason, `main` prints a
+`SKIP <model>/<variant>` line, and the remaining variants still report.
+Secondary model `allenai/OLMoE-1B-7B-0924` @ `6d84c48581ece794365f2b8e9cfb043c68ade9c5`
+is loaded in bfloat16 and repeated with k=8, E=64 **only if** peak RSS stays
+under 20 GB and the projected wall time under 600 s; otherwise it is skipped
+with the reason recorded in `results.json`.
 
 ```bash
 uv run --group smokes python smokes/routing-agreement/smoke.py
 ```
 
-## Pre-registered expectations (written before the first run)
+## Expectations: E1-E3 pre-registered, E4-E6 extensions
 
 | id | model | variant | expectation |
 |---|---|---|---|
@@ -111,6 +119,22 @@ uv run --group smokes python smokes/routing-agreement/smoke.py
 | E4 | OLMoE | `experts_q4` | overall set agreement vs base **≥ 0.95** (k=8, E=64) |
 | E5 | OLMoE | `all_q4` | overall set agreement **<** `experts_q4` |
 | E6 | OLMoE | `router_shuffled` | overall set agreement within **0.01** of chance (≈ 2.26e-10) |
+
+E1-E3 are the spec's pre-registered table. **E4-E6 are extensions** added for
+the OLMoE repeat, which that table did not cover; their bands reuse the E1-E3
+forms rather than a new calibration: E4 carries E1's 0.95 band over unchanged
+(no k/E rescaling), E5 repeats E2's ordering direction, and E6 is E3's
+near-chance form with the absolute tolerance narrowed from ±0.06 to ±0.01;
+with the analytic chance at k=8, E=64 at ≈2.26e-10 this is effectively a "≤0.01
+above zero" test, not a two-sided chance band.
+
+E3 (and E6) is **not a calibrated chance test**: `router_shuffled` draws one
+fixed permutation per layer and applies it to every token, so its overall
+agreement is a mixture over the drawn cycle types (on TinyMixtral, identity
+draws measure 0.75–0.80 and non-identity draws 0.00–0.31), not a per-token
+uniform k-subset concentrated at 1/6. The ±0.06 band is a fixed-permutation
+control band; the calibrated check for that variant is the exact layer-0 relabel
+prediction reported next to the measured value.
 
 Rationale recorded before the run: expert Q4 with 32-wide blocks is a small
 relative perturbation (for a Gaussian block, block max ≈ 2.2σ, step ≈ 0.31σ,
@@ -124,33 +148,37 @@ near-exact-zero test rather than a band.
 
 ## Results
 
-Recorded run: `2026-10-29T20:02:03Z`, total 167.0 s, exit code 0, macOS arm64
-(12 CPU cores, 36 GB RAM), torch 2.13.0, transformers 5.15.0, 8 threads, seed
-20261029. `results.json` is the machine-readable record of exactly this run;
-every routing number below is copied from it after the run (the model and
-tokenizer loads are offline — `local_files_only=True`).
+The recorded run exited 0. `results.json` is the machine-readable record of the
+run: generation timestamp, per-model load/forward/elapsed timings, peak RSS, and
+every routing number below. Timings and memory vary between runs and are not
+repeated in this prose; the routing numbers are copied from the record after the
+run (the model and tokenizer loads are offline — `local_files_only=True`).
 
 Routing tuple shape: **12 entries for TinyMixtral's 12 layers and 16 for OLMoE's
 16 layers, all non-null** — no adaptation was needed for either model.
 
 ### Secondary-model budgets
 
-| check | budget | observed | verdict |
-|---|---|---|---|
-| OLMoE RSS after load | ≤ 20 GB | 11.02 GB | pass |
-| OLMoE RSS after base capture (the gate value) | ≤ 20 GB | 11.02 GB | pass |
-| OLMoE whole-process peak (`ru_maxrss`) | reported | 14.84 GB | pass |
-| OLMoE wall time | ≤ 600 s | 227.7 s projected, 159.3 s actual | pass |
+Rule precedence: for this smoke Experiment B's "load in bf16, ~14 GB" **governs**
+over the shared "use streaming reads (`safetensors.safe_open`), do not load
+14 GB into RAM at once" instruction — the experiment needs the whole model
+resident for full forward passes, and the RSS/time gates below bound the load.
 
-Note on the peak: the gate reads RSS after the base capture (11.02 GB here) and
-is a pre-flight heuristic, not a bound on the run — the same run's final
-high-water mark is 14.84 GB, 3.82 GB higher, and the final value is recorded in
-`results.json` (`peak_rss_gb`). The after-load figure is below the checkpoint's
-13.838 GB of bf16 payload because the safetensors mappings are not fully
-resident right after load (`[INFERENCE]` on the mmap explanation); `ru_maxrss`
-is page-residency dependent, and repeated runs of this smoke have moved the peak
-by several GB while the routing tables stayed bit-identical. Total wall time was
-167.0 s, well inside the 600 s budget.
+| check | budget | outcome | recorded in `results.json` |
+|---|---|---|---|
+| OLMoE RSS after load | ≤ 20 GB | pass | `peak_rss_gb_after_load` |
+| OLMoE RSS after base capture (the gate value) | ≤ 20 GB | pass | `peak_rss_gb_after_base` |
+| OLMoE whole-process peak (`ru_maxrss`) | reported, not gated | reported | `peak_rss_gb` |
+| OLMoE projected wall time (gate) | ≤ 600 s | pass | `projected_total_s` |
+| OLMoE actual wall time | reported | — | `elapsed_s` |
+
+Note on the peak: the gate reads RSS after the base capture and is a pre-flight
+heuristic, not a bound on the run — the same run's final high-water mark is
+higher and is recorded as `peak_rss_gb`. The after-load figure is below the
+checkpoint's 13.838 GB of bf16 payload because the safetensors mappings are not
+fully resident right after load (`[INFERENCE]` on the mmap explanation);
+`ru_maxrss` is page-residency dependent, and repeated runs of this smoke have
+moved the peak by several GB while the routing tables stayed bit-identical.
 
 ### TinyMixtral-4x248M-MoE — L=12, E=4, k=2, fp32, 2304 rows
 
@@ -247,7 +275,7 @@ Per-domain overall set agreement (OLMoE):
 | factual | 0.765597 | 0.622868 | 0.000000 |
 | narrative | 0.763889 | 0.613281 | 0.000000 |
 
-### Pre-registered expectations vs outcome
+### Expectations vs outcome
 
 | id | model | expectation | observed | verdict |
 |---|---|---|---|---|
@@ -346,9 +374,10 @@ geometry rather than the prompt domain.
 
 ## Files
 
-- `config.py` — pinned models/revisions, 24 probe prompts (verbatim), quant
-  contract, variant order, pre-registered expectations.
-- `quant.py` — symmetric 4-bit block-32 QDQ, in-place application, router
-  permutation helpers, permutation-invariance prediction.
+- `config.py` — pinned models/revisions, 24 probe prompts (verbatim), variant
+  order, expectations (E1-E3 pre-registered, E4-E6 extensions).
+- `quant.py` — frozen symmetric 4-bit block-32 QDQ constants and helpers, in-place
+  application, router permutation helpers, permutation-invariance prediction.
 - `smoke.py` — load, capture routing, run variants, metrics, table + `results.json`.
-- `results.json` — machine-readable record of the run above.
+- `results.json` — machine-readable record of the latest run (timings, RSS,
+  routing tables, verdicts).
