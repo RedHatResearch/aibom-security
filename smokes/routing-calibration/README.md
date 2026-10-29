@@ -191,7 +191,7 @@ comparison is a requantization experiment, not a lineage comparison.
 uv run --group smokes python smokes/routing-calibration/smoke.py
 ```
 
-Outputs `results.json` next to this README and prints per-layer tables,
+Outputs `results.json` next to this README (gitignored) and prints per-layer tables,
 population summaries, the calibration, and the pre-registered expectations.
 
 Exit status: `0` when the primary calibration ran and produced the published
@@ -585,6 +585,6 @@ layer 0.0234 below it, and a worst-layer population gap of +0.0579.
   and verdict rules, pre-registered expectations.
 - `smoke.py` — subprocess worker + parent comparison/calibration; imports the
   QDQ contract and probe from `smokes/routing-agreement`.
-- `results.json` — machine-readable record of the run above (per-layer
+- `results.json` — machine-readable record of the run above, gitignored (per-layer
   mean/min/max/sd Jaccard, set agreement, fingerprints carrying router
   precision, quant type and probe identity, calibration, expectations).
