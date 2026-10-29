@@ -22,6 +22,21 @@ The manifest and the shard index are untrusted metadata: both are size-capped,
 every parse surprise maps to `DetectionError`, `weight_map` values must stay
 inside the checkpoint directory, and non-finite tensor values that reach the
 mixture fit are a structural abstain rather than a silent `gain: NaN`.
+
+Extensions that are ours, not in the spec (disclosed in README.md too):
+- metadata hardening (the paragraph above): size caps, plain-filename shard
+  resolution, canonical layer keys, int-only expert counts, the physical
+  expert-count check, and `DetectionError` on non-finite fit statistics;
+- the mixture fit runs for every suspect over every parent, not only the
+  unmatched suspects over the unmatched parents;
+- router handling: for merged variants the caller mixes the router row with the
+  same weights; this module never scores the router, it only shape-checks the
+  declared row count against the declared expert count;
+- the best-single comparator uses a free scale factor rather than a simplex
+  vertex, so a gain can be negative;
+- the `duplicate_of` label: an unassigned suspect whose fit is one parent at
+  full weight is classified `exact` with `duplicate_of` naming that parent,
+  even though the assignment-level `new` list still contains it.
 """
 
 from __future__ import annotations
@@ -87,7 +102,7 @@ class TensorSpec:
 # --------------------------------------------------------------------------- #
 # untrusted metadata
 # --------------------------------------------------------------------------- #
-def _read_json(path: Path, what: str) -> object:
+def read_json(path: Path, what: str) -> object:
     """Parse a size-capped JSON metadata file; any surprise is a structural skip."""
     try:
         with path.open("rb") as handle:
@@ -102,7 +117,7 @@ def _read_json(path: Path, what: str) -> object:
         raise DetectionError(f"{what} unparseable: {type(exc).__name__}: {exc}") from exc
 
 
-def _checkpoint_file(root: Path, value: object, what: str) -> Path:
+def checkpoint_file(root: Path, value: object, what: str) -> Path:
     """Resolve a metadata-supplied shard filename to a direct child of ``root``.
 
     Only a plain filename is accepted: absolute paths, ``..``, any separator,
@@ -140,26 +155,26 @@ class CheckpointReader:
             raise DetectionError(f"{self.root} is not a directory")
         if self.shards:
             self._index = {
-                str(name): _checkpoint_file(self.root, value, "shard index")
+                str(name): checkpoint_file(self.root, value, "shard index")
                 for name, value in self.shards.items()
             }
             self._files = tuple(sorted(set(self._index.values())))
         else:
             index = self.root / "model.safetensors.index.json"
             if index.is_file():
-                document = _read_json(index, "shard index")
+                document = read_json(index, "shard index")
                 if not isinstance(document, dict):
                     raise DetectionError("shard index is not an object")
                 weight_map = document.get("weight_map")
                 if not isinstance(weight_map, dict) or not weight_map:
                     raise DetectionError("shard index has no weight_map")
                 self._index = {
-                    str(name): _checkpoint_file(self.root, value, "shard index")
+                    str(name): checkpoint_file(self.root, value, "shard index")
                     for name, value in weight_map.items()
                 }
                 self._files = tuple(sorted(set(self._index.values())))
             else:
-                self._files = (_checkpoint_file(self.root, self.tensor_file, "tensor_file"),)
+                self._files = (checkpoint_file(self.root, self.tensor_file, "tensor_file"),)
 
     def _scan(self) -> dict[str, Path]:
         mapping: dict[str, Path] = {}
@@ -229,7 +244,7 @@ class CheckpointReader:
 def read_manifest(variant_dir: Path) -> dict:
     """Validate a variant manifest; anything surprising is a structural skip."""
     variant_dir = Path(variant_dir)
-    raw = _read_json(variant_dir / "manifest.json", "manifest")
+    raw = read_json(variant_dir / "manifest.json", "manifest")
     if not isinstance(raw, dict):
         raise DetectionError("manifest is not an object")
     layers = raw.get("layers")
@@ -257,7 +272,7 @@ def read_manifest(variant_dir: Path) -> dict:
         counts[layer] = count
     raw["layer_counts"] = counts
     tensor_file = raw.get("tensor_file", "model.safetensors")
-    _checkpoint_file(variant_dir, tensor_file, "manifest")
+    checkpoint_file(variant_dir, tensor_file, "manifest")
     raw["tensor_file"] = str(tensor_file)
     return raw
 
@@ -397,38 +412,38 @@ def _nnls_sum_to_one(gram: np.ndarray, cross: np.ndarray) -> tuple[np.ndarray, b
 
 
 def fit_mixtures(
-    basis: list[list[torch.Tensor]],
+    parents: list[list[torch.Tensor]],
     suspects: list[list[torch.Tensor]],
 ) -> list[dict]:
     """Fit each suspect as a convex mixture of the given parent experts.
 
-    ``basis[i]`` and ``suspects[j]`` are the per-projection tensors of one expert;
-    all tensors of a projection must share a shape. Statistics are accumulated in
-    float64 over the concatenation of all projections.
+    ``parents[i]`` and ``suspects[j]`` are the per-projection tensors of one
+    expert; all tensors of a projection must share a shape. Statistics are
+    accumulated in float64 over the concatenation of all projections.
     """
-    if not basis or not suspects:
+    if not parents or not suspects:
         return []
-    projections = len(basis[0])
-    for expert in basis + suspects:
+    projections = len(parents[0])
+    for expert in parents + suspects:
         if len(expert) != projections:
             raise DetectionError("mixed projection counts in mixture fit")
 
-    k, m = len(basis), len(suspects)
+    k, m = len(parents), len(suspects)
     gram = np.zeros((k, k))
     cross = np.zeros((k, m))
     energy = np.zeros(m)
 
     for projection in range(projections):
-        shape = basis[0][projection].shape
-        for expert in basis + suspects:
+        shape = parents[0][projection].shape
+        for expert in parents + suspects:
             if expert[projection].shape != shape:
                 raise DetectionError("mixture fit needs identical expert shapes")
-        flat_basis = [expert[projection].reshape(-1) for expert in basis]
+        flat_parents = [expert[projection].reshape(-1) for expert in parents]
         flat_suspects = [expert[projection].reshape(-1) for expert in suspects]
         numel = int(shape.numel())
         for start in range(0, numel, CHUNK):
             stop = min(start + CHUNK, numel)
-            x = torch.stack([t[start:stop].to(torch.float64) for t in flat_basis])
+            x = torch.stack([t[start:stop].to(torch.float64) for t in flat_parents])
             y = torch.stack([t[start:stop].to(torch.float64) for t in flat_suspects])
             gram += (x @ x.T).numpy()
             cross += (x @ y.T).numpy()
@@ -447,7 +462,6 @@ def fit_mixtures(
             fits.append(
                 {
                     "suspect_index": j,
-                    "basis": [],
                     "alpha": [],
                     "gain": None,
                     "best_single_parent": None,
@@ -467,7 +481,6 @@ def fit_mixtures(
         fits.append(
             {
                 "suspect_index": j,
-                "basis": list(range(k)),
                 "alpha": [float(a) for a in alpha],
                 "gain": gain,
                 "best_single_parent": best_index,
@@ -538,10 +551,10 @@ def analyze_layer(
     for fit in fits:
         suspect_index = int(fit["suspect_index"])
         alpha = fit["alpha"]
-        big = [i for i, a in enumerate(alpha) if a >= MIN_COMPONENT]
+        components = [i for i, a in enumerate(alpha) if a >= MIN_COMPONENT]
         gain = fit["gain"]
         duplicate_of = None
-        if gain is not None and gain >= MERGE_GAIN_MIN and len(big) >= 2:
+        if gain is not None and gain >= MERGE_GAIN_MIN and len(components) >= 2:
             label = "merged"
         elif assigned.get(suspect_index, 0.0) >= exact_cos:
             label = "exact"
@@ -558,8 +571,8 @@ def analyze_layer(
                 "cos": float(assigned.get(suspect_index, result["suspect_max_cos"][suspect_index])),
                 "max_parent_cos": float(result["suspect_max_cos"][suspect_index]),
                 "gain": gain,
-                "basis": big,
-                "alpha": [float(alpha[i]) for i in big],
+                "components": components,
+                "alpha": [float(alpha[i]) for i in components],
                 "best_single_parent": fit["best_single_parent"],
                 "degenerate": bool(fit["degenerate"]),
                 "duplicate_of": duplicate_of,
@@ -569,7 +582,7 @@ def analyze_layer(
     merges = [
         {
             "suspect": entry["suspect"],
-            "basis": entry["basis"],
+            "components": entry["components"],
             "alpha": entry["alpha"],
             "gain": entry["gain"],
             "cos": entry["cos"],

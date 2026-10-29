@@ -29,7 +29,7 @@ come from the architecture table in [config.py](config.py):
 for Mixtral, `model.layers.{L}.mlp.experts.{E}.{gate,up,down}_proj.weight` + `…mlp.gate.weight`
 for OLMoE. The scale repeat runs only if the primary phase takes < 120 s.
 
-## Pre-registration (2026-10-29, written before the run)
+## Pre-registration (2026-10-29, before the first run; `origin` marks the post-hoc row)
 
 Seed `20261029` for every permutation, prune choice and Gaussian control tensor. Thresholds are
 fixed a priori: exact match at cos ≥ **0.9995**, mixture gain ≥ **0.30**, injected α = **0.60/0.40**
@@ -37,14 +37,19 @@ with a ±0.02 band, shallow merge at α = **0.95/0.05** with the same ±0.02 ban
 that decides whether a fitted α counts as a merge parent is **0.03** (`SHALLOW_ALPHA[1] − ALPHA_TOL`;
 re-baselined from 0.04, see below).
 
-| variant | expectation |
-|---|---|
-| `permuted` | every expert matched at cos ≥ 0.9995 in every layer; recovered π equals the injected π |
-| `pruned` | the E−2 survivors matched, 2 experts reported missing, and no mixture fit reaching gain ≥ 0.30 |
-| `merged` | E−2 untouched experts matched, one new expert reported and explained by the 0.60/0.40 mixture of the two missing parents (α within ±0.02, gain ≥ 0.30) |
-| `merged_shallow` | exactly one merged expert with α within ±0.02 of 0.95/0.05 and gain ≥ 0.30, whether or not cosine matching would have called it a copy |
-| `merged_permuted` | same as `merged` after alignment: E−2 exact matches, one new expert at the injected slot, α within ±0.02, gain ≥ 0.30 |
-| `control` | 0 experts matched at cos ≥ 0.9995; no gain ≥ 0.30 |
+| variant | origin | expectation |
+|---|---|---|
+| `permuted` | `pre_registered` | every expert matched at cos ≥ 0.9995 in every layer; recovered π equals the injected π |
+| `pruned` | `pre_registered` | the E−2 survivors matched, 2 experts reported missing, and no mixture fit reaching gain ≥ 0.30 |
+| `merged` | `pre_registered` | E−2 untouched experts matched, one new expert reported and explained by the 0.60/0.40 mixture of the two missing parents (α within ±0.02, gain ≥ 0.30) |
+| `merged_shallow` | `post_hoc` | exactly one merged expert with α within ±0.02 of 0.95/0.05 and gain ≥ 0.30, whether or not cosine matching would have called it a copy |
+| `merged_permuted` | `pre_registered` | same as `merged` after alignment: E−2 exact matches, one new expert at the injected slot, α within ±0.02, gain ≥ 0.30 |
+| `control` | `pre_registered` | 0 experts matched at cos ≥ 0.9995; no gain ≥ 0.30 |
+
+Every row is pre-registered except `merged_shallow`, which was restated after the first run; its
+original claim, the 0/2 OLMoE miss and the rationale are in “Second pre-registration, after a
+miss” below. [`config.py`](config.py) carries `origin` on each claim and `results.json` copies the
+registry plus `origin_ref` on the post-hoc row.
 
 For TinyMixtral (E = 4) the concrete form is: 4/4 matched (permuted), 2/2 survivors + 2 missing
 (pruned), 2 matched + 1 new (merged, merged_permuted). The claims are written for general E so
@@ -125,6 +130,12 @@ Disclosures — parts that are ours, not in the spec:
   count to match the declared expert count — a malformed header is a `SKIP`.
 - **`best single` comparator** uses a free scale factor rather than a simplex vertex, as described
   above.
+- **All-suspect fit**: the mixture fit runs for every suspect over every parent, not only the
+  unmatched suspects over the unmatched parents. This is what catches a shallow merge whose
+  cosine still clears the exact floor.
+- **Duplicate label**: an unassigned suspect whose fit is one parent at full weight is classified
+  `exact` with `duplicate_of` naming that parent, even though the assignment-level `new` list
+  still contains it; duplicated or collapsed experts are plausible in upcycled MoEs.
 - **Untrusted-metadata hardening** (`CheckpointReader`, `read_manifest`): `manifest.json` and the
   shard index are size-capped at 4 MiB; every parse failure (`UnicodeDecodeError`, malformed JSON,
   `RecursionError`, non-object document) maps to `DetectionError`, i.e. a structural abstain;
@@ -155,7 +166,8 @@ Disclosures — parts that are ours, not in the spec:
   consistent. This changes no label, matched/missing/new count, α verdict or gain in either run:
   the observed shallow component is 0.050000001 while the fitted weights are accurate to ~1e−8
   (fp32) and 4e−6 (bf16), so nothing sits near the floor. The only payload effect is that the
-  `basis` list of noisy control fits now reports components down to 0.03 instead of 0.04.
+  `components` list of noisy control fits now reports fitted components down to 0.03 instead of
+  0.04.
 - Variant RNG streams are now keyed by the frozen ordinal map instead of tuple position. That
   restores the stream the six-variant results were built on (inserting `merged_permuted` had
   silently re-keyed `control`) and makes the next insertion a no-op for existing variants.
@@ -166,12 +178,12 @@ Disclosures — parts that are ours, not in the spec:
 
 ## Results
 
-Run 2026-10-29T20:01:34Z (exit 0), seed 20261029, thresholds and bands exactly as pre-registered
-apart from the documented 0.04 → 0.03 component floor (that guard was re-baselined for
-consistency; nothing else was retuned). Primary phase 67.74 s (below the 120 s budget, so the scale
-repeat ran), OLMoE phase 80.29 s, total 148.1 s. Artifacts: 11.48 GB for TinyMixtral, 9.54 GB for
-the OLMoE repeat, 21.02 GB total under `.scratch/moe-expert-lineage/`. All numbers below are read
-from the committed [`results.json`](results.json).
+Exit 0, seed 20261029, thresholds and bands exactly as pre-registered apart from the documented
+0.04 → 0.03 component floor (that guard was re-baselined for consistency; nothing else was
+retuned). The scale repeat ran. Artifacts: 11.48 GB for TinyMixtral, 9.54 GB for the OLMoE
+repeat, 21.02 GB total under `.scratch/moe-expert-lineage/`. Timings live only in the committed
+[`results.json`](results.json); the counts, verdicts and artifact sizes below are deterministic
+from the seed and are read from that file.
 
 **TinyMixtral-4x248M-MoE** (12 layers × 4 experts; `matched` is per layer; `fits` counts every
 suspect fitted):
@@ -179,7 +191,7 @@ suspect fitted):
 | variant | layers | matched | missing / new | fitted α | gain | merged cos | max pair cos | fits | verdict |
 |---|---|---|---|---|---|---|---|---|---|
 | `permuted` | 12 | 4/4 each (48/48) | – / – | – | – | – | 1.000000 | 48 | HELD |
-| `pruned` | 12 | 2/4 each (24/24) | 2 / 0 per layer, missing == injected drops | – | no defined gain | – | 1.000000 | 24 | HELD |
+| `pruned` | 12 | 2/4 each (24/24) | 2 / 0 per layer, missing == injected drops | – | no defined gain (24 N/A) | – | 1.000000 | 24 | HELD |
 | `merged` | 12 | 2/4 + 1 new each | 2 ([0,1]) / 1 ([0]) | 0.600000 / 0.400000 | 0.9999999999998–0.9999999999999 | 0.997130–0.992996 | 1.000000 | 36 | HELD |
 | `merged_shallow` | 12 | 3/4 each (36/36) | 1 ([1]) / 0 | 0.950000 / 0.050000 | 0.9999999999808–1.000000 | 0.999895–0.999956 | 1.000000 | 36 | HELD |
 | `merged_permuted` | 12 | 2/4 + 1 new each | 2 ([0,1]) / 1 (injected slot) | 0.600000 / 0.400000 | 0.9999999999998–0.9999999999999 | 0.997130–0.992996 | 1.000000 | 36 | HELD |
@@ -197,7 +209,7 @@ Fitted α was 0.600000006 / 0.399999994 on every merged layer; the shallow fit r
 | variant | layers | matched | missing / new | fitted α | gain | merged cos | max pair cos | fits | verdict |
 |---|---|---|---|---|---|---|---|---|---|
 | `permuted` | 2 | 64/64 each (128/128) | – / – | – | – | – | 1.000000 | 128 | HELD |
-| `pruned` | 2 | 62/64 each (124/124) | 2 / 0 (L0 `[26,38]`, L8 `[47,55]`) | – | no defined gain | – | 1.000000 | 124 | HELD |
+| `pruned` | 2 | 62/64 each (124/124) | 2 / 0 (L0 `[26,38]`, L8 `[47,55]`) | – | no defined gain (124 N/A) | – | 1.000000 | 124 | HELD |
 | `merged` | 2 | 62/64 + 1 new | 2 ([0,1]) / 1 ([0]) | 0.599998 / 0.399993 | 0.9999907–0.9999911 | 0.818566 / 0.847733 | 1.000000 | 126 | HELD |
 | `merged_shallow` | 2 | 62/64 each | 2 ([0,1]) / 1 ([0]) | 0.949981 / 0.050003 | 0.998910–0.998985 | 0.998436 / 0.998781 | 1.000000 | 126 | HELD |
 | `merged_permuted` | 2 | 62/64 + 1 new | 2 ([0,1]) / 1 (L0 slot 16, L8 slot 13) | 0.599998 / 0.399993 | 0.9999907–0.9999911 | 0.818566 / 0.847733 | 1.000000 | 126 | HELD |
@@ -228,18 +240,20 @@ case crashed the run.
 
 Reading:
 
-All twelve expectations (six variants × two models) held with the a-priori thresholds, so the
-descriptor + Hungarian + constrained-fit contract recovers permutation, pruning and two-parent
-merging at both 4 and 64 experts, and rejects iid noise; the weak point it exposes is not the
-classification but the 0.0024 cosine headroom that a collapsed-expert MoE leaves between a 0.6/0.4
-merge and an "exact copy" verdict.
+All twelve expectation verdicts (six variants × two models) held, ten pre-registered claims plus the
+post-hoc `merged_shallow` restatement, with the a-priori thresholds, so the descriptor + Hungarian
++ constrained-fit contract recovers permutation, pruning and two-parent merging at both 4 and 64
+experts, and rejects iid noise; the weak point it exposes is not the classification but the 0.0024
+cosine headroom that a collapsed-expert MoE leaves between a 0.6/0.4 merge and an "exact copy"
+verdict.
 
-- Every pre-registered expectation held on both the 4-expert fp32 model and the 64-expert bf16
-  model, including the permutation recovery, the survivor/missing split, the 0.60/0.40 recovery
-  inside ±0.02, and the absence of false positives and of any fit with gain ≥ 0.30 outside the
-  merged variants. The mixture weights came back at 1e−8 precision on fp32 and 4e−6 on bf16; the
-  residual is bit-level, so the gain is ≈ 1.0 because the merge is exact by construction — this
-  validates the estimator, it does not show that real-world merges are convex.
+- Every expectation verdict held on both the 4-expert fp32 model and the 64-expert bf16 model,
+  including the permutation recovery, the survivor/missing split, the 0.60/0.40 recovery inside
+  ±0.02, the post-hoc `merged_shallow` restatement, and the absence of false positives and of any
+  fit with gain ≥ 0.30 outside the merged variants. The mixture weights came back at 1e−8
+  precision on fp32 and 4e−6 on bf16; the residual is bit-level, so the gain is ≈ 1.0 because the
+  merge is exact by construction — this validates the estimator, it does not show that real-world
+  merges are convex.
 - One pre-run estimate was wrong and is recorded rather than fixed: the reasoning above expected
   the merged expert at cos ≈ 0.83, which is what OLMoE produced (0.819/0.848) but not TinyMixtral
   (0.993–0.997). The estimate assumed near-orthogonal experts; TinyMixtral violates that. The
@@ -267,9 +281,10 @@ merge and an "exact copy" verdict.
   easiest possible negative, and 14/48 TinyMixtral control fits were degenerate (NNLS returns
   α = 0, i.e. "no non-negative combination explains this"), which is the right answer for noise
   but makes the maximum gain uninformative there. The pruned survivors are the opposite case: all
-  24 / 124 fits have `gain = null` because an exact copy is explained by its own parent, so the
-  "no fit ≥ 0.30" check is satisfied by the absence of any residual, not by a measured negative
-  gain.
+  24 / 124 fits have `gain = null` because an exact copy is explained by its own parent. Those
+  fits are scored as **not applicable**, not as negative gains: `summary.undefined_gain_fits` is
+  24/24 and 124/124, `over_gain_fits` is 0, and the clause is reported as "no defined gain
+  ≥ 0.30" over an empty defined set rather than as a vacuous pass.
 - The pruned-fit behaviour is also the documented limit of the estimator: with exactly duplicated
   parents the simplex α is not identifiable, and the descriptor is a 32×32 sample per projection,
   so "exact" is a descriptor-exact verdict. A derivative that matches only the sampled windows

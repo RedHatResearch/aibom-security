@@ -1,9 +1,9 @@
 """Build Experiment A variants from a cached parent MoE checkpoint.
 
 The parent is read from the local HF cache (no network). Each variant is written
-to ``.scratch/moe-expert-lineage/<variant>/`` as ``model.safetensors`` plus a
-``manifest.json`` that carries only what a real checkpoint card would carry
-(arch, layer -> expert count, projection names) -- never ground truth. The
+to ``.scratch/moe-expert-lineage/<model>/<variant>/`` as ``model.safetensors``
+plus a ``manifest.json`` that carries only checkpoint-card metadata (arch, seed,
+layer -> expert count, projection names, tensor file) -- never ground truth. The
 injected permutation / mixture is returned to the caller and kept in
 ``results.json``, so the detector cannot see it.
 """

@@ -1,9 +1,9 @@
 """MoE expert-lineage smoke — Experiment A (issue #26).
 
-Builds six derived TinyMixtral checkpoints with known ground truth, writes them
-to ``.scratch/moe-expert-lineage/<variant>/`` as safetensors, then runs the
-label-blind weights-only detector over the written files. Scores the
-pre-registered expectations in README.md and writes ``results.json``.
+Builds six derived checkpoints from each cached parent MoE with known ground truth, writes them
+to ``.scratch/moe-expert-lineage/<model>/<variant>/`` as safetensors, then runs the label-blind
+weights-only detector over the written files. Scores the expectation registry in config.py
+(pre-registered plus post-hoc claims) and writes ``results.json``.
 """
 
 from __future__ import annotations
@@ -43,6 +43,7 @@ from config import (  # noqa: E402
 )
 
 COMMAND = "uv run --group smokes python smokes/moe-expert-lineage/smoke.py"
+ORIGINS = {item["variant"]: item["origin"] for item in EXPECTATIONS}
 
 
 # --------------------------------------------------------------------------- #
@@ -146,25 +147,47 @@ def run_variant(
 
 
 # --------------------------------------------------------------------------- #
-# scoring against the pre-registered expectations
+# scoring against the expectation registry
 # --------------------------------------------------------------------------- #
+def _e_minus_two_survivors(
+    reports: list[dict],
+    truth: dict[int, dict],
+    experts: int,
+    *,
+    missing_key: str,
+    new_key: str | None = None,
+) -> list[dict]:
+    """Reports with E-2 exact survivors, the injected missing parents, and the
+    injected new slot (or no new slot when ``new_key`` is None)."""
+    return [
+        report
+        for report in reports
+        if report["matched"] == experts - 2
+        and report["missing"] == truth[report["layer"]][missing_key]
+        and report["new"] == ([truth[report["layer"]][new_key]] if new_key else [])
+    ]
+
+
 def evaluate(
     variant: str, reports: list[dict], truth: dict[int, dict], experts: int
 ) -> tuple[dict, dict]:
     scored = [r for r in reports if r.get("status") != "skipped"]
     total = len(reports)
     complete = len(scored) == total
-    claim = next(item["claim"] for item in EXPECTATIONS if item["variant"] == variant)
+    expectation = next(item for item in EXPECTATIONS if item["variant"] == variant)
+    claim = expectation["claim"]
     # Every suspect is fitted; ``merges`` holds only the merged labels, so the
     # "no fit reaches gain >= 0.30" claims must be read off all classifications.
     fits = [entry for report in scored for entry in report["classifications"]]
     gains = [entry["gain"] for entry in fits if entry["gain"] is not None]
+    undefined_gain_fits = len(fits) - len(gains)
     degenerate = [entry for entry in fits if entry["degenerate"]]
     over_gain = [gain for gain in gains if gain >= MERGE_GAIN_MIN]
     summary: dict = {
         "layers": total,
         "scored": len(scored),
         "fits": len(fits),
+        "undefined_gain_fits": undefined_gain_fits,
         "degenerate_fits": len(degenerate),
     }
 
@@ -183,20 +206,18 @@ def evaluate(
         summary.update(exact_layers=len(exact), permutation_layers=len(perm))
 
     elif variant == "pruned":
-        structure = [
-            r
-            for r in scored
-            if r["matched"] == experts - 2
-            and r["missing"] == truth[r["layer"]]["dropped"]
-            and not r["new"]
-        ]
+        structure = _e_minus_two_survivors(scored, truth, experts, missing_key="dropped")
+        # Copies fit themselves with gain=None: those fits are "not applicable",
+        # not "gain < 0.30". The clause is scored on the defined gains only, and
+        # ``undefined_gain_fits`` records how much of it was N/A.
         held = complete and len(structure) == total and not over_gain
         gain_text = (
-            f"{len(fits)} fits ({len(gains)} with gain, {len(degenerate)} degenerate), "
-            f"max gain {max(gains):.4f}"
-            if gains
-            else f"{len(fits)} fits ({len(degenerate)} degenerate), no defined gain"
+            f"{len(fits)} fits, {len(gains)} with defined gain, "
+            f"{undefined_gain_fits} not applicable (exact copy), "
+            f"defined gains >= {MERGE_GAIN_MIN}: {len(over_gain)}"
         )
+        if gains:
+            gain_text += f", max defined gain {max(gains):.4f}"
         observed = (
             f"{len(structure)}/{total} layers at {experts - 2}/{experts} exact, "
             f"missing == injected drops, no new expert; {gain_text}"
@@ -237,13 +258,9 @@ def evaluate(
         summary.update(merged_layers=len(good), shadowed_layers=shadowed)
 
     elif variant in ("merged", "merged_permuted"):
-        structure = [
-            r
-            for r in scored
-            if r["matched"] == experts - 2
-            and r["new"] == [truth[r["layer"]]["suspect_slot"]]
-            and r["missing"] == truth[r["layer"]]["merge_parents"]
-        ]
+        structure = _e_minus_two_survivors(
+            scored, truth, experts, missing_key="merge_parents", new_key="suspect_slot"
+        )
         aligned = [r for r in scored if r["new"] == [truth[r["layer"]]["suspect_slot"]]]
         # The fitted entry assigned to the injected merged slot, with the two
         # injected parents as its components.
@@ -252,7 +269,7 @@ def evaluate(
             for r in scored
             for entry in r["classifications"]
             if entry["suspect"] == truth[r["layer"]]["suspect_slot"]
-            and entry["basis"] == truth[r["layer"]]["merge_parents"]
+            and entry["components"] == truth[r["layer"]]["merge_parents"]
             and len(entry["alpha"]) == 2
         ]
         in_band = [
@@ -265,7 +282,7 @@ def evaluate(
             for r in scored
             for entry in r["classifications"]
             if entry["suspect"] == truth[r["layer"]]["suspect_slot"]
-            and entry["basis"] == truth[r["layer"]]["merge_parents"]
+            and entry["components"] == truth[r["layer"]]["merge_parents"]
             and entry["gain"] is not None
         ]
         over_merge = [g for g in merge_gains if g >= MERGE_GAIN_MIN]
@@ -308,7 +325,7 @@ def evaluate(
             gain_max=max(merge_gains) if merge_gains else None,
         )
 
-    else:  # control
+    elif variant == "control":
         zero = [r for r in scored if r["matched"] == 0]
         max_gain = max(gains) if gains else None
         held = complete and len(zero) == total and not over_gain
@@ -335,7 +352,18 @@ def evaluate(
             max_pair_cos=max((r["max_pair_cos"] for r in scored), default=None),
         )
 
-    return summary, {"claim": claim, "held": bool(held), "observed": observed}
+    else:
+        raise ValueError(f"unknown variant {variant!r}")
+
+    expectation_record = {
+        "claim": claim,
+        "origin": expectation["origin"],
+        "held": bool(held),
+        "observed": observed,
+    }
+    if "origin_ref" in expectation:
+        expectation_record["origin_ref"] = expectation["origin_ref"]
+    return summary, expectation_record
 
 
 # --------------------------------------------------------------------------- #
@@ -624,25 +652,28 @@ def print_model_table(record: dict) -> None:
 
 
 def print_expectations(models: list[dict]) -> None:
-    print("\n== pre-registered expectations")
-    header = f"{'model':<14} {'variant':<15} {'verdict':<7} observed"
+    print("\n== expectations (origin: post_hoc claims are restated after a run)")
+    header = f"{'model':<14} {'variant':<15} {'origin':<14} {'verdict':<7} observed"
     print(header)
     print("-" * len(header))
     for record in models:
         if record["status"] != "ok":
             for variant in VARIANTS:
                 print(
-                    f"{record['label']:<14} {variant:<15} {'SKIP':<7} "
+                    f"{record['label']:<14} {variant:<15} {ORIGINS[variant]:<14} {'SKIP':<7} "
                     f"model unavailable: {record.get('reason')}"
                 )
             continue
         for variant, vrec in record["variants"].items():
             if vrec["status"] != "ok":
-                print(f"{record['label']:<14} {variant:<15} {'SKIP':<7} {vrec.get('reason')}")
+                print(
+                    f"{record['label']:<14} {variant:<15} {ORIGINS[variant]:<14} {'SKIP':<7} "
+                    f"{vrec.get('reason')}"
+                )
                 continue
             verdict = "HELD" if vrec["expectation"]["held"] else "MISSED"
             print(
-                f"{record['label']:<14} {variant:<15} {verdict:<7} "
+                f"{record['label']:<14} {variant:<15} {ORIGINS[variant]:<14} {verdict:<7} "
                 f"{vrec['expectation']['observed']}"
             )
 
@@ -709,6 +740,7 @@ def main() -> int:
         "alpha_tol": ALPHA_TOL,
         "min_component": MIN_COMPONENT,
         "variants": list(VARIANTS),
+        "expectations": list(EXPECTATIONS),
         "secondary_budget_s": SECONDARY_BUDGET_S,
         "models": models,
         "total_seconds": round(time.perf_counter() - started, 2),

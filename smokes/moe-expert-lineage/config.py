@@ -87,29 +87,39 @@ SCRATCH = REPO_ROOT / ".scratch" / "moe-expert-lineage"
 RESULTS = ROOT / "results.json"
 
 # The scale repeat is gated on the primary run's wall time.
-SECONDARY_BUDGET_S = 120.0
+SECONDARY_BUDGET_S = 600.0
 
-# Pre-registered expectations, stated before the first run. Claims are written
-# for E experts; the TinyMixtral run instantiates E=4 (4/4, 2 kept, 3 experts).
+# Expectation registry. ``origin`` is ``pre_registered`` when the claim was in
+# README.md before the first run, and ``post_hoc`` when it was restated after
+# observing a miss; a post-hoc claim points at the original text with
+# ``origin_ref``. Claims are written for E experts; the TinyMixtral run
+# instantiates E=4 (4/4, 2 kept, 3 experts).
 EXPECTATIONS = (
     {
         "variant": "permuted",
+        "origin": "pre_registered",
         "claim": "every layer matches E/E experts at cos >= 0.9995 and the recovered "
         "permutation equals the injected one",
     },
     {
         "variant": "pruned",
+        "origin": "pre_registered",
         "claim": "every layer matches the E-2 survivors exactly, reports 2 missing "
         "experts, and yields no mixture fit reaching gain >= 0.30",
     },
     {
         "variant": "merged",
+        "origin": "pre_registered",
         "claim": "every layer matches the E-2 untouched experts exactly and reports one new "
         "expert explained by the 0.60/0.40 mixture of the two missing parents "
         "(alpha within +/-0.02, gain >= 0.30)",
     },
     {
         "variant": "merged_shallow",
+        "origin": "post_hoc",
+        "origin_ref": "README.md, 'Second pre-registration, after a miss': original claim "
+        "was 'the E−2 untouched experts match exactly and the merge is left as an exact "
+        "copy'",
         "claim": "every layer flags exactly one merged expert with alpha within +/-0.02 of "
         "0.95/0.05 and gain >= 0.30, whether or not cosine matching would have called it a "
         "copy; on models with near-duplicate experts the copy call is the failure mode this "
@@ -117,11 +127,13 @@ EXPECTATIONS = (
     },
     {
         "variant": "merged_permuted",
+        "origin": "pre_registered",
         "claim": "after alignment, identical to merged: E-2 exact matches, one new expert, "
         "alpha within +/-0.02 of 0.60/0.40, gain >= 0.30",
     },
     {
         "variant": "control",
+        "origin": "pre_registered",
         "claim": "zero exact matches and no mixture fit reaching gain >= 0.30",
     },
 )
