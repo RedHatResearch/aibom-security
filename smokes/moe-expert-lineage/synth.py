@@ -186,7 +186,7 @@ def _ties_merge(parents: torch.Tensor, trim: float) -> torch.Tensor:
     survive = (flat != 0) & (flat.sign() == elected)
     count = survive.sum(dim=0).clamp(min=1)
     summed = (flat * survive).sum(dim=0)
-    averaged = torch.where(count > 1, summed / count.to(summed.dtype), summed)
+    averaged = summed / count.to(summed.dtype)
     return (mean.reshape(-1) + averaged).reshape(mean.shape)
 
 
@@ -226,11 +226,12 @@ def build_layer(
         "merged_shallow": SHALLOW_ALPHA,
         "merged_skewed": SKEWED_ALPHA,
         "merged_noisy": MERGE_ALPHA,
+        "merged_permuted": MERGE_ALPHA,
     }
-    if variant in two_parent or variant == "merged_permuted":
+    if variant in two_parent:
         if n < 3:
             raise ValueError(f"{variant} needs at least 3 experts, got {n}")
-        weights = two_parent.get(variant, MERGE_ALPHA)
+        weights = two_parent[variant]
         merged = {r: _mix([experts[0][r], experts[1][r]], weights, dtype) for r in roles}
         truth: dict = {}
         if variant == "merged_noisy":

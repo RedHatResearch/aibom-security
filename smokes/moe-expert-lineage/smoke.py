@@ -205,6 +205,20 @@ def _e_minus_two_survivors(
     ]
 
 
+def _in_band(alpha: list[float], expected: tuple[float, ...], tol: float) -> bool:
+    return len(alpha) == len(expected) and all(
+        abs(a - w) <= tol for a, w in zip(alpha, expected, strict=True)
+    )
+
+
+def _gain_ok(entry: dict) -> bool:
+    return entry["gain"] is not None and entry["gain"] >= MERGE_GAIN_MIN
+
+
+def _shadowed(entry: dict) -> bool:
+    return entry["cos"] >= EXACT_COS
+
+
 def evaluate(
     variant: str, reports: list[dict], truth: dict[int, dict], experts: int
 ) -> tuple[dict, dict]:
@@ -276,18 +290,11 @@ def evaluate(
             if len(merged) != 1:
                 continue
             entry = merged[0]
-            alpha = entry["alpha"]
-            in_band = (
-                len(alpha) == 2
-                and abs(alpha[0] - SHALLOW_ALPHA[0]) <= ALPHA_TOL
-                and abs(alpha[1] - SHALLOW_ALPHA[1]) <= ALPHA_TOL
-            )
-            gain_ok = entry["gain"] is not None and entry["gain"] >= MERGE_GAIN_MIN
             # Diagnostic, not a gate: on near-duplicate experts 5% is invisible to
             # cosine matching, and this flag is what the mixture fit rescues.
-            if entry["cos"] >= EXACT_COS:
+            if _shadowed(entry):
                 shadowed += 1
-            if in_band and gain_ok:
+            if _in_band(entry["alpha"], SHALLOW_ALPHA, ALPHA_TOL) and _gain_ok(entry):
                 good.append(r)
         held = complete and len(good) == total
         observed = (
@@ -386,25 +393,36 @@ def evaluate(
         top_parents: dict[int, int] = {}
         top_alphas: list[float] = []
         in_band = gain_ok = kept_ok = spread = shadowed = 0
+        unique = kept_merged = 0
         for r in scored:
             layer_truth = truth[r["layer"]]
             kept = kept_exact(r)
             kept_ok += int(kept)
+            injected_slot = layer_truth["suspect_slot"]
+            merged = [c for c in r["classifications"] if c["label"] == "merged"]
+            # Exactly one merged classification, and it must be the injected
+            # suspect: a second label on a kept slot is the false-positive mode
+            # this suite exists to catch.
+            unique_here = len(merged) == 1 and merged[0]["suspect"] == injected_slot
+            unique += int(unique_here)
+            kept_merged += int(
+                any(c["suspect"] in layer_truth["kept_slots"] for c in merged)
+            )
             injected = [
                 entry
                 for entry in r["classifications"]
-                if entry["suspect"] == layer_truth["suspect_slot"]
+                if entry["suspect"] == injected_slot
             ]
             if len(injected) != 1:
                 continue
             entry = injected[0]
             labels[entry["label"]] = labels.get(entry["label"], 0) + 1
-            if entry["cos"] >= EXACT_COS:
+            if _shadowed(entry):
                 shadowed += 1
             gain = entry["gain"]
             if gain is not None:
                 fit_gains.append(gain)
-            ok_gain = gain is not None and gain >= MERGE_GAIN_MIN
+            ok_gain = _gain_ok(entry)
             gain_ok += int(ok_gain)
             alpha_lengths[len(entry["alpha"])] = (
                 alpha_lengths.get(len(entry["alpha"]), 0) + 1
@@ -420,9 +438,9 @@ def evaluate(
             on_components.append(entry)
             errors = [abs(a - w) for a, w in zip(entry["alpha"], expected, strict=True)]
             alpha_errors.extend(errors)
-            band = all(err <= tol for err in errors)
+            band = _in_band(entry["alpha"], expected, tol)
             in_band += int(band)
-            if entry["label"] == "merged" and band and ok_gain and kept:
+            if entry["label"] == "merged" and band and ok_gain and kept and unique_here:
                 good.append(r)
         held = complete and len(good) == total
         max_error = max(alpha_errors) if alpha_errors else None
@@ -459,11 +477,14 @@ def evaluate(
         observed = (
             f"{len(good)}/{total} layers pass; injected-suspect labels: "
             f"{label_text or 'none'}; {alpha_text}; {gain_text}; {top_text}; kept parents "
-            f"exact on {kept_ok}/{total}; off-components spread on {spread}/{total}; cos shadowed "
-            f"(>= {EXACT_COS}) on {shadowed}/{total}"
+            f"exact on {kept_ok}/{total}; exactly one merged label on {unique}/{total}; "
+            f"kept slot labelled merged on {kept_merged}/{total}; off-components spread on "
+            f"{spread}/{total}; cos shadowed (>= {EXACT_COS}) on {shadowed}/{total}"
         )
         summary.update(
             merged_layers=len(good),
+            unique_merged_layers=unique,
+            kept_merged_layers=kept_merged,
             suspect_labels=labels,
             injected_alpha_lengths=alpha_lengths,
             injected_top_parents=top_parents,

@@ -29,7 +29,17 @@ come from the architecture table in [config.py](config.py):
 for Mixtral, `model.layers.{L}.mlp.experts.{E}.{gate,up,down}_proj.weight` + `…mlp.gate.weight`
 for OLMoE. The scale repeat runs only if the primary phase takes < 600 s.
 
-## Pre-registration (2026-10-29, before the first run; `origin` marks the post-hoc row)
+## Pre-registrations
+
+Numbering used throughout this file:
+
+1. **PR-1 — original six variants.** Written before the first run (2026-10-29).
+2. **PR-1a — restated shallow claim.** `merged_shallow`'s first claim missed on OLMoE; the claim
+   was restated before PR-2 ran. No threshold or band moved.
+3. **PR-2 — harder merges.** The five added variants, written before the second run.
+4. **PR-2 outcome — TIES miss.** Recorded after the run against PR-2's legitimate-miss clause.
+
+### PR-1 — original six variants (2026-10-29, written before the first run; `origin` marks the post-hoc row)
 
 Seed `20261029` for every permutation, prune choice and Gaussian control tensor. Thresholds are
 fixed a priori: exact match at cos ≥ **0.9995**, mixture gain ≥ **0.30**, injected α = **0.60/0.40**
@@ -46,10 +56,11 @@ re-baselined from 0.04, see below).
 | `merged_permuted` | `pre_registered` | same as `merged` after alignment: E−2 exact matches, one new expert at the injected slot, α within ±0.02, gain ≥ 0.30 |
 | `control` | `pre_registered` | 0 experts matched at cos ≥ 0.9995; no gain ≥ 0.30 |
 
-Every row is pre-registered except `merged_shallow`, which was restated after the first run; its
-original claim, the 0/2 OLMoE miss and the rationale are in “Second pre-registration, after a
-miss” below. [`config.py`](config.py) carries `origin` on each claim and `results.json` copies the
-registry plus `origin_ref` on the post-hoc row.
+Every row is pre-registered except `merged_shallow`, whose PR-1a restatement is shown here rather
+than the original PR-1 wording; the original claim, the 0/2 OLMoE miss and the rationale are
+recorded under “PR-1a — restated shallow claim” in Results. [`config.py`](config.py) carries
+`origin` on each claim and `results.json` copies the registry plus `origin_ref` on the post-hoc
+row.
 
 For TinyMixtral (E = 4) the concrete form is: 4/4 matched (permuted), 2/2 survivors + 2 missing
 (pruned), 2 matched + 1 new (merged, merged_permuted). The claims are written for general E so
@@ -70,7 +81,7 @@ Reasoning, fixed before the run:
   shares nothing with any parent, so 0 exact matches and small/negative mixture gains are
   expected — the mixture is constrained to the simplex, so it cannot even rescale a parent.
 
-### Harder merges — second pre-registration (written before the second run)
+### PR-2 — harder merges (written before the second run)
 
 Five variants were added on top of the original six so the detector meets shapes it has not
 seen: unequal weights, three parents, a saliency-shaped weighting, merge-then-finetune drift, and
@@ -110,9 +121,9 @@ Model-specific expectations, fixed before the run:
 - **RNG streams**: the new variants take ordinals 6–10 in `VARIANT_ORDINAL`; the original six
   keep ordinals 0–5, so their streams, and therefore their rebuilt files, are unchanged.
 - **Scale-repeat gate**: `SECONDARY_BUDGET_S` moves **120 → 300 s** because the suite grew from
-  six to eleven variants at the same per-variant cost. This gate bounds runtime only; it is not
-  a detector threshold and does not touch any verdict. The change is disclosed here rather than
-  silently absorbed.
+  six to eleven variants at the same per-variant cost; the review follow-up later raised it to
+  **600 s**. This gate bounds runtime only; it is not a detector threshold and does not touch any
+  verdict. The change is disclosed here rather than silently absorbed.
 - **Detector**: reused unchanged. If a variant exposes a real bug, the change and its reason are
   recorded in `## Results` and in the task report.
 
@@ -244,13 +255,13 @@ Disclosures — parts that are ours, not in the spec:
   gain ≤ 1); the "no fit ≥ 0.30" checks and `max gain` are read from **all** classifications, not
   only entries labelled `merged`; unassigned suspects report their maximum parent cosine instead
   of NaN; `results.json` is strict JSON (`allow_nan=False`).
-- Second-suite reporting fix (same day, does not move a verdict): the first pass of the harder
+- Second-suite reporting fix (same day, does not move a verdict): the first run of the harder
   merges printed no α/gain for `merged_ties` on TinyMixtral because the injected fit was off the
   expected three-parent basis, and the scorer had skipped off-basis entries. The scorer now
   records the injected suspect's label, gain, α-length, top component and top component weight
   regardless of basis; the verdict rule (one `merged` label, on-basis, in-band, gain ≥ 0.30,
-  kept parents exact) is unchanged. The committed `results.json` is from the final pass after the
-  rebase; every verdict and every original number is identical.
+  kept parents exact) is unchanged. The committed `results.json` carries the reporting fix from
+  the final pass after the rebase; every verdict and every original number is identical.
 - Scale-repeat gate raised **300 → 600 s** in the review follow-up: runtime only, disclosed here
   rather than silently absorbed. It gates the OLMoE repeat, never a verdict.
 
@@ -313,7 +324,7 @@ tokens in the file.
 OLMoE layers 0 / 8: 0.818566 / 0.847733 for 0.6/0.4 and 0.998436 / 0.998781 for 0.95/0.05.
 Exact-match floor 0.9995 in both runs.
 
-### Harder merges (second suite)
+### Harder merges (PR-2 suite)
 
 `max |dα|` is the largest layer × component deviation from the injected global weights. For
 `merged_ties` the α column is not an injected weight: it reports what the global fit actually did,
@@ -348,6 +359,11 @@ What the numbers say:
   (`components_spread_layers = 0` on 12/12 and 2/2), even on TinyMixtral where parent 2 is nearly
   orthogonal to the near-duplicate pair 0↔1 (0↔2 cosine −0.030…0.025). An exact convex target is
   identifiable even when the parent set is overcomplete.
+- **Exactly-one-merged is scored.** Every layer of the five PR-2 merged variants must yield exactly
+  one `merged` classification, and it must be the injected suspect; a kept slot labelled `merged`
+  fails the layer. `results.json` records both counts per variant (`unique_merged_layers`,
+  `kept_merged_layers`), so a second false-positive `merged` label cannot hide behind a correct
+  injected-slot call.
 - **The skewed merge did not shadow on TinyMixtral.** Its cosines are 0.998289–0.999288, below
   the 0.9995 exact floor, so matching called it `new` on 12/12 (0/12 shadowed). This is the
   contrast with 0.95/0.05: 20% of the second parent is enough to leave the exact-copy band even
@@ -369,6 +385,13 @@ What the numbers say:
   fit reports a one- or two-component basis rather than the intended three. That is a miss of
   the pre-registered summary target and exactly the legitimate-miss clause: TIES is outside the
   global convex span, and the detector reports the residual instead of forcing a merge label.
+- **The PR-2 rationale for TIES was falsified and is recorded, not hidden.** The registered claim
+  expected the miss on near-orthogonal parents (OLMoE), "where no global alpha exists to recover".
+  OLMoE did not fail that way: it stayed on the three-parent basis, recovered α 0.351/0.332/0.301
+  (within 0.038 of 1/3), and missed only the gain floor (0.151–0.156). The collapse happened on
+  TinyMixtral, the near-duplicate model, where sign election kept parent 2. The legitimate-miss
+  clause covered both outcomes, so no threshold, band or claim changed; the prediction was wrong,
+  not the registration.
 - **Plain-language boundary.** The detector's mixture contract works whenever the derived expert
   is a fixed convex combination of parents: unequal weights, three parents, a small 0.10
   component, and 1% elementwise drift are all inside it. It stops when the combination is
@@ -454,8 +477,9 @@ copy" verdict; the new boundary is the non-convex elementwise merge.
   nothing about detecting a genuine merge produced by a third-party script, which would also
   perturb the router and possibly rescale.
 
-**Second pre-registration, after a miss (recorded, not hidden).** The shallow-merge claim was
-first written as "the E−2 untouched experts match exactly and the merge is left as an exact copy".
+**PR-1a — restated shallow claim, after the PR-1 miss (recorded, not hidden).** The shallow-merge
+claim was first written as "the E−2 untouched experts match exactly and the merge is left as an
+exact copy".
 On TinyMixtral it held 12/12; on OLMoE it missed 0/2, because 5% of a *distinct* expert already
 drops the descriptor cosine to 0.9984 — below the 0.9995 floor — so matching alone calls the merge
 `new`, not a copy. The claim bundled a model-specific premise (near-duplicate experts) into a
@@ -463,9 +487,11 @@ model-agnostic test. It was restated as: exactly one expert is flagged `merged` 
 gain ≥ 0.30, *whether or not* cosine matching would have called it a copy, with the copy call
 reported as a diagnostic (`shadowed_merges`). No threshold or band changed, and the restated claim
 is what `config.EXPECTATIONS` scores. Observed shadowing is the finding: **12/12** TinyMixtral
-layers would have been called copies by matching alone, **0/2** on OLMoE.
+layers would have been called copies by matching alone, **0/2** on OLMoE. (The post-hoc
+`origin_ref` recorded in [`config.py`](config.py) and `results.json` calls this section “Second
+pre-registration, after a miss”.)
 
-**Third pre-registration outcome (TIES), recorded not hidden.** `merged_ties` was registered with
+**PR-2 outcome — TIES miss (recorded, not hidden).** `merged_ties` was registered with
 an explicit legitimate-miss clause and missed on both models: OLMoE stayed on the three-parent
 basis with α within 0.038 of 1/3 but gain 0.151–0.156, and TinyMixtral went off-basis and
 collapsed to parent 2 (top α 0.962–0.986, gain 0.0085–0.0220). No threshold, band, component floor
@@ -479,9 +505,9 @@ scale-repeat gate.
 uv run --group smokes python smokes/moe-expert-lineage/smoke.py
 ```
 
-Artifacts: `.scratch/moe-expert-lineage/<model>/<variant>/` (safetensors + manifest; 1.1–2.4 GB per
-TinyMixtral variant and 1.56–1.61 GB per OLMoE variant, 33.6 GiB total — delete the tree to reclaim
-space) and [`results.json`](results.json) next to this file. Exit 0 means the smoke ran and every
+Artifacts: `.scratch/moe-expert-lineage/<model>/<variant>/` (safetensors + manifest; per-variant
+sizes are in `results.json` under `file_bytes` — delete the tree to reclaim space) and
+[`results.json`](results.json) next to this file. Exit 0 means the smoke ran and every
 expectation is labelled held or missed — a miss is a finding, not a process failure; exit 1 only if
 the primary parent is unusable. `results.json` is written before any table is printed, so a
 reporting error cannot lose a run. Stdout is the per-layer table plus the expectation verdicts; the

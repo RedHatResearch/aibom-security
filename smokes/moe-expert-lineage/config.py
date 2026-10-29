@@ -144,9 +144,9 @@ SCRATCH = REPO_ROOT / ".scratch" / "moe-expert-lineage"
 RESULTS = ROOT / "results.json"
 
 # The scale repeat is gated on the primary run's wall time. The gate exists to
-# bound runtime; it was 120 s for the six-variant suite and is 600 s for the
-# eleven-variant suite (same per-variant cost, disclosed in the README). It
-# gates only the OLMoE repeat, never a verdict.
+# bound runtime; it was 120 s for the six-variant suite, then 300 s for the
+# eleven-variant suite, and was raised to 600 s in review (runtime only,
+# disclosed in the README). It gates only the OLMoE repeat, never a verdict.
 SECONDARY_BUDGET_S = 600.0
 
 # Expectation registry. ``origin`` is ``pre_registered`` when the claim was in
