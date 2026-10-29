@@ -108,7 +108,7 @@ uv run --group smokes python smokes/moe-real-pairs/smoke.py --pair pb-core-grani
 ```
 
 Exit 0 means every pair has an outcome (`scored`, `skipped` or `unavailable`) recorded in
-[`results.json`](results.json); a skipped pair is not a failure. Exit 1 is reserved for an
+`results.json` (gitignored); a skipped pair is not a failure. Exit 1 is reserved for an
 unexpected exception. Whole shards land in the shared Hugging Face cache; ranged reads land as
 mini-shards under `.scratch/moe-real-pairs/` (6.0 GB for the three sampled 30B layers, delete the
 tree to reclaim it).
@@ -118,8 +118,8 @@ tree to reclaim it).
 Run 2026-10-29T21:10:02Z (exit 0), seed 20261029, thresholds exactly the frozen detector constants
 (`exact_cos` 0.9995, `merge_gain_min` 0.30, `min_component` 0.03, 32×32 descriptor blocks), no
 threshold or band touched before or after the run. Wall 45.69 s of the 1200 s budget; peak RSS
-2698.9 MB of 20 GB. Every number in this section is read from the committed
-[`results.json`](results.json).
+2698.9 MB of 20 GB. Every number in this section is read from the run's
+`results.json` (gitignored; any rerun rewrites it).
 
 This pass is **cache-only**: both pairs report `downloads.bytes = 0` with an empty `calls` list,
 because the granite shards and the three ranged mini-shards were already on disk. The 30B layers
