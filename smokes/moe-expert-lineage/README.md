@@ -181,8 +181,8 @@ Disclosures — parts that are ours, not in the spec:
 Exit 0, seed 20261029, thresholds and bands exactly as pre-registered apart from the documented
 0.04 → 0.03 component floor (that guard was re-baselined for consistency; nothing else was
 retuned). The scale repeat ran. Artifacts: 11.48 GB for TinyMixtral, 9.54 GB for the OLMoE
-repeat, 21.02 GB total under `.scratch/moe-expert-lineage/`. Timings live only in the committed
-[`results.json`](results.json); the counts, verdicts and artifact sizes below are deterministic
+repeat, 21.02 GB total under `.scratch/moe-expert-lineage/`. Timings live only in the run's
+`results.json` (gitignored); the counts, verdicts and artifact sizes below are deterministic
 from the seed and are read from that file.
 
 **TinyMixtral-4x248M-MoE** (12 layers × 4 experts; `matched` is per layer; `fits` counts every
@@ -313,7 +313,7 @@ uv run --group smokes python smokes/moe-expert-lineage/smoke.py
 
 Artifacts: `.scratch/moe-expert-lineage/<model>/<variant>/` (safetensors + manifest; 1.2–2.4 GB per
 TinyMixtral variant and 1.6 GB per OLMoE repeat variant, 21.0 GB total — delete the tree to reclaim
-space) and [`results.json`](results.json) next to this file. Exit 0 means the smoke ran and every
+space) and `results.json` next to this file (gitignored). Exit 0 means the smoke ran and every
 expectation is labelled held or missed — a miss is a finding, not a process failure; exit 1 only if
 the primary parent is unusable. `results.json` is written before any table is printed, so a
 reporting error cannot lose a run. Stdout is the per-layer table plus the expectation verdicts; the

@@ -31,3 +31,6 @@ htmlcov/
 .env
 .env.*
 !.env.example
+
+# Generated smoke records: reproducible by rerunning the smoke.
+smokes/*/results.json
