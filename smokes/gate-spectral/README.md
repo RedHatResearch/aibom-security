@@ -282,17 +282,25 @@ list under Fixtures — so this is an observation, not a prediction. Two of
 the nine pairs miss, both characterized method-population findings rather
 than implementation defects:
 
-- **`pb-smoke-qwen25-awq` (~0.41, missed).** AWQ is int4 group-128; its
-  quantization noise is comparable to the parent's smaller retained singular
-  values (0.28–0.45× σ_125 across layers, median 0.32, measured from the
-  pinned weights; not recorded in the run artifact), and a q=896 gate keeps
-  only the top 128 singular values (14.3 % of the spectrum). The noise
-  saturates that retained set, the per-layer entropy flattens, and the pooled
-  profile drifts toward the generic random-bulk shape. The paper tested GPTQ
-  only, at 7B with q=3584, where the top 128 values are 3.6 % of the spectrum
-  — this fixture sits far outside that regime. The miss landed below the
-  pre-registered 0.85–0.95 band; the noise-floor reading was developed after
-  the result.
+- **`pb-smoke-qwen25-awq` (~0.41, missed).** AWQ's recipe folds a per-input-channel smoothing
+  scale into the linear and its inverse into the preceding norm (`scale_ln_fcs`; AWQ Eq. 4):
+  `W_gate ← W_gate·diag(s)` and `post_attention_layernorm ← γ/s`, where `γ` is that norm's
+  existing gain. That is a change of basis, not noise, and `exp(H)` is not invariant to it: the
+  smoothing is per input channel, so it reshapes the singular-value distribution that the
+  statistic measures. Measured on the pinned weights (AWQ audit, 29 Oct 2026, script kept with
+  the survey notes): recovering `s` from the norm ratio matches the per-column weight ratio at r
+  = 0.9973–0.9998 over 24 layers (layer 0: 0.9995) and spans 0.20–5.13 across layers. The
+  shipped path scores **0.4090**; dividing `s` out scores **0.9998** on the same pair. The
+  decisive control is that applying `s` to the *unquantized* BF16 parent, with no quantization
+  at all, already scores **0.389** — close to the 0.4090 the shipped path produces, so the fold
+  alone accounts for the miss and int4 noise does not (int4-only controls score 0.99996 or
+  better). The dequantizer was checked independently and is correct: an independent numpy unpack
+  matches `tensors.dequantize_awq_gemm` bit-for-bit (max abs difference 0.0 over 24 gate
+  tensors), 99.92 % of 4-bit codes match codes predicted from the BF16 parent on the stored
+  grid, and the zero point is required (dropping it gives 3.06 relative Frobenius). The paper
+  tested GPTQ only, which carries no such fold, so this class is outside its population. The
+  miss landed below the pre-registered 0.85–0.95 band; the basis reading was developed after the
+  result.
 - **`pb-smoke-qwen3-upcycle` (~0.84, missed).** The partition upcycle carves
   the parent's 3072-neuron MLP into 6×384 routed plus 768 shared experts and
   then trains 10B tokens, exceeding the paper's tested transforms. The miss
@@ -318,9 +326,12 @@ gpt2-fineweb pair re-scored in
   r=128 but 0.9800 at r=64, so collision risk on shared U-shaped depth
   profiles is real and untested by the authors.
 - **τ headroom.** The paper's robust-min (GPTQ Int8 0.9108) clears τ by only
-  0.0108, and Int4 (0.9256) by 0.0256; unrelated max 0.2288 was achieved only
-  on cross-dimension, cross-data-regime pairs. A quantized pair landing in
-  0.85–0.95 is the paper's margin measured honestly, not a bug.
+  0.0108, and Int4 (0.9256) by 0.0256 — an ordering that is not a bit-width
+  effect (see the quantization bullets below); unrelated max 0.2288 was
+  achieved only on cross-dimension, cross-data-regime pairs. A quantized pair
+  landing in 0.85–0.95 is the paper's margin measured honestly, not a bug —
+  and at that distance from τ the ordering between two quantized variants
+  carries no information (see the Int8/Int4 bullet below).
 - **Sign-insensitivity.** CKA squares the Pearson coefficient: an
   anticorrelated depth profile can score as high as its mirror image. The
   signed value and `anticorrelation_collision` flag are emitted for every
@@ -338,14 +349,26 @@ gpt2-fineweb pair re-scored in
   mean is unbiased only under uniformly random expert subsetting; a
   saliency-ranked drop (REAP) biases each layer's scalar by roughly
   (n_drop/n_keep)·δ, which is visible in the granite-reap miss (0.8163).
-- **Quantization.** AWQ is int4 group-128 with zero-points; quantization
-  noise comparable to small singular values shifts the top-128 entropy.
-  FP8-dynamic is near-lossless for spectra; GGUF k-quants add block-structured
-  noise. MXFP4 (gpt-oss) is dequantized in numpy — E2M1 nibbles,
-  E8M0 block exponents, gate = even columns after the layout transpose — and
-  is bit-exact against `transformers.integrations.mxfp4` on random fixtures.
-  AQLM/GPTQ/QuIP/GSQ have no dequantizer here and abstain as
-  `format_unreadable`.
+- **Quantization.** What moves this statistic is the recipe, not the bit width: AWQ's
+  per-channel smoothing fold changes the basis and therefore the spectrum (mechanism in the miss
+  analysis above), while its int4 quantization error alone leaves the score at 0.99996 or
+  better. FP8-dynamic is near-lossless for spectra; GGUF k-quants add block-structured noise.
+  MXFP4 (gpt-oss) is dequantized in numpy — E2M1 nibbles, E8M0 block exponents, gate = even
+  columns after the layout transpose — and is bit-exact against
+  `transformers.integrations.mxfp4` on random fixtures. AQLM/GPTQ/QuIP/GSQ have no dequantizer
+  here and abstain as `format_unreadable`.
+- **Bit-width ordering.** The paper's Int8 < Int4 result does not support a bit-width
+  conclusion. Its GPTQ-Int8 row (0.9108) sits 0.0148 *below* its GPTQ-Int4 row (0.9256) against
+  the same source model: n = 1 per bit width, and a 0.0148 gap is far smaller than the spread
+  this metric shows under its own parameters (the recorded panels move the AWQ pair over
+  0.095–0.573 across r, 0.257–0.409 across s). In our own controls more bits only reduce
+  spectral flattening (mean Δf/f: int2 +0.93 %, int4 +0.032 %, int8 +0.0001 %, measured in the
+  survey's AWQ analysis note of 29 Oct 2026 — the figures are not produced by a shipped script),
+  and int4 at 12.75 % weight error still scores 0.99996, so we would expect Int8 at or above
+  Int4 rather than below. That is consistent with a recipe or operating-point effect, but it
+  does not establish one: our pairing of the two Hub repositories that match the paper's model
+  names and configs is an inference, the paper prints no repository URLs, and we did not
+  recompute its 7B CKA values. Treat the inversion as unexplained.
 - **Formats.** Safetensors shards are parsed header-first (8-byte header
   length + JSON + tensor bytes), or range-read per gate tensor (mechanism
   under Cost), so only gate tensors are materialized and float8/bf16 decode
