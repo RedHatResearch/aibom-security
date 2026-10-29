@@ -249,10 +249,17 @@ THRESHOLD_RULE = {
     ),
 }
 
+# Numeric bands, checked in order; the first band whose fpr_layer_max and
+# tpr_layer_min both hold names the verdict. The fallback is the registered
+# "otherwise" case and also covers a run whose primary calibration is
+# unavailable, so every published verdict is one of these names. smoke.py
+# executes this object itself — it never restates the numbers.
 VERDICT_RULES = {
-    "usable_lineage_signal": "fpr_layer == 0 and tpr_layer >= 0.90",
-    "inference_tier_only": "fpr_layer <= 0.25 and tpr_layer >= 0.80",
-    "too_brittle": "otherwise (including no calibration)",
+    "bands": {
+        "usable_lineage_signal": {"fpr_layer_max": 0.0, "tpr_layer_min": 0.90},
+        "inference_tier_only": {"fpr_layer_max": 0.25, "tpr_layer_min": 0.80},
+    },
+    "fallback": "too_brittle",
     "note": (
         "the verdict is about the Jaccard fingerprint statistic; exact top-k "
         "set agreement is reported alongside but is not the calibrated metric"

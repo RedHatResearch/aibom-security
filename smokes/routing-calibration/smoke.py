@@ -46,6 +46,7 @@ from pathlib import Path
 
 import numpy as np
 import torch
+from huggingface_hub import try_to_load_from_cache
 from transformers import AutoModelForCausalLM, AutoTokenizer
 
 SMOKE_DIR = Path(__file__).resolve().parent
@@ -336,8 +337,10 @@ def fingerprint(
     quant_type: str,
     quant_bits: int | None,
     quant_block: int | None,
+    seq_len: int,
+    probe_sha256: str,
 ) -> dict:
-    """Content hash of the scored top-k ids plus the schema fields needed to compare it."""
+    """Content hash of the scored top-k ids plus every field needed to compare it."""
     scored = np.ascontiguousarray(array[:, mask, :])
     h = hashlib.sha256()
     h.update(f"{scored.shape}|{scored.dtype.str}|".encode())
@@ -354,6 +357,8 @@ def fingerprint(
         "quant_block": quant_block,
         "n_layers": int(scored.shape[0]),
         "rows_scored": int(scored.shape[1]),
+        "seq_len": seq_len,
+        "probe_input_sha256": probe_sha256,
         "top_k": int(scored.shape[2]),
         "n_experts": int(spec["n_experts"]),
         "sha256": h.hexdigest(),
@@ -406,8 +411,6 @@ def local_weight_gb(spec: dict) -> float | None:
     cached files named in ``weight_map``. Returns None only if the cache is
     incomplete (the loader then fails cleanly and the worker is skipped).
     """
-    from huggingface_hub import try_to_load_from_cache
-
     index_path = try_to_load_from_cache(
         spec["repo_id"], "model.safetensors.index.json", revision=spec["revision"]
     )
@@ -492,6 +495,8 @@ def worker_main(label: str, out_dir: Path, threads: int) -> int:
             quant_type="none",
             quant_bits=None,
             quant_block=None,
+            seq_len=C.SEQ_LEN,
+            probe_sha256=probe["input_sha256"],
         )
     }
     qdq_note: dict = {"router_tensors": len(routers), "expert_tensors": len(experts)}
@@ -514,6 +519,8 @@ def worker_main(label: str, out_dir: Path, threads: int) -> int:
             quant_type="experts_qdq_symmetric_rtn_4bit_block32",
             quant_bits=C.QUANT_BITS,
             quant_block=C.QUANT_BLOCK,
+            seq_len=C.SEQ_LEN,
+            probe_sha256=probe["input_sha256"],
         )
 
         t0 = time.perf_counter()
@@ -533,6 +540,8 @@ def worker_main(label: str, out_dir: Path, threads: int) -> int:
             quant_type="experts_router_qdq_symmetric_rtn_4bit_block32",
             quant_bits=C.QUANT_BITS,
             quant_block=C.QUANT_BLOCK,
+            seq_len=C.SEQ_LEN,
+            probe_sha256=probe["input_sha256"],
         )
         restore(saved_router)
 
@@ -824,18 +833,23 @@ def calibrate(captures: dict[str, dict], pairs: dict[str, dict]) -> dict:
     return {"rule": rule, "primary": primary, "secondary": secondary}
 
 
+# The executed rule *is* the pre-registered object in config.py: results.json
+# records this same dict, so the archive cannot drift from the code.
+VERDICT_RULES = C.VERDICT_RULES
+
+
 def decide_verdict(cal: dict) -> str:
-    """Apply the pre-registered decision rule to the primary calibration."""
+    """Name the verdict by walking ``VERDICT_RULES``; no numbers live here."""
     primary = cal.get("primary", {})
+    fallback = VERDICT_RULES["fallback"]
     if primary.get("status") != "ok":
-        return "insufficient_data"
+        return fallback
     fpr = primary["fpr_layer"]
     tpr = primary["tpr_layer"]
-    if fpr == 0.0 and tpr >= 0.90:
-        return "usable_lineage_signal"
-    if fpr <= 0.25 and tpr >= 0.80:
-        return "inference_tier_only"
-    return "too_brittle"
+    for name, band in VERDICT_RULES["bands"].items():
+        if fpr <= band["fpr_layer_max"] and tpr >= band["tpr_layer_min"]:
+            return name
+    return fallback
 
 
 def resolve(ctx: dict, path: str):
@@ -1213,16 +1227,20 @@ def main() -> None:
                 "quant_block",
                 "n_layers",
                 "rows_scored",
+                "seq_len",
+                "probe_input_sha256",
                 "top_k",
                 "n_experts",
                 "sha256",
             ],
             "note": (
-                "router precision and quant type travel with every fingerprint. "
-                "Compare fingerprints only when n_experts, top_k, seq_len, probe "
-                "input_sha256, model_dtype and router_precision match; experts_q4 keeps "
-                "the router at model dtype, all_q4 records router_precision='q4_block32', "
-                "and a base fingerprint has quant_type='none'."
+                "router precision, quant type and probe identity travel with every "
+                "fingerprint, so comparability is checkable from the fingerprint "
+                "alone: compare only when n_experts, top_k, seq_len, "
+                "probe_input_sha256, model_dtype and router_precision match; "
+                "experts_q4 keeps the router at model dtype, all_q4 records "
+                "router_precision='q4_block32', and a base fingerprint has "
+                "quant_type='none'."
             ),
         },
         "environment": {
@@ -1248,9 +1266,18 @@ def main() -> None:
     args.out.write_text(json.dumps(payload, indent=2))
     print(f"\nwrote {args.out}  total {payload['total_elapsed_s']}s")
 
+    # The archived rule must be the object decide_verdict walked, not a copy.
+    assert payload["verdict_rules"] is VERDICT_RULES, "recorded rule != executed rule"
+
     ran = [pair for pair in pairs.values() if pair.get("status") == "ok"]
     if not ran:
         print("FAIL: no population produced routing measurements")
+        sys.exit(1)
+    if cal["primary"].get("status") != "ok":
+        print(
+            "FAIL: primary calibration unavailable, so the verdict is the "
+            f"registered fallback {verdict!r}: {cal['primary'].get('skip_reason')}"
+        )
         sys.exit(1)
     sys.exit(0)
 

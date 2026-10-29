@@ -1,5 +1,5 @@
 {
-  "generated_utc": "2026-10-29T21:08:42+00:00",
+  "generated_utc": "2026-10-29T23:17:26+00:00",
   "smoke": "routing-calibration",
   "issue": 69,
   "issue_url": "https://github.com/RedHatResearch/aibom-security/issues/69",
@@ -45,9 +45,17 @@
     "tuning": "threshold uses only the same-model requant population; the negative population is never consulted"
   },
   "verdict_rules": {
-    "usable_lineage_signal": "fpr_layer == 0 and tpr_layer >= 0.90",
-    "inference_tier_only": "fpr_layer <= 0.25 and tpr_layer >= 0.80",
-    "too_brittle": "otherwise (including no calibration)",
+    "bands": {
+      "usable_lineage_signal": {
+        "fpr_layer_max": 0.0,
+        "tpr_layer_min": 0.9
+      },
+      "inference_tier_only": {
+        "fpr_layer_max": 0.25,
+        "tpr_layer_min": 0.8
+      }
+    },
+    "fallback": "too_brittle",
     "note": "the verdict is about the Jaccard fingerprint statistic; exact top-k set agreement is reported alongside but is not the calibrated metric"
   },
   "verdict": "usable_lineage_signal",
@@ -314,13 +322,13 @@
         "mean_jaccard_fraction": "0.388888888889"
       },
       "weight_gb": 2.80424432,
-      "load_s": 2.42,
-      "forward_s": 2.25,
+      "load_s": 2.05,
+      "forward_s": 1.94,
       "qdq_note": {
         "router_tensors": 12,
         "expert_tensors": 24,
         "expert_tensors_quantized": 24,
-        "experts_qdq_s": 0.28,
+        "experts_qdq_s": 0.27,
         "router_tensors_quantized": 12,
         "router_qdq_s": 0.0
       },
@@ -337,6 +345,8 @@
           "quant_block": null,
           "n_layers": 12,
           "rows_scored": 2304,
+          "seq_len": 96,
+          "probe_input_sha256": "1e74fda0e294ce9635cfbce5d7b6fe759e615e4d77fb7b2cece171cfc5347998",
           "top_k": 2,
           "n_experts": 4,
           "sha256": "99095e7cda304430da9c8f30175b1ea098d2bfbd2ad7098240f4234c96ab1feb"
@@ -353,6 +363,8 @@
           "quant_block": 32,
           "n_layers": 12,
           "rows_scored": 2304,
+          "seq_len": 96,
+          "probe_input_sha256": "1e74fda0e294ce9635cfbce5d7b6fe759e615e4d77fb7b2cece171cfc5347998",
           "top_k": 2,
           "n_experts": 4,
           "sha256": "d07028fd35bdc10fcb7099b8114cdf1f359e3e6b338bb64869f4ae3f039df965"
@@ -369,6 +381,8 @@
           "quant_block": 32,
           "n_layers": 12,
           "rows_scored": 2304,
+          "seq_len": 96,
+          "probe_input_sha256": "1e74fda0e294ce9635cfbce5d7b6fe759e615e4d77fb7b2cece171cfc5347998",
           "top_k": 2,
           "n_experts": 4,
           "sha256": "ee5f083f5bdc949efe22647e195762e3c1a212128a7dd6935042b5eae174a62e"
@@ -667,9 +681,9 @@
           "set_minus_chance": 0.6517650462962965
         }
       },
-      "peak_rss_gb": 6.106,
-      "elapsed_s": 8.2,
-      "worker_s": 11.9
+      "peak_rss_gb": 6.104,
+      "elapsed_s": 7.0,
+      "worker_s": 9.6
     },
     "olmoe_0924": {
       "label": "olmoe_0924",
@@ -907,15 +921,15 @@
         "mean_jaccard_fraction": "0.0705415852064"
       },
       "weight_gb": 13.838323712,
-      "load_s": 23.08,
-      "forward_s": 32.49,
+      "load_s": 33.56,
+      "forward_s": 88.83,
       "qdq_note": {
         "router_tensors": 16,
         "expert_tensors": 32,
         "expert_tensors_quantized": 32,
-        "experts_qdq_s": 6.87,
+        "experts_qdq_s": 44.74,
         "router_tensors_quantized": 16,
-        "router_qdq_s": 0.01
+        "router_qdq_s": 0.09
       },
       "fingerprints": {
         "base": {
@@ -930,6 +944,8 @@
           "quant_block": null,
           "n_layers": 16,
           "rows_scored": 2284,
+          "seq_len": 96,
+          "probe_input_sha256": "dc559e0e79fb60a0c96cd9b676f2ebe68323663c3523a0d81272a0b6a6e9ed35",
           "top_k": 8,
           "n_experts": 64,
           "sha256": "5c4c5831e13f5f42e3a6521a3637b964c7b081bd615bfe69ee684cd8e2492ddc"
@@ -946,6 +962,8 @@
           "quant_block": 32,
           "n_layers": 16,
           "rows_scored": 2284,
+          "seq_len": 96,
+          "probe_input_sha256": "dc559e0e79fb60a0c96cd9b676f2ebe68323663c3523a0d81272a0b6a6e9ed35",
           "top_k": 8,
           "n_experts": 64,
           "sha256": "2d5d80e93bdb94991a4799a318f38708495b5ebb669dc9df36612fe1f6f8a00b"
@@ -962,6 +980,8 @@
           "quant_block": 32,
           "n_layers": 16,
           "rows_scored": 2284,
+          "seq_len": 96,
+          "probe_input_sha256": "dc559e0e79fb60a0c96cd9b676f2ebe68323663c3523a0d81272a0b6a6e9ed35",
           "top_k": 8,
           "n_experts": 64,
           "sha256": "b19b200eadd02cff61be537fdc52d96520c20353066c15d687cff41b75624b27"
@@ -1320,9 +1340,9 @@
           "set_minus_chance": 0.6194450523134755
         }
       },
-      "peak_rss_gb": 14.959,
-      "elapsed_s": 131.4,
-      "worker_s": 134.2
+      "peak_rss_gb": 6.816,
+      "elapsed_s": 306.9,
+      "worker_s": 310.8
     },
     "olmoe_0924_sft": {
       "label": "olmoe_0924_sft",
@@ -1560,8 +1580,8 @@
         "mean_jaccard_fraction": "0.0705415852064"
       },
       "weight_gb": 13.838323712,
-      "load_s": 16.83,
-      "forward_s": 32.37,
+      "load_s": 23.16,
+      "forward_s": 33.67,
       "qdq_note": {
         "router_tensors": 16,
         "expert_tensors": 32
@@ -1579,6 +1599,8 @@
           "quant_block": null,
           "n_layers": 16,
           "rows_scored": 2284,
+          "seq_len": 96,
+          "probe_input_sha256": "dc559e0e79fb60a0c96cd9b676f2ebe68323663c3523a0d81272a0b6a6e9ed35",
           "top_k": 8,
           "n_experts": 64,
           "sha256": "7457212a6a9013f18fb717f869466b290be9aad63c365bdf833eaf655601566b"
@@ -1703,9 +1725,9 @@
           "set_minus_chance": 0.9999999997740708
         }
       },
-      "peak_rss_gb": 15.985,
-      "elapsed_s": 49.3,
-      "worker_s": 53.3
+      "peak_rss_gb": 15.46,
+      "elapsed_s": 56.9,
+      "worker_s": 60.4
     },
     "tinyllama_moe": {
       "label": "tinyllama_moe",
@@ -1943,8 +1965,8 @@
         "mean_jaccard_fraction": "0.388888888889"
       },
       "weight_gb": 6.768107008,
-      "load_s": 5.92,
-      "forward_s": 41.88,
+      "load_s": 4.51,
+      "forward_s": 36.31,
       "qdq_note": {
         "router_tensors": 22,
         "expert_tensors": 44
@@ -1962,6 +1984,8 @@
           "quant_block": null,
           "n_layers": 22,
           "rows_scored": 2304,
+          "seq_len": 96,
+          "probe_input_sha256": "1e74fda0e294ce9635cfbce5d7b6fe759e615e4d77fb7b2cece171cfc5347998",
           "top_k": 2,
           "n_experts": 4,
           "sha256": "7d92c276365672e7c987d671bf78586919c096be4c472513f29908a4aad2748f"
@@ -2116,9 +2140,9 @@
           "set_minus_chance": 0.8333333333333334
         }
       },
-      "peak_rss_gb": 13.636,
-      "elapsed_s": 47.9,
-      "worker_s": 50.3
+      "peak_rss_gb": 13.635,
+      "elapsed_s": 40.9,
+      "worker_s": 42.9
     }
   },
   "pairs": {
@@ -2145,6 +2169,8 @@
         "quant_block": null,
         "n_layers": 12,
         "rows_scored": 2304,
+        "seq_len": 96,
+        "probe_input_sha256": "1e74fda0e294ce9635cfbce5d7b6fe759e615e4d77fb7b2cece171cfc5347998",
         "top_k": 2,
         "n_experts": 4,
         "sha256": "99095e7cda304430da9c8f30175b1ea098d2bfbd2ad7098240f4234c96ab1feb"
@@ -2161,6 +2187,8 @@
         "quant_block": 32,
         "n_layers": 12,
         "rows_scored": 2304,
+        "seq_len": 96,
+        "probe_input_sha256": "1e74fda0e294ce9635cfbce5d7b6fe759e615e4d77fb7b2cece171cfc5347998",
         "top_k": 2,
         "n_experts": 4,
         "sha256": "d07028fd35bdc10fcb7099b8114cdf1f359e3e6b338bb64869f4ae3f039df965"
@@ -2285,6 +2313,8 @@
         "quant_block": null,
         "n_layers": 12,
         "rows_scored": 2304,
+        "seq_len": 96,
+        "probe_input_sha256": "1e74fda0e294ce9635cfbce5d7b6fe759e615e4d77fb7b2cece171cfc5347998",
         "top_k": 2,
         "n_experts": 4,
         "sha256": "99095e7cda304430da9c8f30175b1ea098d2bfbd2ad7098240f4234c96ab1feb"
@@ -2301,6 +2331,8 @@
         "quant_block": 32,
         "n_layers": 12,
         "rows_scored": 2304,
+        "seq_len": 96,
+        "probe_input_sha256": "1e74fda0e294ce9635cfbce5d7b6fe759e615e4d77fb7b2cece171cfc5347998",
         "top_k": 2,
         "n_experts": 4,
         "sha256": "ee5f083f5bdc949efe22647e195762e3c1a212128a7dd6935042b5eae174a62e"
@@ -2425,6 +2457,8 @@
         "quant_block": null,
         "n_layers": 16,
         "rows_scored": 2284,
+        "seq_len": 96,
+        "probe_input_sha256": "dc559e0e79fb60a0c96cd9b676f2ebe68323663c3523a0d81272a0b6a6e9ed35",
         "top_k": 8,
         "n_experts": 64,
         "sha256": "5c4c5831e13f5f42e3a6521a3637b964c7b081bd615bfe69ee684cd8e2492ddc"
@@ -2441,6 +2475,8 @@
         "quant_block": 32,
         "n_layers": 16,
         "rows_scored": 2284,
+        "seq_len": 96,
+        "probe_input_sha256": "dc559e0e79fb60a0c96cd9b676f2ebe68323663c3523a0d81272a0b6a6e9ed35",
         "top_k": 8,
         "n_experts": 64,
         "sha256": "2d5d80e93bdb94991a4799a318f38708495b5ebb669dc9df36612fe1f6f8a00b"
@@ -2585,6 +2621,8 @@
         "quant_block": null,
         "n_layers": 16,
         "rows_scored": 2284,
+        "seq_len": 96,
+        "probe_input_sha256": "dc559e0e79fb60a0c96cd9b676f2ebe68323663c3523a0d81272a0b6a6e9ed35",
         "top_k": 8,
         "n_experts": 64,
         "sha256": "5c4c5831e13f5f42e3a6521a3637b964c7b081bd615bfe69ee684cd8e2492ddc"
@@ -2601,6 +2639,8 @@
         "quant_block": 32,
         "n_layers": 16,
         "rows_scored": 2284,
+        "seq_len": 96,
+        "probe_input_sha256": "dc559e0e79fb60a0c96cd9b676f2ebe68323663c3523a0d81272a0b6a6e9ed35",
         "top_k": 8,
         "n_experts": 64,
         "sha256": "b19b200eadd02cff61be537fdc52d96520c20353066c15d687cff41b75624b27"
@@ -2745,6 +2785,8 @@
         "quant_block": null,
         "n_layers": 16,
         "rows_scored": 2284,
+        "seq_len": 96,
+        "probe_input_sha256": "dc559e0e79fb60a0c96cd9b676f2ebe68323663c3523a0d81272a0b6a6e9ed35",
         "top_k": 8,
         "n_experts": 64,
         "sha256": "5c4c5831e13f5f42e3a6521a3637b964c7b081bd615bfe69ee684cd8e2492ddc"
@@ -2761,6 +2803,8 @@
         "quant_block": null,
         "n_layers": 16,
         "rows_scored": 2284,
+        "seq_len": 96,
+        "probe_input_sha256": "dc559e0e79fb60a0c96cd9b676f2ebe68323663c3523a0d81272a0b6a6e9ed35",
         "top_k": 8,
         "n_experts": 64,
         "sha256": "7457212a6a9013f18fb717f869466b290be9aad63c365bdf833eaf655601566b"
@@ -2905,6 +2949,8 @@
         "quant_block": null,
         "n_layers": 12,
         "rows_scored": 2304,
+        "seq_len": 96,
+        "probe_input_sha256": "1e74fda0e294ce9635cfbce5d7b6fe759e615e4d77fb7b2cece171cfc5347998",
         "top_k": 2,
         "n_experts": 4,
         "sha256": "99095e7cda304430da9c8f30175b1ea098d2bfbd2ad7098240f4234c96ab1feb"
@@ -2921,6 +2967,8 @@
         "quant_block": null,
         "n_layers": 22,
         "rows_scored": 2304,
+        "seq_len": 96,
+        "probe_input_sha256": "1e74fda0e294ce9635cfbce5d7b6fe759e615e4d77fb7b2cece171cfc5347998",
         "top_k": 2,
         "n_experts": 4,
         "sha256": "7d92c276365672e7c987d671bf78586919c096be4c472513f29908a4aad2748f"
@@ -3260,11 +3308,13 @@
       "quant_block",
       "n_layers",
       "rows_scored",
+      "seq_len",
+      "probe_input_sha256",
       "top_k",
       "n_experts",
       "sha256"
     ],
-    "note": "router precision and quant type travel with every fingerprint. Compare fingerprints only when n_experts, top_k, seq_len, probe input_sha256, model_dtype and router_precision match; experts_q4 keeps the router at model dtype, all_q4 records router_precision='q4_block32', and a base fingerprint has quant_type='none'."
+    "note": "router precision, quant type and probe identity travel with every fingerprint, so comparability is checkable from the fingerprint alone: compare only when n_experts, top_k, seq_len, probe_input_sha256, model_dtype and router_precision match; experts_q4 keeps the router at model dtype, all_q4 records router_precision='q4_block32', and a base fingerprint has quant_type='none'."
   },
   "environment": {
     "platform": "macOS-27.0.1-arm64-arm-64bit",
@@ -3279,7 +3329,7 @@
     "total_time_s": 1200.0,
     "per_model_timeout_s": 600.0
   },
-  "max_model_peak_rss_gb": 15.985,
-  "parent_peak_rss_gb": 0.313,
-  "total_elapsed_s": 250.0
+  "max_model_peak_rss_gb": 15.46,
+  "parent_peak_rss_gb": 0.315,
+  "total_elapsed_s": 424.0
 }

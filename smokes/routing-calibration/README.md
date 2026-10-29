@@ -39,8 +39,10 @@ Not product code; not CI.
   snapshot is a recorded skip, never a download.
 - Isolation and budget: each checkpoint runs in its own subprocess, so peak
   RSS is per-checkpoint and a malicious/corrupt checkpoint can only fail its
-  own worker (recorded skip). Per-model payload budget 16 GB, process budget
-  20 GB, total budget 1200 s; a model that does not fit is skipped with the
+  own worker (recorded skip). The **enforced** gate is the payload budget
+  (16 GB per model); 20 GB is the planning figure for a worker's process RSS
+  (measured and reported, not enforced — see *Results*); the total budget is
+  1200 s. A model that does not fit the payload budget is skipped with the
   reason in `results.json`. The only checkpoint parser is transformers'
   local safetensors reader.
 
@@ -78,9 +80,11 @@ Tokenizer notes (both are snapshots that ship no tokenizer files):
   cached SentencePiece file is TinyMixtral's `tokenizer.model`, whose SHA256
   (`dadfd56d…34055`) is the published Mistral/Llama-2 32k tokenizer blob; its
   special ids (unk 0, bos 1, eos 2) and vocab (32000) match the TinyLLama
-  config. The **same** token ids are fed to both models, so a tokenizer
-  mismatch would show up as low overlap, not as a hidden shift; this is an
-  inference, disclosed rather than assumed silently.
+  config. The **same** token ids are fed to both models, so the comparison is
+  at least token-identical by construction of the probe. A tokenizer mismatch
+  would *also* produce low overlap, so the observed chance-level result cannot
+  tell the two apart; this is an inference from the blob hash, disclosed rather
+  than assumed silently (see *Limitations vs #69*).
 
 ## Threshold rule (frozen before the run)
 
@@ -102,11 +106,21 @@ Tokenizer notes (both are snapshots that ship no tokenizer files):
 - The negative population is never consulted to choose `T`; it only measures
   the resulting FPR.
 
-**Decision rule (pre-registered):**
+**Decision rule (pre-registered, `config.VERDICT_RULES`):**
 
-- `usable_lineage_signal`: `fpr_layer == 0` and `tpr_layer >= 0.90`.
-- `inference_tier_only`: `fpr_layer <= 0.25` and `tpr_layer >= 0.80`.
-- `too_brittle`: otherwise.
+| verdict | band |
+|---|---|
+| `usable_lineage_signal` | `fpr_layer <= 0.0` and `tpr_layer >= 0.90` |
+| `inference_tier_only` | `fpr_layer <= 0.25` and `tpr_layer >= 0.80` |
+| `too_brittle` | otherwise, **including no calibration** |
+
+`smoke.py` walks that config object itself — no threshold is restated in code —
+and `results.json` records the same object, so the archived rule and the
+executed rule cannot drift apart. The bands are stored as numbers rather than
+as expression strings so they can be executed; the values are unchanged from
+the pre-registration, and the earlier string form is in the git history.
+There is no fourth verdict: a run whose primary calibration is unavailable
+publishes the registered fallback (`too_brittle`) and exits non-zero.
 
 The verdict concerns the **Jaccard** statistic. Exact top-k set agreement is
 reported alongside because at high k it collapses much faster; it is not the
@@ -157,15 +171,19 @@ Every fingerprint (base, `experts_q4`, `all_q4`) records:
 ```
 label, repo_id, revision, variant, model_dtype,
 router_precision, quant_type, quant_bits, quant_block,
-n_layers, rows_scored, top_k, n_experts, sha256
+n_layers, rows_scored, seq_len, probe_input_sha256,
+top_k, n_experts, sha256
 ```
 
-`sha256` hashes the int16 top-k ids **on the scored rows only**. Compare
-fingerprints only when `n_experts`, `top_k`, `seq_len`, `probe.input_sha256`,
-`model_dtype` and `router_precision` match. `base` has
-`quant_type="none"`; `experts_q4` keeps `router_precision` at the model dtype;
-`all_q4` records `router_precision="q4_block32"`. A base-vs-Q4 comparison is a
-requantization experiment, not a lineage comparison.
+`sha256` hashes the int16 top-k ids **on the scored rows only**. Probe identity
+travels with the fingerprint: `seq_len` and `probe_input_sha256` repeat the
+hash that the enclosing `probe` block records, so a future run can prove it
+used the same probe without trusting that block. Compare fingerprints only when
+`n_experts`, `top_k`, `seq_len`, `probe_input_sha256`, `model_dtype` and
+`router_precision` match — all six are now in the fingerprint itself. `base`
+has `quant_type="none"`; `experts_q4` keeps `router_precision` at the model
+dtype; `all_q4` records `router_precision="q4_block32"`. A base-vs-Q4
+comparison is a requantization experiment, not a lineage comparison.
 
 ## Run
 
@@ -176,23 +194,33 @@ uv run --group smokes python smokes/routing-calibration/smoke.py
 Outputs `results.json` next to this README and prints per-layer tables,
 population summaries, the calibration, and the pre-registered expectations.
 
+Exit status: `0` when the primary calibration ran and produced the published
+verdict; `1` when no population produced routing measurements, or when the
+primary calibration is unavailable (the verdict is then the registered
+`too_brittle` fallback). `results.json` is written in every case that reaches
+the end of the parent process, so a degraded run is still inspectable.
+
 ## Results
 
-Recorded run: `2026-10-29T20:32:09Z`, exit code 0, total **232.8 s**, macOS
+Recorded run: `2026-10-29T23:06:51Z`, exit code 0, total **405.5 s**, macOS
 arm64 (Python 3.12.13, torch 2.13.0, transformers 5.15.0, numpy 2.5.2),
-8 threads, seed 20261029. All four checkpoints loaded offline. Peak
-per-checkpoint RSS **14.58 GB** (OLMoE-0924), under the 20 GB budget; a second
-independent run produced bit-identical routing numbers with peak 16.49 GB, so
-the peak moves with page residency while the top-k arrays do not.
+8 threads, seed 20261029. All four checkpoints loaded offline, and this run
+reproduces the earlier recorded numbers bit for bit. Peak per-checkpoint RSS
+**22.80 GB** (`olmoe_0924_sft`) was *above* the 20 GB process planning budget
+on this run: the gate actually enforced is the payload check (13.84 GB ≤ 16 GB
+per model), and the peak itself is not reproducible — the same worker measured
+10.0–16.0 GB on the earlier recorded runs and 22.8 GB here while other smoke
+jobs were running on the machine, so treat peak RSS as a diagnostic of page
+residency, not as a contract.
 
 Budget outcomes:
 
 | worker | payload GB | peak RSS GB | worker s |
 |---|---:|---:|---:|
-| `olmoe_0924` | 13.84 | 14.58 | 126.6 |
-| `olmoe_0924_sft` | 13.84 | 13.94 | 51.5 |
-| `tinymixtral` | 2.80 | 6.11 | 9.3 |
-| `tinyllama_moe` | 6.77 | 13.63 | 45.3 |
+| `olmoe_0924` | 13.84 | 8.45 | 272.2 |
+| `olmoe_0924_sft` | 13.84 | 22.80 | 48.0 |
+| `tinymixtral` | 2.80 | 6.11 | 12.1 |
+| `tinyllama_moe` | 6.77 | 7.46 | 72.9 |
 
 Reproducibility check: the four requantization cells are **bit-identical** to
 the independent `smokes/routing-agreement` run (`ΔJ = Δset = 0` for
@@ -234,7 +262,10 @@ Readings:
 - **Different family.** J = 0.3907 against 0.3889 chance (+0.0018), exact set
   0.1616 against 0.1667 chance. Indistinguishable from independent routing, as
   a lineage signal requires. Depth is index-aligned for the first 12 layers
-  only (12 vs 22); TPs are not claimed beyond that.
+  only (12 vs 22); TPs are not claimed beyond that. Chance-level overlap does
+  not by itself identify the cause: a tokenizer mismatch would produce the same
+  value, so this cell supports "no lineage signal detected", not "the models
+  are independent and the probe was right" — see *Limitations vs #69*.
 
 ### Calibration
 
@@ -255,6 +286,26 @@ nearly disappears: the secondary threshold is 0.8730 and the same negative
 layer is 0.0028 below it. The layer-0-excluded sensitivity raises the
 threshold to 0.9153 and still gives 16/16 TPR and 0/16 FPR, so the verdict
 does not depend on the structurally perfect layer.
+
+**TPR 16/16 is arithmetic, not evidence.** `T` is placed three sample sds
+below the calibration mean, so a one-sided 3-sd tail leaves nearly all 16
+layers above it whatever the routing is doing; 16/16 reports the construction
+of the rule. The evidential claim in this row is the negative side: 0/16
+negative layers reach `T`, the most similar negative layer is 0.0234 below it,
+and the worst-layer positive-to-negative gap is +0.0579 (mean gap +0.1029).
+
+**What 0/16 is worth at DB scale.** Zero false positives in 16 layers of one
+negative pair is not a catalogue-scale FPR. The 95% Wilson upper bound for
+0/16 is **0.1936** (one-sided 95%: 0.1446). Treated as independent Bernoulli
+layer decisions, the point estimate of false accepts is 0 per 1,000 and per
+10,000 models, while that bound allows up to **≈194 per 1,000** and
+**≈1,936 per 10,000**. Those are limits on what this sample *fails to rule
+out*, not a measured catalogue FPR: the 16 layer values come from a single
+pair, are strongly correlated, and the pair is a descendant rather than an
+unrelated model. A whole-model gate (all 16 layers above `T`) would shrink the
+independence-based false-accept probability to 0.1936¹⁶ ≈ 4e-12 — precisely
+why independence is not used to make a DB-scale claim. See *Limitations vs
+#69*.
 
 **Why row-level FPR is high (0.3985).** At k=8 a row's Jaccard is 1.0 only
 when all eight ids match; the next possible value is 7/9 = 0.7778, below
@@ -403,13 +454,16 @@ populations; a per-row gate at this threshold does not.
 ### Verdict and recommendation
 
 Pre-registered verdict: **`usable_lineage_signal`** — layer FPR = 0/16,
-layer TPR = 16/16, threshold 0.8936 > 0.60. The qualifiers below are part of
-the reading, not a re-tuned rule.
+layer TPR = 16/16, threshold 0.8936 (E11 floor 0.60). The qualifiers below are
+part of the reading, not a re-tuned rule, and *Limitations vs #69* states what
+the cell coverage does not support.
 
 - **Layer-mean Jaccard is a usable lineage fingerprint.** It separates the
   requantized self from the closest same-architecture negative (a fine-tune
   of the same base) with zero layer false positives at a threshold fixed
-  before the run, and the different family lands exactly at chance.
+  before the run, and the different family sits at chance-level overlap (with
+  the caveat in *Limitations vs #69*: the cause of that overlap is not
+  identified by the number alone).
 - **Exact top-k set agreement is too brittle at high k.** The requantized
   self loses 23.8 points of exact-set agreement at k=8 (1.0 → 0.762) while
   losing only 5.6 points of Jaccard (1.0 → 0.944); the negative is 0.399 in
@@ -436,6 +490,95 @@ the gate at high k. The measured FPR is conservative for a truly unrelated
 same-architecture checkpoint, because the negative used here is a fine-tune
 that still shares 0.8414 Jaccard with its base.
 
+## Limitations vs #69
+
+Issue #69 asked for a Jaccard distribution for requantizations of one model
+*versus two genuinely different models, on at least two families*, and for a
+threshold with an estimated false-positive rate at catalogue scale. This run
+delivers the threshold and pre-registers it; the contrast side and the
+catalogue scale are only partly delivered. Each gap is stated here instead of
+being left implicit.
+
+### Cell coverage
+
+| family | E / k | requantized self | different checkpoint | different family |
+|---|---|---|---|---|
+| TinyMixtral-4x248M-MoE | 4 / 2 | `experts_q4`, `all_q4` | none | TinyLLama-4x1.1B-MoE (J 0.3907) |
+| OLMoE-1B-7B-0924 | 64 / 8 | `experts_q4`, `all_q4` | OLMoE-0924-SFT (J 0.8414) | none (explicit skip) |
+
+So the "two genuinely different models on at least two families" cell exists
+once, at E=4/k=2, and not twice. The matrix doubles as the per-family table the
+ticket asks for: one row per family, the value of every contrast that exists,
+and empty cells marked as gaps rather than filled.
+`FAMILY_SKIP_NOTES` in `config.py` is the machine-readable form of the E=64
+skip.
+
+**Why E=64 has no genuine negative.** No cached, weight-complete, non-OLMoE
+64-expert MoE exists on this machine: `deepseek-moe-16b-base` has only its
+index file cached and needs ~32 GB bf16 (over the 20 GB process budget /
+16 GB per-model budget), and `Qwen1.5-MoE-A2.7B` has 60 experts, so its expert
+id space is not comparable. Comparing different E values would silently map
+unrelated expert ids, so it is not done.
+
+The only same-architecture E=64 negative is 0924-SFT, which **shares ancestry**
+with 0924 — it is a descendant, not a genuinely different model. Its J = 0.8414
+therefore *overstates* the overlap an unrelated same-architecture checkpoint
+would show, which makes the measured 0/16 FPR conservative in the safe
+direction. That is an inference about direction, not a second measurement, and
+the E=64 configuration carrying the verdict has **no** different-model
+measurement at all. The verdict is supported by requant-vs-descendant only.
+
+### FPR has no DB-scale upper bound
+
+Issue #26 sizes the catalogue at 1.82M Hub models with 0.54M declared
+dependency edges (Chen et al., ICSE 2026, as of 2025-06). Nothing in this run
+measures false accepts at that scale, and the sample cannot bound it:
+
+- **One negative pair, so n = 1 at the model level.** The 16 "trials" behind
+  0/16 are layers of a single model pair, and those layer values are strongly
+  correlated (that pair spans 0.8201–0.8702), so the effective sample size is
+  nearer 1 than 16.
+- **The negative is a descendant.** It is the hardest available negative, not a
+  typical one, so its overlap is an upper end of what an unrelated checkpoint
+  would show.
+- **The catalogue is heterogeneous.** It mixes requantizations, fine-tunes and
+  unrelated models in unknown proportions, and a per-layer decision needs a
+  pinned reference per candidate.
+
+The binomial (Wilson) bound for 0/16, stated only to show what this sample
+rules out: 95% two-sided upper bound **0.1936**, one-sided 95% **0.1446**.
+Under an independence assumption that does not hold here, the point estimate of
+false accepts is 0 per 1,000 and per 10,000 candidate models, while the 95%
+bound allows up to **≈194 per 1,000** and **≈1,936 per 10,000** single-test
+decisions (one decision per candidate).
+Used as a whole-model gate (all 16 layers above `T`), independence would put the
+false-accept probability at 0.1936¹⁶ ≈ 4e-12. Those figures are the reason the
+DB-scale FPR is reported as *unbounded*, not as "≈0": a per-layer independence
+assumption is what makes the second number look small, and it is false.
+
+### TinyLLama cell: chance does not identify the cause
+
+J = 0.3907 against chance 0.3889 (+0.0018) is what independent routing looks
+like, but a **tokenizer mismatch would produce the same value**: feeding the
+wrong token ids to any MoE also destroys overlap. Issue #26 records
+cross-tokenizer null inflation of 0.027–0.128 by family, so a tokenizer
+artifact is a live alternative here, not a hypothetical one. The cell
+therefore supports "no lineage signal detected at this probe", not "the two
+models are independent *and* the probe tokenized correctly". The tokenizer
+argument in *Method* — that TinyMixtral's `tokenizer.model` SHA256 is the
+published Mistral/Llama-2 32k blob and matches TinyLLama's vocab and special
+ids — is an inference recorded before the run, not a measured control. A
+tokenizer-identity check on both sides would be needed to close this cell.
+
+### TPR is by construction
+
+`T = mean − 3 × sample_sd` is placed relative to the calibration population
+itself, so 16/16 TPR is mechanical: a one-sided 3-sd tail leaves nearly all 16
+layers above `T` whatever the routing is doing. It carries no evidential
+weight about signal quality. The evidential content of the calibration row is
+the negative side — 0/16 negative layers at `T`, the most similar negative
+layer 0.0234 below it, and a worst-layer population gap of +0.0579.
+
 ## Files
 
 - `config.py` — pinned checkpoints/revisions, populations, budget, threshold
@@ -443,5 +586,5 @@ that still shares 0.8414 Jaccard with its base.
 - `smoke.py` — subprocess worker + parent comparison/calibration; imports the
   QDQ contract and probe from `smokes/routing-agreement`.
 - `results.json` — machine-readable record of the run above (per-layer
-  mean/min/max/sd Jaccard, set agreement, fingerprints with router precision
-  and quant type, calibration, expectations).
+  mean/min/max/sd Jaccard, set agreement, fingerprints carrying router
+  precision, quant type and probe identity, calibration, expectations).
