@@ -20,6 +20,7 @@ Runnable checks for the [#26](https://github.com/RedHatResearch/aibom-security/i
 | What-you-sign | [`what-you-sign/`](what-you-sign/) | GGUF re-derivability: FP-contraction divergence, recipe/imatrix gaps, detection floor, ggufpacker EXACT/NEAR | [#26 What You Sign](https://github.com/RedHatResearch/aibom-security/issues/26#issuecomment-6289519448) |
 | GATE spectral | [`gate-spectral/`](gate-spectral/) | Gate-proj spectral entropy, depth-segment pooling, linear CKA | [#26 GATE](https://github.com/RedHatResearch/aibom-security/issues/26) · pbench pairs |
 | Routing agreement | [`routing-agreement/`](routing-agreement/) | Router-vs-expert 4-bit QDQ, top-k routing set agreement, shuffled-router control | [#26](https://github.com/RedHatResearch/aibom-security/issues/26) · TinyMixtral + OLMoE |
+| Routing calibration | [`routing-calibration/`](routing-calibration/) | Top-k Jaccard across requant / different-checkpoint / different-family; mean−3sd threshold + FPR | [#69](https://github.com/RedHatResearch/aibom-security/issues/69) · TinyMixtral + OLMoE + TinyLLama |
 
 Shared helpers: [`_lib/`](_lib/) (Hub load, fixture pairs).
 
