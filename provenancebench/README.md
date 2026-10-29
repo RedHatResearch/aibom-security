@@ -4,8 +4,10 @@ ProvenanceBench is a small fixed benchmark for passive, static-whitebox model
 provenance checks. Each case asks whether a `subject` checkpoint is related to
 a `reference` checkpoint.
 
-The current 40-row set is a pilot. The detector can change; the pair list stays
-fixed so results can be compared across methods and iterations.
+The set is a pilot and grows when a new case class is added: 42 pairs, the
+original 40 plus two same-architecture stranger rows. Existing rows are never
+edited, so results stay comparable across methods and iterations; new rows are
+appended with their own pins.
 
 ## Scope
 

@@ -649,8 +649,9 @@ pairs:
     - https://huggingface.co/EleutherAI/pythia-410m-seed2/resolve/da2549c8d3e03e6e927594b9060073abdb94e6ba/README.md
     - https://arxiv.org/abs/2503.09543
     note: Sibling PolyPythias runs of Pythia-410M (GPTNeoX 24 layers, hidden 1024, FFN 4096, 16 heads,
-      vocab 50304); identical config and 300B-token budget, differing only in random seed, so no parent/child
-      relation, only shared recipe.
+      vocab 50304); identical config and compute budget, differing in random seed, which changes both the
+      initialisation and the batch composition, so there is no parent/child relation and not even a shared
+      starting point.
   subject_rev: 33803c4f5a1e9a4bece59e52f17bb8755add33e1
   reference_rev: da2549c8d3e03e6e927594b9060073abdb94e6ba
   challenge:
@@ -677,7 +678,9 @@ pairs:
     - https://arxiv.org/abs/2410.07064
     note: Both Mistral 1B (24 layers, hidden 1536, FFN 6144, 16 heads, vocab 32000) pretrained from scratch
       on the CC split of RedPajama; BSL-1B is the all-data baseline and PDS-1B the data-selected run,
-      so the two differ in training data, not in shape or lineage.
+      so the two differ in training data, not in shape or lineage. The 470M variant of this relation is
+      already pb-core-pds-bsl-470m, so this pair is a scale replicate and the two are not statistically
+      independent.
   subject_rev: 8540165407da4a03e553f9bd164d60cb56056de1
   reference_rev: 19687af3eaa0b5803be5c030b40325e13c253600
   challenge:
