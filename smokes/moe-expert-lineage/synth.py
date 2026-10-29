@@ -16,7 +16,17 @@ from pathlib import Path
 
 import numpy as np
 import torch
-from config import ARCHES, MERGE_ALPHA, SHALLOW_ALPHA, VARIANT_ORDINAL
+from config import (
+    ARCHES,
+    MERGE_ALPHA,
+    NOISY_SIGMA,
+    SALIENCY_ALPHA,
+    SHALLOW_ALPHA,
+    SKEWED_ALPHA,
+    THREE_ALPHA,
+    TIES_TRIM,
+    VARIANT_ORDINAL,
+)
 from huggingface_hub import constants
 from safetensors import safe_open
 from safetensors.torch import save_file
@@ -133,6 +143,53 @@ def _mix(parts: list[torch.Tensor], weights: tuple[float, ...], dtype: torch.dty
     return acc.to(dtype)
 
 
+def _add_drift(
+    expert: dict[str, torch.Tensor], rng: np.random.Generator, dtype: torch.dtype
+) -> tuple[dict[str, torch.Tensor], dict[str, float]]:
+    """Add seeded Gaussian drift at NOISY_SIGMA of each projection's own std.
+
+    Models merge-then-finetune drift: every element is perturbed, and the scale
+    is the merged expert's per-role population std (not the layer's cross-expert
+    std used by the control variant). Returns the drifted expert and the sigma
+    actually used per role, for the ground-truth record.
+    """
+    out: dict[str, torch.Tensor] = {}
+    sigma: dict[str, float] = {}
+    for role, tensor in expert.items():
+        values = tensor.to(torch.float64)
+        scale = float(values.std(unbiased=False))
+        noise = rng.standard_normal(tuple(tensor.shape))
+        out[role] = (values + torch.from_numpy(noise * NOISY_SIGMA * scale)).to(dtype)
+        sigma[role] = NOISY_SIGMA * scale
+    return out, sigma
+
+
+def _ties_merge(parents: torch.Tensor, trim: float) -> torch.Tensor:
+    """Elementwise TIES-shaped merge of ``parents`` (stacked on a new axis 0).
+
+    Per element: trim the smallest-|delta| fraction of each parent's delta to
+    the parents' mean, elect the sign of the largest surviving |delta|, and
+    average the surviving deltas that carry that sign. The result is added back
+    to the mean. This is deliberately not a global convex combination: the
+    per-element weight vector changes from element to element.
+    """
+    mean = parents.mean(dim=0)
+    flat = (parents - mean).reshape(parents.shape[0], -1)
+    drop = int(trim * flat.shape[1])
+    if drop:
+        for row in flat:
+            index = torch.topk(row.abs(), drop, largest=False).indices
+            row[index] = 0.0
+    # Deterministic tie-break: argmax returns the first maximum.
+    winner = flat.abs().argmax(dim=0)
+    elected = flat.gather(0, winner.unsqueeze(0)).squeeze(0).sign()
+    survive = (flat != 0) & (flat.sign() == elected)
+    count = survive.sum(dim=0).clamp(min=1)
+    summed = (flat * survive).sum(dim=0)
+    averaged = torch.where(count > 1, summed / count.to(summed.dtype), summed)
+    return (mean.reshape(-1) + averaged).reshape(mean.shape)
+
+
 def build_layer(
     variant: str,
     layer: int,
@@ -148,29 +205,50 @@ def build_layer(
     if variant == "permuted":
         perm = rng.permutation(n)
         out = [{r: experts[int(perm[s])][r] for r in roles} for s in range(n)]
-        return out, router[torch.as_tensor(perm)].clone(), {"perm": [int(p) for p in perm]}
+        return (
+            out,
+            router[torch.as_tensor(perm)].clone(),
+            {"perm": [int(p) for p in perm]},
+        )
 
     if variant == "pruned":
         dropped = sorted(int(d) for d in rng.choice(n, size=2, replace=False))
         kept = [i for i in range(n) if i not in dropped]
         out = [{r: experts[i][r] for r in roles} for i in kept]
-        return out, router[torch.as_tensor(kept)].clone(), {"kept": kept, "dropped": dropped}
+        return (
+            out,
+            router[torch.as_tensor(kept)].clone(),
+            {"kept": kept, "dropped": dropped},
+        )
 
-    if variant in ("merged", "merged_shallow", "merged_permuted"):
+    two_parent = {
+        "merged": MERGE_ALPHA,
+        "merged_shallow": SHALLOW_ALPHA,
+        "merged_skewed": SKEWED_ALPHA,
+        "merged_noisy": MERGE_ALPHA,
+    }
+    if variant in two_parent or variant == "merged_permuted":
         if n < 3:
             raise ValueError(f"{variant} needs at least 3 experts, got {n}")
-        weights = SHALLOW_ALPHA if variant == "merged_shallow" else MERGE_ALPHA
+        weights = two_parent.get(variant, MERGE_ALPHA)
         merged = {r: _mix([experts[0][r], experts[1][r]], weights, dtype) for r in roles}
+        truth: dict = {}
+        if variant == "merged_noisy":
+            merged, sigma = _add_drift(merged, rng, dtype)
+            truth["noise_sigma"] = sigma
         out = [merged] + [{r: experts[i][r] for r in roles} for i in range(2, n)]
         merged_router = _mix([router[0], router[1]], weights, router.dtype)
         out_router = torch.cat([merged_router.unsqueeze(0), router[2:]], dim=0)
-        truth = {
-            "merge_parents": [0, 1],
-            "merge_weights": list(weights),
-            "suspect_slot": 0,
-            "kept": list(range(2, n)),
-        }
+        truth.update(
+            merge_parents=[0, 1],
+            merge_weights=list(weights),
+            suspect_slot=0,
+            kept=list(range(2, n)),
+        )
         if variant != "merged_permuted":
+            # Aligned variants keep parent i at slot i-1, so scoring can check
+            # each survivor independently of whether the merge shadows a parent.
+            truth["kept_slots"] = list(range(1, n - 1))
             return out, out_router.clone(), truth
         perm = rng.permutation(len(out))
         truth["perm"] = [int(p) for p in perm]
@@ -184,6 +262,52 @@ def build_layer(
             out_router[torch.as_tensor(perm)].clone(),
             truth,
         )
+
+    three_parent = {"merged_three": THREE_ALPHA, "merged_saliency": SALIENCY_ALPHA}
+    if variant in three_parent:
+        if n < 4:
+            raise ValueError(f"{variant} needs at least 4 experts, got {n}")
+        weights = three_parent[variant]
+        merged = {r: _mix([experts[i][r] for i in range(3)], weights, dtype) for r in roles}
+        out = [merged] + [{r: experts[i][r] for r in roles} for i in range(3, n)]
+        merged_router = _mix([router[i] for i in range(3)], weights, router.dtype)
+        out_router = torch.cat([merged_router.unsqueeze(0), router[3:]], dim=0)
+        truth = {
+            "merge_parents": [0, 1, 2],
+            "merge_weights": list(weights),
+            "suspect_slot": 0,
+            "kept": list(range(3, n)),
+            "kept_slots": list(range(1, n - 2)),
+        }
+        return out, out_router.clone(), truth
+
+    if variant == "merged_ties":
+        if n < 4:
+            raise ValueError(f"{variant} needs at least 4 experts, got {n}")
+        merged = {
+            role: _ties_merge(
+                torch.stack([experts[i][role].to(torch.float32) for i in range(3)]),
+                TIES_TRIM,
+            ).to(dtype)
+            for role in roles
+        }
+        out = [merged] + [{r: experts[i][r] for r in roles} for i in range(3, n)]
+        merged_router = _ties_merge(
+            torch.stack([router[i].to(torch.float32) for i in range(3)]), TIES_TRIM
+        ).to(router.dtype)
+        out_router = torch.cat([merged_router.unsqueeze(0), router[3:]], dim=0)
+        truth = {
+            "merge_parents": [0, 1, 2],
+            # No global weights by construction; the fitted alpha is only an
+            # approximate summary (config.TIES_ALPHA is the scored target).
+            "merge_weights": None,
+            "merge_kind": "ties",
+            "trim": TIES_TRIM,
+            "suspect_slot": 0,
+            "kept": list(range(3, n)),
+            "kept_slots": list(range(1, n - 2)),
+        }
+        return out, out_router.clone(), truth
 
     if variant == "control":
         out = []
@@ -204,7 +328,11 @@ def save_tensors(path: Path, tensors: dict[str, torch.Tensor]) -> None:
 
 
 def write_variant(
-    out_dir: Path, arch: str, tensors: dict[str, torch.Tensor], layers: dict[int, int], seed: int
+    out_dir: Path,
+    arch: str,
+    tensors: dict[str, torch.Tensor],
+    layers: dict[int, int],
+    seed: int,
 ) -> None:
     """Write one variant as safetensors + manifest (tensors only, not a loadable model)."""
     out_dir.mkdir(parents=True, exist_ok=True)
