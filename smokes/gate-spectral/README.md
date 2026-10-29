@@ -362,13 +362,13 @@ gpt2-fineweb pair re-scored in
   the same source model: n = 1 per bit width, and a 0.0148 gap is far smaller than the spread
   this metric shows under its own parameters (the recorded panels move the AWQ pair over
   0.095–0.573 across r, 0.257–0.409 across s). In our own controls more bits only reduce
-  spectral flattening (int2 +0.93 %, int4 +0.032 %, int8 +0.0001 % mean Δf/f, from the 29 Oct
-  2026 AWQ audit, not from a shipped script), and int4 at 12.75 % weight error still scores
-  0.99996, so we would expect Int8 at or above Int4 rather than below. That is consistent with a
-  recipe or operating-point effect, but it does not establish one: our pairing of the two Hub
-  repositories that match the paper's model names and configs is an inference, the paper prints
-  no repository URLs, and we did not recompute its 7B CKA values. Treat the inversion as
-  unexplained.
+  spectral flattening (mean Δf/f: int2 +0.93 %, int4 +0.032 %, int8 +0.0001 %, measured in the
+  survey's AWQ analysis note of 29 Oct 2026 — the figures are not produced by a shipped script),
+  and int4 at 12.75 % weight error still scores 0.99996, so we would expect Int8 at or above
+  Int4 rather than below. That is consistent with a recipe or operating-point effect, but it
+  does not establish one: our pairing of the two Hub repositories that match the paper's model
+  names and configs is an inference, the paper prints no repository URLs, and we did not
+  recompute its 7B CKA values. Treat the inversion as unexplained.
 - **Formats.** Safetensors shards are parsed header-first (8-byte header
   length + JSON + tensor bytes), or range-read per gate tensor (mechanism
   under Cost), so only gate tensors are materialized and float8/bf16 decode
