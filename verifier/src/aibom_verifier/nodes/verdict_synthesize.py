@@ -30,6 +30,13 @@ def arch_hash_gate_skip_reason(arch_outcome: TestOutcome) -> str | None:
     return arch_outcome.status
 
 
+def arch_outcome_is_cause(arch_outcome: TestOutcome) -> bool:
+    """Whether an arch outcome is why the final verdict becomes ``incompatible``."""
+    return "arch_hash_mismatch" in arch_outcome.reason_codes or (
+        arch_outcome.status == "fail" and arch_outcome.compatibility == "incompatible"
+    )
+
+
 def shapes_gate_skip_reason(shapes_outcome: TestOutcome) -> str | None:
     """Reason to skip block0_values given block0_shapes, or None to proceed."""
     if shapes_outcome.status == "pass" and shapes_outcome.compatibility == "compatible":
@@ -53,7 +60,7 @@ def synthesize_final_verdict(
 
     Mapping (T1):
     - support abstain → ``unsupported``
-    - arch_hash mismatch → ``fraudulent_claim``
+    - arch_hash mismatch → ``incompatible`` (config drift, not proof of fraud)
     - shapes fail → ``incompatible``
     - shapes pass + values differ or match → ``verified_derivative``
     - anything inconclusive → ``insufficient_evidence``
@@ -65,10 +72,13 @@ def synthesize_final_verdict(
 
     if arch_outcome is None:
         return "insufficient_evidence"
-    if "arch_hash_mismatch" in arch_outcome.reason_codes or (
-        arch_outcome.status == "fail" and arch_outcome.compatibility == "incompatible"
-    ):
-        return "fraudulent_claim"
+    if arch_outcome_is_cause(arch_outcome):
+        # A canonical-config difference is not evidence of a false claim:
+        # vocabulary extension, position-embedding resize, rope recalibration,
+        # a quantization recipe dropping ``sliding_window`` and a tie flip all
+        # move these fields in documented adaptations. The differing fields are
+        # reported so a reader can judge; the verdict refuses to adjudicate.
+        return "incompatible"
     if arch_outcome.status != "pass" or arch_outcome.compatibility != "compatible":
         return "insufficient_evidence"
 
@@ -109,6 +119,14 @@ def verdict_message(verdict: FinalVerdict, *, tests: list[TestOutcome]) -> str:
     if verdict == "fraudulent_claim":
         return "Architecture fingerprints (arch_hash) differ; claimed base does not match."
     if verdict == "incompatible":
+        arch = by_id.get("arch_hash")
+        if arch is not None and arch_outcome_is_cause(arch):
+            differing = arch.detail.get("differing_fields") or {}
+            names = ", ".join(sorted(differing)) if differing else "configuration fields"
+            return (
+                f"Configuration fingerprints differ ({names}); this does not establish "
+                "a different model, so the claim is not adjudicated."
+            )
         shapes = by_id.get("block0_shapes")
         if shapes and shapes.reason_codes:
             reasons = ", ".join(shapes.reason_codes)

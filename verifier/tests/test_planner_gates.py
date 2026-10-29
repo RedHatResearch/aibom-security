@@ -12,8 +12,11 @@ from aibom_verifier.mapping.block0 import BLOCK0_PREFIX, REQUIRED_SUFFIXES
 from aibom_verifier.nodes import block0_shapes as block0_shapes_mod
 from aibom_verifier.nodes import block0_values as block0_values_mod
 from aibom_verifier.nodes import resolve_refs as resolve_refs_mod
+from aibom_verifier.nodes.arch_hash_gate import arch_hash_gate_node
+from aibom_verifier.nodes.verdict_synthesize import synthesize_final_verdict
 from aibom_verifier.planner import run_compare
 from aibom_verifier.slots.artifact_store import InMemoryArtifactStore
+from aibom_verifier.types import TestOutcome
 
 REQUIRED_NAMES = [BLOCK0_PREFIX + suffix for suffix in REQUIRED_SUFFIXES]
 
@@ -105,7 +108,7 @@ def test_cross_type_pair_is_unsupported_and_skips_downstream(scenario):
     assert result.final_verdict == "unsupported"
 
 
-def test_arch_hash_mismatch_is_fraudulent_claim_and_skips_tensors(scenario):
+def test_arch_hash_mismatch_is_incompatible_and_skips_tensors(scenario):
     scenario(target_config_extra={"hidden_size": 2048}, base_config_extra={"hidden_size": 4096})
     store = InMemoryArtifactStore()
 
@@ -114,9 +117,30 @@ def test_arch_hash_mismatch_is_fraudulent_claim_and_skips_tensors(scenario):
     outcomes = _outcomes_by_id(result)
     assert outcomes["arch_hash"].status == "fail"
     assert outcomes["arch_hash"].reason_codes == ["arch_hash_mismatch"]
+    differing = outcomes["arch_hash"].detail["differing_fields"]
+    assert differing["hidden_size"] == [2048, 4096]
     assert outcomes["block0_shapes"].status == "skip"
     assert outcomes["block0_values"].status == "skip"
-    assert result.final_verdict == "fraudulent_claim"
+    assert result.final_verdict == "incompatible"
+
+
+def test_different_architecture_fails_gate_and_verdict_is_not_confirming():
+    # support_classify rejects cross-type pairs upstream, so a genuinely
+    # different model_type can never reach the gate via run_compare; compose
+    # the gate and verdict directly to check the architecture acceptance case.
+    arch = arch_hash_gate_node(
+        {
+            "target_config": {"model_type": "mixtral"},
+            "base_config": {"model_type": "llama"},
+        },
+        InMemoryArtifactStore(),
+    )
+    support = TestOutcome(test_id="support_classify", status="pass", compatibility="compatible")
+
+    assert arch.status == "fail"
+    assert arch.compatibility == "incompatible"
+    assert arch.detail["differing_fields"]["model_type"] == ["mixtral", "llama"]
+    assert synthesize_final_verdict(support, arch, None, None) == "incompatible"
 
 
 def test_shapes_fail_skips_values_and_verdict_is_incompatible(scenario):

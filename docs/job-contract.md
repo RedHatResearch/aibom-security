@@ -145,7 +145,7 @@ Failure paths:
   "ok": false,
   "error": "gated_unauthenticated",
   "message": "…",
-  "policy_version": "t1-1"
+  "policy_version": "t1-2"
 }
 ```
 
