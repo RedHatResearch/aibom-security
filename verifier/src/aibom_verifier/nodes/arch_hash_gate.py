@@ -2,9 +2,16 @@
 
 from __future__ import annotations
 
+import json
+
 from aibom_verifier.arch_hash import canonicalize_arch_config, compute_arch_hash
 from aibom_verifier.slots.artifact_store import ArtifactStore
 from aibom_verifier.types import Compatibility, TestOutcome
+
+
+def _field_repr(value: object) -> str:
+    """Canonical serialisation of one field, matching the digest's encoding."""
+    return json.dumps(value, sort_keys=True, separators=(",", ":"), default=str)
 
 
 def _differing_fields(target_config: dict, base_config: dict) -> dict[str, list[object]]:
@@ -14,10 +21,20 @@ def _differing_fields(target_config: dict, base_config: dict) -> dict[str, list[
     adaptation (vocabulary extension, position-embedding resize, rope
     recalibration, a quantization recipe dropping ``sliding_window``, a tie
     flip) changes these fields while the lineage claim stays true.
+
+    Fields are compared through the same canonical serialisation the digest
+    uses, so the report is non-empty exactly when the digests differ. Plain
+    ``!=`` disagrees in both directions: ``10000`` and ``10000.0`` hash
+    differently yet compare equal, and ``NaN`` compares unequal to itself while
+    serialising identically.
     """
     target = canonicalize_arch_config(target_config)
     base = canonicalize_arch_config(base_config)
-    return {field: [target[field], base[field]] for field in target if target[field] != base[field]}
+    return {
+        field: [target[field], base[field]]
+        for field in target
+        if _field_repr(target[field]) != _field_repr(base[field])
+    }
 
 
 def arch_hash_gate_node(inputs: dict, store: ArtifactStore) -> TestOutcome:

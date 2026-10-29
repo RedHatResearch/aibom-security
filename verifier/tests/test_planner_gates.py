@@ -7,12 +7,13 @@ from hf_fakes import (
     fake_tensor_shapes,
 )
 
+from aibom_verifier.arch_hash import compute_arch_hash
 from aibom_verifier.errors import CompareStartError, NotSafetensorsError
 from aibom_verifier.mapping.block0 import BLOCK0_PREFIX, REQUIRED_SUFFIXES
 from aibom_verifier.nodes import block0_shapes as block0_shapes_mod
 from aibom_verifier.nodes import block0_values as block0_values_mod
 from aibom_verifier.nodes import resolve_refs as resolve_refs_mod
-from aibom_verifier.nodes.arch_hash_gate import arch_hash_gate_node
+from aibom_verifier.nodes.arch_hash_gate import _differing_fields, arch_hash_gate_node
 from aibom_verifier.nodes.verdict_synthesize import synthesize_final_verdict
 from aibom_verifier.planner import run_compare
 from aibom_verifier.slots.artifact_store import InMemoryArtifactStore
@@ -124,7 +125,7 @@ def test_arch_hash_mismatch_is_incompatible_and_skips_tensors(scenario):
     assert result.final_verdict == "incompatible"
 
 
-def test_different_architecture_fails_gate_and_verdict_is_not_confirming():
+def test_arch_hash_gate_reports_model_type_for_a_different_architecture():
     # support_classify rejects cross-type pairs upstream, so a genuinely
     # different model_type can never reach the gate via run_compare; compose
     # the gate and verdict directly to check the architecture acceptance case.
@@ -224,3 +225,17 @@ def test_base_source_is_card_when_base_repo_not_given(scenario, monkeypatch):
 
     assert result.base.repo_id == BASE_REPO
     assert result.base_source == "card"
+
+
+def test_differing_fields_agrees_with_digest_equality():
+    # The report and the digest must use the same canonical form. `10000` and
+    # `10000.0` serialise differently (so the digests differ) but compare equal
+    # under plain `!=`.
+    target = {"hidden_size": 64, "num_attention_heads": 4, "rope_theta": 10000}
+    base = {"hidden_size": 64, "num_attention_heads": 4, "rope_theta": 10000.0}
+
+    assert compute_arch_hash(target) != compute_arch_hash(base)
+    assert set(_differing_fields(target, base)) == {"rope_theta"}
+
+    # Identical canonical forms produce no report.
+    assert _differing_fields(target, dict(target)) == {}
