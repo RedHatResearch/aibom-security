@@ -102,9 +102,7 @@ def run_variant(
         synth.write_variant(out_dir, arch, tensors, counts, SEED)
         del tensors
     except Exception as exc:  # noqa: BLE001 - one bad variant must not abort the run
-        print(
-            f"SKIP {model['label']}/{variant}: build failed: {type(exc).__name__}: {exc}"
-        )
+        print(f"SKIP {model['label']}/{variant}: build failed: {type(exc).__name__}: {exc}")
         rec.update(
             status="skipped",
             reason=f"build: {type(exc).__name__}: {exc}",
@@ -118,17 +116,13 @@ def run_variant(
     try:
         manifest = detect.read_manifest(out_dir)
         if manifest.get("arch") != arch:
-            raise detect.DetectionError(
-                f"manifest arch {manifest.get('arch')!r} != {arch!r}"
-            )
+            raise detect.DetectionError(f"manifest arch {manifest.get('arch')!r} != {arch!r}")
         if tuple(manifest.get("roles") or ()) != roles:
             raise detect.DetectionError(
                 "manifest roles differ from the architecture; refusing to score"
             )
         if manifest.get("tensor_file") != "model.safetensors":
-            raise detect.DetectionError(
-                f"unsupported tensor_file {manifest.get('tensor_file')!r}"
-            )
+            raise detect.DetectionError(f"unsupported tensor_file {manifest.get('tensor_file')!r}")
         reader = detect.CheckpointReader(
             out_dir,
             detect.TensorSpec(**ARCHES[arch]),
@@ -148,9 +142,7 @@ def run_variant(
         try:
             count = manifest["layer_counts"][layer]
             if count != counts[layer]:
-                raise detect.DetectionError(
-                    f"manifest says {count} experts, wrote {counts[layer]}"
-                )
+                raise detect.DetectionError(f"manifest says {count} experts, wrote {counts[layer]}")
             reports.append(
                 detect.analyze_layer(
                     parent_reader,
@@ -166,9 +158,7 @@ def run_variant(
                 )
             )
         except Exception as exc:  # noqa: BLE001 - per-layer skip, keep the rest
-            print(
-                f"SKIP {model['label']}/{variant} layer {layer}: {type(exc).__name__}: {exc}"
-            )
+            print(f"SKIP {model['label']}/{variant} layer {layer}: {type(exc).__name__}: {exc}")
             reports.append(
                 {
                     "layer": layer,
@@ -247,8 +237,7 @@ def evaluate(
         perm = [
             r
             for r in exact
-            if r["recovered_perm"]
-            == {s: truth[r["layer"]]["perm"][s] for s in range(experts)}
+            if r["recovered_perm"] == {s: truth[r["layer"]]["perm"][s] for s in range(experts)}
         ]
         held = complete and len(exact) == total and len(perm) == total
         observed = (
@@ -258,9 +247,7 @@ def evaluate(
         summary.update(exact_layers=len(exact), permutation_layers=len(perm))
 
     elif variant == "pruned":
-        structure = _e_minus_two_survivors(
-            scored, truth, experts, missing_key="dropped"
-        )
+        structure = _e_minus_two_survivors(scored, truth, experts, missing_key="dropped")
         # Copies fit themselves with gain=None: those fits are "not applicable",
         # not "gain < 0.30". The clause is scored on the defined gains only, and
         # ``undefined_gain_fits`` records how much of it was N/A.
@@ -322,8 +309,7 @@ def evaluate(
         in_band = [
             a
             for a in alphas
-            if abs(a[0] - MERGE_ALPHA[0]) <= ALPHA_TOL
-            and abs(a[1] - MERGE_ALPHA[1]) <= ALPHA_TOL
+            if abs(a[0] - MERGE_ALPHA[0]) <= ALPHA_TOL and abs(a[1] - MERGE_ALPHA[1]) <= ALPHA_TOL
         ]
         merge_gains = [
             entry["gain"]
@@ -343,7 +329,9 @@ def evaluate(
         if alphas:
             mean_a = sum(a[0] for a in alphas) / len(alphas)
             mean_b = sum(a[1] for a in alphas) / len(alphas)
-            alpha_text = f"alpha mean ({mean_a:.4f}, {mean_b:.4f}) in band on {len(in_band)}/{total}"
+            alpha_text = (
+                f"alpha mean ({mean_a:.4f}, {mean_b:.4f}) in band on {len(in_band)}/{total}"
+            )
         else:
             alpha_text = "no two-parent mixture fit"
         gain_text = (
@@ -379,9 +367,7 @@ def evaluate(
             layer_truth = truth[report["layer"]]
             return all(
                 report["recovered_perm"].get(slot) == parent
-                for slot, parent in zip(
-                    layer_truth["kept_slots"], layer_truth["kept"], strict=True
-                )
+                for slot, parent in zip(layer_truth["kept_slots"], layer_truth["kept"], strict=True)
             )
 
         good: list[dict] = []
@@ -405,13 +391,9 @@ def evaluate(
             # this suite exists to catch.
             unique_here = len(merged) == 1 and merged[0]["suspect"] == injected_slot
             unique += int(unique_here)
-            kept_merged += int(
-                any(c["suspect"] in layer_truth["kept_slots"] for c in merged)
-            )
+            kept_merged += int(any(c["suspect"] in layer_truth["kept_slots"] for c in merged))
             injected = [
-                entry
-                for entry in r["classifications"]
-                if entry["suspect"] == injected_slot
+                entry for entry in r["classifications"] if entry["suspect"] == injected_slot
             ]
             if len(injected) != 1:
                 continue
@@ -424,9 +406,7 @@ def evaluate(
                 fit_gains.append(gain)
             ok_gain = _gain_ok(entry)
             gain_ok += int(ok_gain)
-            alpha_lengths[len(entry["alpha"])] = (
-                alpha_lengths.get(len(entry["alpha"]), 0) + 1
-            )
+            alpha_lengths[len(entry["alpha"])] = alpha_lengths.get(len(entry["alpha"]), 0) + 1
             if entry["alpha"]:
                 top = max(range(len(entry["alpha"])), key=entry["alpha"].__getitem__)
                 top_parent = entry["components"][top]
@@ -446,8 +426,7 @@ def evaluate(
         max_error = max(alpha_errors) if alpha_errors else None
         mean_alpha = (
             [
-                sum(entry["alpha"][index] for entry in on_components)
-                / len(on_components)
+                sum(entry["alpha"][index] for entry in on_components) / len(on_components)
                 for index in range(len(expected))
             ]
             if on_components
@@ -471,9 +450,7 @@ def evaluate(
             if top_alphas
             else "no fitted components"
         )
-        label_text = ", ".join(
-            f"{name} {count}" for name, count in sorted(labels.items())
-        )
+        label_text = ", ".join(f"{name} {count}" for name, count in sorted(labels.items()))
         observed = (
             f"{len(good)}/{total} layers pass; injected-suspect labels: "
             f"{label_text or 'none'}; {alpha_text}; {gain_text}; {top_text}; kept parents "
@@ -488,9 +465,7 @@ def evaluate(
             suspect_labels=labels,
             injected_alpha_lengths=alpha_lengths,
             injected_top_parents=top_parents,
-            injected_top_alpha=(
-                [min(top_alphas), max(top_alphas)] if top_alphas else None
-            ),
+            injected_top_alpha=([min(top_alphas), max(top_alphas)] if top_alphas else None),
             alpha_layers=in_band,
             alpha_error_max=max_error,
             alpha_mean=mean_alpha,
@@ -507,11 +482,7 @@ def evaluate(
         max_gain = max(gains) if gains else None
         held = complete and len(zero) == total and not over_gain
         max_cos = max(
-            (
-                r["max_assigned_cos"]
-                for r in scored
-                if r["max_assigned_cos"] is not None
-            ),
+            (r["max_assigned_cos"] for r in scored if r["max_assigned_cos"] is not None),
             default=None,
         )
         gain_text = (
@@ -564,9 +535,7 @@ def run_model(model: dict) -> dict:
     try:
         snapshot = synth.cached_snapshot(model["repo"], model["revision"])
         shards = synth.shard_index(snapshot)
-        available = synth.discover_layers(
-            shards, snapshot, model["arch"], model["num_experts"]
-        )
+        available = synth.discover_layers(shards, snapshot, model["arch"], model["num_experts"])
         layers = model["layers"] or available
         unusable = [layer for layer in layers if layer not in available]
         if unusable:
@@ -626,9 +595,7 @@ def robustness_probe() -> dict:
             for e in range(experts)
             for r in spec.roles
         }
-        tensors[spec.router.format(layer=layer)] = torch.randn(
-            experts, side, generator=generator
-        )
+        tensors[spec.router.format(layer=layer)] = torch.randn(experts, side, generator=generator)
         manifest = {
             "arch": "mixtral",
             "seed": SEED,
@@ -662,9 +629,7 @@ def robustness_probe() -> dict:
                     {"case": case, "skip": f"{type(exc).__name__}: {exc}", "ok": False}
                 )
             else:
-                result["cases"].append(
-                    {"case": case, "skip": "no exception raised", "ok": False}
-                )
+                result["cases"].append({"case": case, "skip": "no exception raised", "ok": False})
 
         def analyze(case_dir: Path, suspect_experts: int = experts) -> dict:
             return detect.analyze_layer(
@@ -728,9 +693,7 @@ def robustness_probe() -> dict:
         def nan_case() -> None:
             reader = detect.CheckpointReader(poisoned, spec)
             vector = detect.descriptor(reader, layer, 0, SEED)
-            assert np.isfinite(vector).all(), (
-                "NaN reached the sampled descriptor window"
-            )
+            assert np.isfinite(vector).all(), "NaN reached the sampled descriptor window"
             detect.analyze_layer(reader, layer, experts, reader, layer, experts, SEED)
 
         probe("nan_outside_window", nan_case)
@@ -743,9 +706,7 @@ def robustness_probe() -> dict:
             for e in range(experts + 2)
             for r in spec.roles
         }
-        hidden[spec.router.format(layer=layer)] = torch.randn(
-            experts, side, generator=generator
-        )
+        hidden[spec.router.format(layer=layer)] = torch.randn(experts, side, generator=generator)
         understated = write(
             "understated_count",
             hidden,
@@ -871,9 +832,7 @@ def print_expectations(models: list[dict]) -> None:
 
 def main() -> int:
     assert detect.BLOCK == BLOCK, "detector block size drifted from config"
-    assert detect.EXACT_COS == EXACT_COS, (
-        "detector exact-cosine floor drifted from config"
-    )
+    assert detect.EXACT_COS == EXACT_COS, "detector exact-cosine floor drifted from config"
     assert detect.NEAR_EXACT_COS == NEAR_EXACT_COS, "near-exact band drifted"
     assert detect.MERGE_GAIN_MIN == MERGE_GAIN_MIN, "merge-gain floor drifted"
     assert detect.MIN_COMPONENT == MIN_COMPONENT, "minimum mixture component drifted"
@@ -893,9 +852,7 @@ def main() -> int:
 
     models = [run_model(PRIMARY)]
     primary_seconds = models[0].get("seconds", float("inf"))
-    print(
-        f"\nprimary runtime {primary_seconds}s (scale-repeat budget {SECONDARY_BUDGET_S}s)"
-    )
+    print(f"\nprimary runtime {primary_seconds}s (scale-repeat budget {SECONDARY_BUDGET_S}s)")
 
     if models[0]["status"] == "ok" and primary_seconds < SECONDARY_BUDGET_S:
         models.append(run_model(SECONDARY))
