@@ -331,7 +331,9 @@ gpt2-fineweb pair re-scored in
   0.0108, and Int4 (0.9256) by 0.0256 — an ordering that is not a bit-width
   effect (see the quantization bullets below); unrelated max 0.2288 was
   achieved only on cross-dimension, cross-data-regime pairs. A quantized pair
-  landing in 0.85–0.95 is the paper's margin measured honestly, not a bug.
+  landing in 0.85–0.95 is the paper's margin measured honestly, not a bug —
+  and at that distance from τ the ordering between two quantized variants
+  carries no information (see the Int8/Int4 bullet below).
 - **Sign-insensitivity.** CKA squares the Pearson coefficient: an
   anticorrelated depth profile can score as high as its mirror image. The
   signed value and `anticorrelation_collision` flag are emitted for every
@@ -352,21 +354,27 @@ gpt2-fineweb pair re-scored in
 - **Quantization.** Format matters less than recipe. AWQ carries a
   per-channel smoothing fold that changes the basis and therefore the
   spectrum (see the miss analysis above); its int4 quantization error on its
-  own is negligible for this statistic (int4-only controls score 0.99998+).
+  own is negligible for this statistic (int4 controls score 0.99996 or better; the
+  0.99996 and 0.99998 figures elsewhere in this file come from two different
+  quantizers, symmetric absmax and asymmetric min-max).
   FP8-dynamic is near-lossless for spectra; GGUF k-quants add block-structured
   noise. MXFP4 (gpt-oss) is dequantized in numpy — E2M1 nibbles,
   E8M0 block exponents, gate = even columns after the layout transpose — and
   is bit-exact against `transformers.integrations.mxfp4` on random fixtures.
   AQLM/GPTQ/QuIP/GSQ have no dequantizer here and abstain as
   `format_unreadable`.
-- **The paper's Int8 < Int4 ordering is not a bit-width effect.** Its GPTQ-Int8
-  row (0.9108) sits 0.0148 *below* its GPTQ-Int4 row (0.9256) against the same
-  source model, with n=1 per bit width and both repos group-128 symmetric from
-  one base. More bits reduce the measured spectral flattening monotonically
-  (mean Δf/f: int2 +0.93 %, int4 +0.032 %, int8 +0.0001 %), and int4 at
-  12.75 % weight error still scores 0.99996 — so the ordering is a recipe
-  artifact, and a 0.0148 gap is an order of magnitude below this metric's own
-  jitter across r and s.
+- **The paper's Int8 < Int4 ordering does not support a bit-width conclusion.**
+  Its GPTQ-Int8 row (0.9108) sits 0.0148 *below* its GPTQ-Int4 row (0.9256)
+  against the same source model: n = 1 per bit width, and a 0.0148 gap is an
+  order of magnitude below this metric's own jitter across r and s. In our own
+  controls more bits only reduce spectral flattening (int2 +0.93 %, int4
+  +0.032 %, int8 +0.0001 % mean Δf/f, from the survey analysis of 8 Aug 2026,
+  not from a shipped script), and int4 at 12.75 % weight error still
+  scores 0.99996, so we would expect Int8 at or above Int4 rather than below.
+  That is consistent with a recipe or operating-point effect, but it does not
+  establish one: the two Hub repositories that match the paper's model names and
+  configs are an inference, the paper prints no repository URLs, and we did not
+  recompute its 7B CKA values. Treat the inversion as unexplained.
 - **Formats.** Safetensors shards are parsed header-first (8-byte header
   length + JSON + tensor bytes), or range-read per gate tensor (mechanism
   under Cost), so only gate tensors are materialized and float8/bf16 decode
