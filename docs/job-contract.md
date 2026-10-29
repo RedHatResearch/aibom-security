@@ -90,7 +90,7 @@ Log sink failures never fail verify.
 | **1** | Start/config error (resolve failed, gated repo, bad store config, invalid log level, …)                       |
 
 
-Verdicts are **not** mapped to exit codes. Any non-confirming verdict — `incompatible`, `insufficient_evidence`, `unsupported` — still exits 0 when the compare finished. Since `policy_version` `t1-2`, `incompatible` covers two different causes: a block-0 shape mismatch, and a canonical-config difference reported in the `arch_hash` outcome's `differing_fields`. Consumers that need to tell them apart should read that field rather than the verdict alone. `fraudulent_claim` remains in the verdict vocabulary but is not emitted by the T1 chain.
+Verdicts are **not** mapped to exit codes. Any non-confirming verdict — `incompatible`, `insufficient_evidence`, `unsupported` — still exits 0 when the compare finished. Since `policy_version` `t1-2`, `incompatible` covers two different causes: a block-0 shape mismatch, and a canonical-config difference. The verdict `message` names the differing config fields, so a consumer that needs to tell the two apart should read the message, not the verdict alone. The structured field list is available in-process on `RunResult.tests[].detail`; it is not part of the stdout or telemetry contract. `fraudulent_claim` remains in the verdict vocabulary but is not emitted by the T1 chain.
 
 ### Accept mode (`AIBOM_ACCEPT=1` or `--accept`)
 

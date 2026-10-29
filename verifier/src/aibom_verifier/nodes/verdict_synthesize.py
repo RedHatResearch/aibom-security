@@ -30,8 +30,8 @@ def arch_hash_gate_skip_reason(arch_outcome: TestOutcome) -> str | None:
     return arch_outcome.status
 
 
-def arch_outcome_is_cause(arch_outcome: TestOutcome) -> bool:
-    """Whether an arch outcome is why the final verdict becomes ``incompatible``."""
+def arch_mismatch_causes_incompatible(arch_outcome: TestOutcome) -> bool:
+    """Whether this arch outcome is what makes the final verdict ``incompatible``."""
     return "arch_hash_mismatch" in arch_outcome.reason_codes or (
         arch_outcome.status == "fail" and arch_outcome.compatibility == "incompatible"
     )
@@ -72,7 +72,7 @@ def synthesize_final_verdict(
 
     if arch_outcome is None:
         return "insufficient_evidence"
-    if arch_outcome_is_cause(arch_outcome):
+    if arch_mismatch_causes_incompatible(arch_outcome):
         # A canonical-config difference is not evidence of a false claim:
         # vocabulary extension, position-embedding resize, rope recalibration,
         # a quantization recipe dropping ``sliding_window`` and a tie flip all
@@ -120,7 +120,7 @@ def verdict_message(verdict: FinalVerdict, *, tests: list[TestOutcome]) -> str:
         return "Architecture fingerprints (arch_hash) differ; claimed base does not match."
     if verdict == "incompatible":
         arch = by_id.get("arch_hash")
-        if arch is not None and arch_outcome_is_cause(arch):
+        if arch is not None and arch_mismatch_causes_incompatible(arch):
             differing = arch.detail.get("differing_fields") or {}
             names = ", ".join(sorted(differing)) if differing else "configuration fields"
             return (
