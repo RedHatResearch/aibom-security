@@ -1,11 +1,11 @@
 # ProvenanceBench
 
-ProvenanceBench is a small fixed benchmark for passive, static-whitebox model
+ProvenanceBench is a small benchmark for passive, static-whitebox model
 provenance checks. Each case asks whether a `subject` checkpoint is related to
 a `reference` checkpoint.
 
-The set is a pilot and grows when a new case class is added: 42 pairs, the
-original 40 plus two same-architecture stranger rows. Existing rows are never
+The set is a pilot and grows when a new case class is added: 41 pairs, the
+original 40 plus one same-architecture stranger row. Existing rows are never
 edited, so results stay comparable across methods and iterations; new rows are
 appended with their own pins.
 

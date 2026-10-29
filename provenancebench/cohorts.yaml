@@ -44,8 +44,7 @@ cohorts:
     - pb-core-smollm-smollm2-strangers
     - pb-core-llama2-granite7b-strangers
     - pb-core-pds-bsl-470m
-    - pb-stranger-pythia410m-seeds
-    - pb-stranger-pds-bsl-1b
+    - pb-core-stranger-pythia410m-seeds
   all:
     ids:
     - pb-smoke-qwen25-awq
@@ -88,5 +87,4 @@ cohorts:
     - pb-core-smollm-smollm2-strangers
     - pb-core-llama2-granite7b-strangers
     - pb-core-pds-bsl-470m
-    - pb-stranger-pythia410m-seeds
-    - pb-stranger-pds-bsl-1b
+    - pb-core-stranger-pythia410m-seeds
