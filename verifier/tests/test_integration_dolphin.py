@@ -1,8 +1,10 @@
 """Network acceptance: Dolphin3.0 ↔ Llama-3.2-1B (not in default CI).
 
 Pinned SHAs. Dolphin's card claims ``meta-llama/Llama-3.2-1B`` but expands
-``vocab_size`` (128258 vs 128256), so ``arch_hash`` mismatches and the
-verdict is ``fraudulent_claim`` under T1 taxonomy.
+``vocab_size`` (128258 vs 128256), so ``arch_hash`` mismatches. A vocabulary
+resize is also what a legitimate tokenizer extension looks like, so the
+verdict is ``incompatible`` — the T1 chain refuses to adjudicate — and the
+differing field is reported in the arch_hash detail.
 """
 
 import pytest
@@ -17,7 +19,7 @@ BASE_SHA = "4e20de362430cd3b72f300e6b0f18e50e7166e08"
 
 
 @pytest.mark.network
-def test_dolphin_llama_fraudulent_claim_on_vocab_resize(tmp_path):
+def test_dolphin_llama_incompatible_on_vocab_resize(tmp_path):
     store = FilesystemArtifactStore(base_dir=tmp_path / "cache")
 
     result = run_compare(
@@ -32,10 +34,11 @@ def test_dolphin_llama_fraudulent_claim_on_vocab_resize(tmp_path):
     assert result.base.sha == BASE_SHA
     assert result.target.sha == TARGET_SHA
     assert result.base_source == "card"
-    assert result.final_verdict == "fraudulent_claim"
+    assert result.final_verdict == "incompatible"
 
     by_id = {t.test_id: t for t in result.tests}
     assert by_id["arch_hash"].status == "fail"
     assert "arch_hash_mismatch" in by_id["arch_hash"].reason_codes
+    assert by_id["arch_hash"].detail["differing_fields"]["vocab_size"] == [128258, 128256]
     assert by_id["block0_shapes"].status == "skip"
     assert by_id["block0_values"].status == "skip"

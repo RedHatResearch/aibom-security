@@ -2,13 +2,43 @@
 
 from __future__ import annotations
 
-from aibom_verifier.arch_hash import compute_arch_hash
+from aibom_verifier.arch_hash import (
+    canonical_arch_json,
+    canonicalize_arch_config,
+    compute_arch_hash,
+)
 from aibom_verifier.slots.artifact_store import ArtifactStore
 from aibom_verifier.types import Compatibility, TestOutcome
 
 
+def _differing_fields(target_config: dict, base_config: dict) -> dict[str, list[object]]:
+    """Per-field ``[target, base]`` pairs for every canonical field that differs.
+
+    A config difference alone does not establish a different model: routine
+    adaptation (vocabulary extension, position-embedding resize, rope
+    recalibration, a quantization recipe dropping ``sliding_window``, a tie
+    flip) changes these fields while the lineage claim stays true.
+
+    Fields are compared through the same canonical serialisation the digest
+    uses, so the report is non-empty exactly when the digests differ. Plain
+    ``!=`` disagrees in both directions: ``10000`` and ``10000.0`` hash
+    differently yet compare equal, and ``NaN`` compares unequal to itself while
+    serialising identically.
+    """
+    target = canonicalize_arch_config(target_config)
+    base = canonicalize_arch_config(base_config)
+    return {
+        field: [target[field], base[field]]
+        for field in target
+        if canonical_arch_json(target[field]) != canonical_arch_json(base[field])
+    }
+
+
 def arch_hash_gate_node(inputs: dict, store: ArtifactStore) -> TestOutcome:
-    """Hard-negative gate: matching hashes pass; mismatch fails the claim."""
+    """Hard-negative gate: matching hashes pass; mismatch fails the gate.
+
+    The verdict reports the differing fields and does not adjudicate.
+    """
     del store
     target_config: dict = inputs["target_config"]
     base_config: dict = inputs["base_config"]
@@ -30,5 +60,6 @@ def arch_hash_gate_node(inputs: dict, store: ArtifactStore) -> TestOutcome:
             "target_arch_hash": target_hash,
             "base_arch_hash": base_hash,
             "match": match,
+            "differing_fields": {} if match else _differing_fields(target_config, base_config),
         },
     )

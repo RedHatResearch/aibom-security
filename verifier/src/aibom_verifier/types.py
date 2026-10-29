@@ -18,6 +18,9 @@ Every other verdict is a refusal to confirm, not a soft failure — the
 verifier defaults to abstaining (``unsupported`` / ``insufficient_evidence``)
 rather than over-confirming on architectures or evidence it cannot honestly
 assess.
+
+``fraudulent_claim`` is currently unreachable from the T1 chain; it is
+reserved for a strict-evidence path.
 """
 
 # Alias used by the internal gate chain (same taxonomy as the public Verdict).
@@ -27,7 +30,7 @@ TestStatus = Literal["pass", "fail", "skip", "error"]
 Compatibility = Literal["compatible", "incompatible", "unsupported", "insufficient_evidence"]
 BaseSource = Literal["card", "cli"]
 
-POLICY_VERSION = "t1-1"
+POLICY_VERSION = "t1-2"
 
 
 @dataclass(frozen=True, slots=True)

@@ -77,8 +77,17 @@ def canonicalize_arch_config(config: dict[str, Any]) -> dict[str, Any]:
     return _normalize_arch_values(raw)
 
 
+def canonical_arch_json(value: Any) -> str:
+    """Canonical serialisation used by the digest and by per-field comparison.
+
+    Both must use this one function: the digest's equality and any field-level
+    report of "what differs" have to agree, including on spellings such as
+    ``10000`` vs ``10000.0``.
+    """
+    return json.dumps(value, sort_keys=True, separators=(",", ":"), default=str)
+
+
 def compute_arch_hash(config: dict[str, Any]) -> str:
     """Return the hex SHA-256 of the canonicalized architecture config."""
-    canonical = canonicalize_arch_config(config)
-    payload = json.dumps(canonical, sort_keys=True, separators=(",", ":"), default=str)
+    payload = canonical_arch_json(canonicalize_arch_config(config))
     return hashlib.sha256(payload.encode("utf-8")).hexdigest()
