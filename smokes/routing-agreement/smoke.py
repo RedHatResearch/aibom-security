@@ -14,11 +14,15 @@ Method (frozen in ``config.py`` before the first run):
 
 ``router_shuffled`` permutes router rows: that layer's logits permute, so the
 selected ids become ``perm^-1(S)`` for base set ``S``, but the experts stay in
-place, so the layer computes a different mixture and the control behaves like
-random routing. Layer 0 is the exception — its input (the embedding) is
-untouched — so its agreement has the closed form "fraction of base layer-0 sets
-invariant under perm"; that exact prediction is reported next to the measured
-value.
+place, so the layer computes a different mixture and hidden states drift. Each
+layer applies ONE fixed permutation to every token, so its agreement is that
+layer's fraction of base sets invariant under the drawn permutation (plus drift
+for layers > 0), not a fresh uniform k-subset per token; the overall mean is a
+mixture across the drawn cycle types, not a concentration at chance. Layer 0 is
+the calibrated check — its input (the embedding) is untouched — so its
+agreement has the closed form "fraction of base layer-0 sets invariant under
+perm"; that exact prediction is reported next to the measured value, along with
+the per-layer fixed-point counts.
 
 Run: ``uv run --group smokes python smokes/routing-agreement/smoke.py``
 """
@@ -236,6 +240,12 @@ def compare(reference: np.ndarray, candidate: np.ndarray, mask: np.ndarray) -> d
         "per_layer_set_agreement": per_layer_set,
         "per_layer_mean_jaccard": per_layer_jac,
         "overall_set_agreement": float(np.mean(per_layer_set)),
+        # Layer 0 routing is independent of expert weights, so experts_q4 is
+        # structurally 1.0 there; this diagnostic shows the mean over the
+        # remaining layers without changing the pre-registered overall metric.
+        "overall_set_agreement_excl_layer0": (
+            float(np.mean(per_layer_set[1:])) if n_layers > 1 else None
+        ),
         "overall_mean_jaccard": float(np.mean(per_layer_jac)),
     }
 
@@ -307,6 +317,18 @@ def restore(saved: list[tuple[torch.nn.Parameter, torch.Tensor]]) -> None:
 # ---------------------------------------------------------------------------
 
 
+def skipped_entry(spec: dict, reason: str) -> dict:
+    """Status entry for a model whose tokenizer/model could not be loaded."""
+    return {
+        "label": spec["label"],
+        "repo_id": spec["repo_id"],
+        "revision": spec["revision"],
+        "dtype": spec["dtype"],
+        "status": "skipped",
+        "skip_reason": reason,
+    }
+
+
 def run_model(spec: dict, tokenizer, *, check_budgets: bool) -> dict:
     """Load one model, run every variant, return its results entry."""
     entry: dict = {
@@ -324,6 +346,8 @@ def run_model(spec: dict, tokenizer, *, check_budgets: bool) -> dict:
             dtype=getattr(torch, spec["dtype"]),
             output_router_logits=True,
             attn_implementation="eager",
+            local_files_only=True,
+            trust_remote_code=False,
         )
     except Exception as exc:  # untrusted checkpoint: fail closed with a reported skip
         entry.update(status="skipped", skip_reason=f"load failed: {type(exc).__name__}: {exc}")
@@ -597,6 +621,16 @@ def print_model_table(entry: dict) -> None:
                 f"{data['overall_set_agreement']:>15.6f} {data['overall_mean_jaccard']:>12.6f}"
             )
     print(f"{'mean':>5} | " + " | ".join(cells))
+    excl = [
+        f"{name}={v[name]['overall_set_agreement_excl_layer0']:.6f}"
+        for name in _VARIANTS_SHOWN
+        if v.get(name) and v[name].get("overall_set_agreement_excl_layer0") is not None
+    ]
+    if excl:
+        print(
+            "set agreement excluding layer 0 (routing is expert-independent there): "
+            + "  ".join(excl)
+        )
 
     shuffled = v.get("router_shuffled")
     if shuffled and shuffled.get("layer0_relabel_prediction") is not None:
@@ -674,46 +708,42 @@ def main() -> None:
     entries: list[dict] = []
     try:
         tokenizer = AutoTokenizer.from_pretrained(
-            C.PRIMARY["repo_id"], revision=C.PRIMARY["revision"]
+            C.PRIMARY["repo_id"],
+            revision=C.PRIMARY["revision"],
+            local_files_only=True,
+            trust_remote_code=False,
         )
         primary = run_model(C.PRIMARY, tokenizer, check_budgets=False)
-        entries.append(primary)
-        if primary["status"] == "ok":
-            print_model_table(primary)
-            print("\nper-domain overall set agreement")
-            print_domain_table(primary)
-        else:
-            print(f"SKIP {C.PRIMARY['label']}: {primary.get('skip_reason')}")
-    except Exception as exc:
-        print(f"SKIP {C.PRIMARY['label']}: setup failed: {type(exc).__name__}: {exc}")
+    except Exception as exc:  # snapshot incomplete/unusable: skip, never download
+        primary = skipped_entry(C.PRIMARY, f"setup failed: {type(exc).__name__}: {exc}")
+    entries.append(primary)
+    if primary["status"] == "ok":
+        print_model_table(primary)
+        print("\nper-domain overall set agreement")
+        print_domain_table(primary)
+    else:
+        print(f"SKIP {C.PRIMARY['label']}: {primary.get('skip_reason')}")
 
     if args.olmoe != "never":
         try:
             secondary_tokenizer = AutoTokenizer.from_pretrained(
-                C.SECONDARY["repo_id"], revision=C.SECONDARY["revision"]
+                C.SECONDARY["repo_id"],
+                revision=C.SECONDARY["revision"],
+                local_files_only=True,
+                trust_remote_code=False,
             )
             secondary = run_model(
                 C.SECONDARY, secondary_tokenizer, check_budgets=args.olmoe == "auto"
             )
-            entries.append(secondary)
-            if secondary["status"] == "ok":
-                print_model_table(secondary)
-                print("\nper-domain overall set agreement")
-                print_domain_table(secondary)
-            else:
-                print(f"\nSKIP {C.SECONDARY['label']}: {secondary.get('skip_reason')}")
-        except Exception as exc:
-            entries.append(
-                {
-                    "label": C.SECONDARY["label"],
-                    "repo_id": C.SECONDARY["repo_id"],
-                    "revision": C.SECONDARY["revision"],
-                    "dtype": C.SECONDARY["dtype"],
-                    "status": "skipped",
-                    "skip_reason": f"setup failed: {type(exc).__name__}: {exc}",
-                }
-            )
-            print(f"\nSKIP {C.SECONDARY['label']}: {type(exc).__name__}: {exc}")
+        except Exception as exc:  # snapshot incomplete/unusable: skip, never download
+            secondary = skipped_entry(C.SECONDARY, f"setup failed: {type(exc).__name__}: {exc}")
+        entries.append(secondary)
+        if secondary["status"] == "ok":
+            print_model_table(secondary)
+            print("\nper-domain overall set agreement")
+            print_domain_table(secondary)
+        else:
+            print(f"\nSKIP {C.SECONDARY['label']}: {secondary.get('skip_reason')}")
 
     expectations = evaluate_expectations(entries)
     print_expectations(expectations)

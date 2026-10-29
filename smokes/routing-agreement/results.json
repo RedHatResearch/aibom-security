@@ -1,5 +1,5 @@
 {
-  "generated_utc": "2026-10-29T18:11:34+00:00",
+  "generated_utc": "2026-10-29T20:12:48+00:00",
   "smoke": "routing-agreement",
   "spec": ".scratch/specs/moe-p0-and-routing.md \u00b7 Experiment B",
   "seed": 20261029,
@@ -41,7 +41,7 @@
       "revision": "1e3516176a6279ce93923060fcad848dc043af79",
       "dtype": "float32",
       "status": "ok",
-      "load_s": 0.95,
+      "load_s": 0.94,
       "peak_rss_gb_after_load": 5.32,
       "n_layers": 12,
       "n_experts": 4,
@@ -259,22 +259,22 @@
         "top_k": 2,
         "rows": 2304
       },
-      "forward_s": 1.77,
-      "peak_rss_gb_after_base": 6.12,
+      "forward_s": 3.44,
+      "peak_rss_gb_after_base": 6.11,
       "chance": {
         "set_agreement": 0.16666666666666666,
         "mean_jaccard": 0.3888888888888889,
         "set_agreement_fraction": "1/C(4,2) = 1/6",
         "mean_jaccard_fraction": "7/18"
       },
-      "projected_total_s": 11.6,
+      "projected_total_s": 21.5,
       "variants_qdq_note": {
         "expert_tensors_quantized": 24,
-        "experts_qdq_s": 0.34,
-        "experts_q4_forward_s": 1.79,
+        "experts_qdq_s": 0.36,
+        "experts_q4_forward_s": 2.51,
         "router_tensors_quantized": 12,
         "router_qdq_s": 0.0,
-        "all_q4_forward_s": 1.84
+        "all_q4_forward_s": 2.25
       },
       "variants": {
         "base": {
@@ -307,6 +307,7 @@
             1.0
           ],
           "overall_set_agreement": 1.0,
+          "overall_set_agreement_excl_layer0": 1.0,
           "overall_mean_jaccard": 1.0,
           "by_domain": {
             "code": 1.0,
@@ -346,6 +347,7 @@
             0.3333333333333333
           ],
           "overall_set_agreement": 0.20710358796296294,
+          "overall_set_agreement_excl_layer0": 0.22593118686868685,
           "overall_mean_jaccard": 0.4289641203703703,
           "by_domain": {
             "code": 0.21426504629629628,
@@ -476,6 +478,7 @@
             0.9765625
           ],
           "overall_set_agreement": 0.9541015625000001,
+          "overall_set_agreement_excl_layer0": 0.9499289772727274,
           "overall_mean_jaccard": 0.9693889853395062,
           "by_domain": {
             "code": 0.9625289351851851,
@@ -515,6 +518,7 @@
             0.9185474537037036
           ],
           "overall_set_agreement": 0.8184317129629631,
+          "overall_set_agreement_excl_layer0": 0.8104876893939394,
           "overall_mean_jaccard": 0.8785566165123456,
           "by_domain": {
             "code": 0.851707175925926,
@@ -526,8 +530,8 @@
         }
       },
       "router_shuffled_seed": 20261029,
-      "elapsed_s": 8.7,
-      "peak_rss_gb": 6.12
+      "elapsed_s": 12.7,
+      "peak_rss_gb": 6.11
     },
     {
       "label": "olmoe",
@@ -535,8 +539,8 @@
       "revision": "6d84c48581ece794365f2b8e9cfb043c68ade9c5",
       "dtype": "bfloat16",
       "status": "ok",
-      "load_s": 16.14,
-      "peak_rss_gb_after_load": 12.48,
+      "load_s": 20.3,
+      "peak_rss_gb_after_load": 10.98,
       "n_layers": 16,
       "n_experts": 64,
       "top_k": 8,
@@ -753,22 +757,22 @@
         "top_k": 8,
         "rows": 2304
       },
-      "forward_s": 33.87,
-      "peak_rss_gb_after_base": 12.48,
+      "forward_s": 33.39,
+      "peak_rss_gb_after_base": 10.98,
       "chance": {
         "set_agreement": 2.25929199850899e-10,
         "mean_jaccard": 0.07054158520641257,
         "set_agreement_fraction": "1/C(64,8) = 1/4426165368",
         "mean_jaccard_fraction": "2810058493/39835488312"
       },
-      "projected_total_s": 219.3,
+      "projected_total_s": 220.7,
       "variants_qdq_note": {
         "expert_tensors_quantized": 32,
-        "experts_qdq_s": 6.7,
-        "experts_q4_forward_s": 31.96,
+        "experts_qdq_s": 5.09,
+        "experts_q4_forward_s": 31.72,
         "router_tensors_quantized": 16,
-        "router_qdq_s": 0.01,
-        "all_q4_forward_s": 33.34
+        "router_qdq_s": 0.0,
+        "all_q4_forward_s": 31.2
       },
       "variants": {
         "base": {
@@ -809,6 +813,7 @@
             1.0
           ],
           "overall_set_agreement": 1.0,
+          "overall_set_agreement_excl_layer0": 1.0,
           "overall_mean_jaccard": 1.0,
           "by_domain": {
             "code": 1.0,
@@ -856,6 +861,7 @@
             0.04659873109960676
           ],
           "overall_set_agreement": 0.0,
+          "overall_set_agreement_excl_layer0": 0.0,
           "overall_mean_jaccard": 0.07096708931757092,
           "by_domain": {
             "code": 0.0,
@@ -1982,6 +1988,7 @@
             0.9367071535197629
           ],
           "overall_set_agreement": 0.7621497373029773,
+          "overall_set_agreement_excl_layer0": 0.7462930531231756,
           "overall_mean_jaccard": 0.9443407244633164,
           "by_domain": {
             "code": 0.7858072916666666,
@@ -2029,6 +2036,7 @@
             0.9046447811771804
           ],
           "overall_set_agreement": 0.6194450525394046,
+          "overall_set_agreement_excl_layer0": 0.6126386456509049,
           "overall_mean_jaccard": 0.9091993419598499,
           "by_domain": {
             "code": 0.6557074652777778,
@@ -2040,8 +2048,8 @@
         }
       },
       "router_shuffled_seed": 20261029,
-      "elapsed_s": 155.0,
-      "peak_rss_gb": 19.39
+      "elapsed_s": 154.4,
+      "peak_rss_gb": 14.69
     }
   ],
   "expectations": [
@@ -2124,5 +2132,5 @@
       "verdict": "held"
     }
   ],
-  "total_elapsed_s": 164.5
+  "total_elapsed_s": 167.3
 }

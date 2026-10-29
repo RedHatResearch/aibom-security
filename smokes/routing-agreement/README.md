@@ -21,7 +21,7 @@ the first run; results were appended afterwards without changing any band.
   right-padded and their pad positions are excluded (2284 rows scored).
 - Routing capture: `forward(..., output_router_logits=True)` returns a tuple with
   one router-logit tensor `[rows, E]` per decoder layer; per layer take
-  `torch.topk(logits.float(), k=-1)` → expert ids per (prompt, position).
+  `torch.topk(logits, min(top_k, E), dim=-1)` → expert ids per (prompt, position).
   The tuple length is checked against `config.num_hidden_layers`; a mismatch is
   adapted (non-null entries, first `n_layers`) and reported in `results.json`
   (`router_logits.adapted`).
@@ -69,20 +69,33 @@ repeat fit in the RAM budget.
 `router_shuffled` permutes the rows of each router matrix, which permutes the
 router logits; the selected ids become `perm⁻¹(S)` for the base set `S`, but the
 **experts stay in place**, so the layer computes a different mixture and hidden
-states drift from there on. It is therefore a genuine random-routing control
-whose whole-model agreement should sit near the analytic chance level, with one
-exception that gives an exact check: layer 0's input (the embedding) is untouched
-by the shuffle, so its agreement equals, by construction, the fraction of base
-layer-0 routing sets left invariant by that permutation — computed from the base
-capture and the drawn permutation, not a fitted parameter. Both the layer-0
-prediction and the per-layer fixed-point counts are reported.
+states drift from there on. It is a negative control, but its null is **not** a
+fresh uniform k-subset per token: each layer draws one fixed permutation and
+applies it to every token. With that layer's input held fixed, the agreement is
+exactly the fraction of its base sets invariant under the drawn permutation — a
+single draw from a very broad distribution over cycle types. For E=4, k=2 the
+identity gives 1, a transposition or double transposition gives 1/3, and a
+3-cycle or 4-cycle gives 0; the mean over a random permutation is 1/6 with large
+single-draw variance. Layers > 0 also see drifted inputs, so their agreement is
+that invariance fraction plus drift, and the whole-model mean is a **mixture
+across the drawn cycle types**, not an estimate concentrated at chance.
+
+The calibrated check is layer 0: its input (the embedding) is untouched by the
+shuffle, so its agreement equals, by construction, the fraction of base layer-0
+routing sets left invariant by that permutation — computed from the base capture
+and the drawn permutation, not a fitted parameter, and compared exactly. Both
+that prediction and the per-layer fixed-point counts are reported; the identity
+draws (fixed points = E) show how much row churn input drift alone causes.
 
 Runtime/determinism: seed `20261029` for permutations, `torch.set_num_threads(8)`,
-no dropout, `use_cache=False`. Secondary model `allenai/OLMoE-1B-7B-0924` @
-`6d84c48581ece794365f2b8e9cfb043c68ade9c5` is loaded in bfloat16 and repeated
-with k=8, E=64 **only if** peak RSS stays under 20 GB and the projected wall
-time under 600 s; otherwise it is skipped with the reason recorded in
-`results.json`.
+no dropout, `use_cache=False`. Both models and both tokenizers load with
+`local_files_only=True` and `trust_remote_code=False`, so the run never touches
+the network; if the pinned snapshot is incomplete the model is skipped with the
+reason recorded in `results.json` rather than downloaded. Secondary model
+`allenai/OLMoE-1B-7B-0924` @ `6d84c48581ece794365f2b8e9cfb043c68ade9c5` is
+loaded in bfloat16 and repeated with k=8, E=64 **only if** peak RSS stays under
+20 GB and the projected wall time under 600 s; otherwise it is skipped with the
+reason recorded in `results.json`.
 
 ```bash
 uv run --group smokes python smokes/routing-agreement/smoke.py
@@ -111,11 +124,11 @@ near-exact-zero test rather than a band.
 
 ## Results
 
-Recorded run: `2026-10-29T18:04:12Z`, total 191.8 s, exit code 0, macOS arm64
+Recorded run: `2026-10-29T20:02:03Z`, total 167.0 s, exit code 0, macOS arm64
 (12 CPU cores, 36 GB RAM), torch 2.13.0, transformers 5.15.0, 8 threads, seed
 20261029. `results.json` is the machine-readable record of exactly this run;
-two further runs on the same variant order produced bit-identical tables (only
-timings differed), one of them before the QDQ chunking change.
+every routing number below is copied from it after the run (the model and
+tokenizer loads are offline — `local_files_only=True`).
 
 Routing tuple shape: **12 entries for TinyMixtral's 12 layers and 16 for OLMoE's
 16 layers, all non-null** — no adaptation was needed for either model.
@@ -124,19 +137,20 @@ Routing tuple shape: **12 entries for TinyMixtral's 12 layers and 16 for OLMoE's
 
 | check | budget | observed | verdict |
 |---|---|---|---|
-| OLMoE RSS after load | ≤ 20 GB | 12.32 GB | pass |
-| OLMoE RSS after base capture (the gate value) | ≤ 20 GB | 16.25 GB | pass |
-| OLMoE whole-process peak (`ru_maxrss`) | reported | 17.62 GB | pass |
-| OLMoE wall time | ≤ 600 s | 275 s projected, 179.1 s actual | pass |
+| OLMoE RSS after load | ≤ 20 GB | 11.02 GB | pass |
+| OLMoE RSS after base capture (the gate value) | ≤ 20 GB | 11.02 GB | pass |
+| OLMoE whole-process peak (`ru_maxrss`) | reported | 14.84 GB | pass |
+| OLMoE wall time | ≤ 600 s | 227.7 s projected, 159.3 s actual | pass |
 
-Note on the peak: across the four runs of this smoke the gate value ranged
-12.3–18.9 GB and the whole-process peak 17.4–20.7 GB, so the headroom against
-"~20 GB" is small and run-dependent even though only one model copy is ever
-held. The excess over the after-load figure appears on the first forward and is
-consistent with oneDNN creating blocked copies of the weights (inference, not
-measured directly); it never changed a routing number (the three runs on the
-final variant order are bit-identical).
-Total wall time per run was 191.8–214 s, well inside the 600 s budget.
+Note on the peak: the gate reads RSS after the base capture (11.02 GB here) and
+is a pre-flight heuristic, not a bound on the run — the same run's final
+high-water mark is 14.84 GB, 3.82 GB higher, and the final value is recorded in
+`results.json` (`peak_rss_gb`). The after-load figure is below the checkpoint's
+13.838 GB of bf16 payload because the safetensors mappings are not fully
+resident right after load (`[INFERENCE]` on the mmap explanation); `ru_maxrss`
+is page-residency dependent, and repeated runs of this smoke have moved the peak
+by several GB while the routing tables stayed bit-identical. Total wall time was
+167.0 s, well inside the 600 s budget.
 
 ### TinyMixtral-4x248M-MoE — L=12, E=4, k=2, fp32, 2304 rows
 
@@ -165,6 +179,16 @@ permutation, a 3-cycle) is `0.000000` and measured is `0.000000` — exact. Fixe
 points per layer: `[1, 0, 1, 2, 0, 1, 4, 2, 4, 0, 2, 0]` (layers 6 and 8 drew the
 identity permutation).
 
+Layer-0 sensitivity (post-hoc diagnostic; the pre-registered metric and band are
+unchanged): the overall metric is an unweighted mean over layers and `experts_q4`
+layer 0 is structurally `1.000000`, so **excluding layer 0 the other 11 layers
+average `0.949929`** — below the 0.95 band. E1's +0.004 margin is the
+structurally perfect layer's 1/12 contribution, not evidence that the 11
+non-trivial layers clear the band. (The same diagnostic for the other variants:
+`all_q4` `0.810488`, `router_shuffled` `0.225931`.) The same diagnostic is
+recorded in `results.json` as `overall_set_agreement_excl_layer0`. The metric
+and band are left exactly as pre-registered.
+
 Per-domain overall set agreement (TinyMixtral):
 
 | domain | experts_q4 | all_q4 | router_shuffled |
@@ -178,9 +202,9 @@ Per-domain overall set agreement (TinyMixtral):
 
 Chance: set agreement `1/C(64,8) = 1/4 426 165 368 ≈ 2.259e-10`, mean Jaccard
 `2810058493/39835488312 ≈ 0.070542`. Four prompts tokenize below 96 ids with the
-GPTNeoX tokenizer (they were 98–99 ids under the Mistral tokenizer); they are
-right-padded with pad id 1 and the 20 pad positions are excluded from scoring
-(24×96 − 20 = 2284 rows).
+GPTNeoX tokenizer (95, 92, 84 and 93 ids; the same texts are 99, 98, 110 and 100
+ids under the Mistral tokenizer); they are right-padded with pad id 1 and the 20
+pad positions are excluded from scoring (24×96 − 20 = 2284 rows).
 
 | layer | experts_q4 set | experts_q4 J | all_q4 set | all_q4 J | router_shuffled set | router_shuffled J |
 |---|---|---|---|---|---|---|
@@ -209,6 +233,11 @@ measured `0.000000` (layer 0 drew 4 fixed points, but no invariant 8-of-64 set
 occurred among the 2284 rows). Fixed points per layer:
 `[4, 4, 0, 3, 2, 0, 1, 1, 2, 1, 0, 2, 2, 1, 2, 0]`.
 
+Layer-0 sensitivity (post-hoc diagnostic; the pre-registered metric is
+unchanged): **excluding layer 0 the other 15 layers average `0.746293`** for
+`experts_q4` (`all_q4` `0.612639`, `router_shuffled` `0.000000`). E4 is a miss
+with or without the structurally perfect layer.
+
 Per-domain overall set agreement (OLMoE):
 
 | domain | experts_q4 | all_q4 | router_shuffled |
@@ -222,10 +251,10 @@ Per-domain overall set agreement (OLMoE):
 
 | id | model | expectation | observed | verdict |
 |---|---|---|---|---|
-| E1 | TinyMixtral | `experts_q4` overall set agreement ≥ 0.95 | 0.954102 | **held** (margin +0.004) |
+| E1 | TinyMixtral | `experts_q4` overall set agreement ≥ 0.95 | 0.954102 (excl. layer 0: 0.949929) | **held** (margin +0.004) |
 | E2 | TinyMixtral | `all_q4` < `experts_q4` | 0.818432 < 0.954102 | **held** |
 | E3 | TinyMixtral | `router_shuffled` within 0.06 of chance 0.1667 | 0.207104 (+0.0404) | **held** |
-| E4 | OLMoE | `experts_q4` overall set agreement ≥ 0.95 | 0.762150 | **missed** (−0.188) |
+| E4 | OLMoE | `experts_q4` overall set agreement ≥ 0.95 | 0.762150 (excl. layer 0: 0.746293) | **missed** (−0.188) |
 | E5 | OLMoE | `all_q4` < `experts_q4` | 0.619445 < 0.762150 | **held** |
 | E6 | OLMoE | `router_shuffled` within 0.01 of chance ≈ 2.3e-10 | 0.000000 | **held** |
 
@@ -235,10 +264,15 @@ E4 is a real miss, not a measurement defect: the layer-0 identity check is exact
 than the 2nd-ranked expert's at k=2, E=4 (inference from the margin structure;
 margins were not separately measured here), so the same Q4 grid flips many more
 rows. The band was extrapolated from the k=2 intuition and was simply wrong at
-k=8; it is recorded as a miss and not re-tuned. E1 held by 0.004, i.e. the band
-was almost wrong there too. E6 is a weak test by construction (chance is ~0, and
-the control measures exactly 0); it is the per-layer structure and the layer-0
-closed form that carry information for that variant.
+k=8; it is recorded as a miss and not re-tuned. E1 held by 0.004, but that
+margin is entirely layer 0's structural `1.000000`: excluding layer 0 the mean is
+`0.949929`, below the band, so the 11 non-trivial layers do not clear it either
+and E1 is reported as fragile rather than comfortable. E3's band also passed on
+a fixed-permutation mixture (identity draws 0.75–0.80, non-identity draws
+0.00–0.31), not on a calibrated null; the exact layer-0 predictions, not the
+mean, are the check for that control. E6 is a weak test by construction (chance
+is ~0, and the control measures exactly 0); it is the per-layer structure and
+the layer-0 closed form that carry information for that variant.
 
 ### Implementation surprises (reported, not tuned away)
 
@@ -251,21 +285,24 @@ closed form that carry information for that variant.
    per-expert 2-D weights the spec names; only the tensor names/shapes differ.
 2. **`router_shuffled` is not a relabelling no-op.** Permuting gate rows permutes
    the ids (to `perm⁻¹(S)`) but the experts stay in place, so the layer computes
-   a different mixture and hidden states drift. That is why it behaves like a
-   random-routing control; only layer 0 has the closed-form prediction
-   (`permutation_invariance`), and it matches exactly for both models. An earlier
-   draft of this smoke assumed the whole forward was invariant and predicted
-   every layer from the base capture; that prediction was wrong (0.232 predicted
-   vs 0.206 measured overall, with per-layer errors up to 0.25) and only layer 0
-   matched exactly, which is what exposed the error. The assumption was corrected
-   before the recorded run, and no threshold changed.
+   a different mixture and hidden states drift. Each layer applies one fixed
+   permutation to every token, so the control's per-layer value is that layer's
+   invariance fraction (plus drift for layers > 0) and the overall mean is a
+   mixture over the drawn cycle types; only layer 0 has the closed-form
+   prediction (`permutation_invariance`), and it matches exactly for both models.
+   An earlier draft of this smoke assumed the whole forward was invariant and
+   predicted every layer from the base capture; that prediction was wrong (0.232
+   predicted vs 0.206 measured overall, with per-layer errors up to 0.25) and
+   only layer 0 matched exactly, which is what exposed the error. The assumption
+   was corrected before the recorded run, and no threshold changed.
 3. **Order of variants matters for confounding.** The shuffle is captured first,
    on pristine weights, with router rows restored immediately; only then are the
    experts QDQ'd and the router QDQ'd on top. This keeps `router_shuffled` free
    of expert-Q4 contamination and needs no 14 GB expert backup (`results.json`
    → `execution_order`).
-4. **Tokenizer mismatch for the secondary model.** OLMoE's tokenizer is not in
-   the original local snapshot (downloaded on first use); with GPTNeoX
+4. **Tokenizer mismatch for the secondary model.** OLMoE uses its own GPTNeoX
+   tokenizer (present in the pinned local snapshot; loads are offline, so a
+   missing snapshot is a reported skip, not a download); with GPTNeoX
    tokenization 4 prompts fall below 96 ids, so they are padded and 20 positions
    are dropped from scoring (2284 vs 2304 rows). TinyMixtral has no padding.
 5. **bf16 quantization path.** OLMoE expert tensors are QDQ'd in float32 and
@@ -280,7 +317,10 @@ closed form that carry information for that variant.
 Keeping the router in full precision while quantizing experts largely preserves
 routing at k=2/E=4 and only partly at k=8/E=64: expert-only Q4 holds
 **0.954** of TinyMixtral's (prompt, position) routing sets and **0.762** of
-OLMoE's, while quantizing the router too drops those to **0.818** and **0.619**.
+OLMoE's (**0.9499** and **0.746** excluding layer 0, where routing is
+expert-independent by construction — the TinyMixtral figure is then just below
+the 0.95 band), while quantizing the router too drops those to **0.818** and
+**0.619**.
 The router is 4096 parameters per layer against ≈ 50.3 M in that layer's
 experts (0.008%) yet costs far more routing change than the experts: at layer 0,
 where routing is provably independent of expert weights (`experts_q4` =
@@ -289,12 +329,17 @@ OLMoE rows, and deeper `all_q4` layers stay 12–24% (TinyMixtral) and 32–46%
 (OLMoE) off base with no monotone depth trend. That is the llama.cpp "keep the router at higher
 precision" property reproduced in kind — expert Q4 is comparatively benign,
 router Q4 is the dominant routing perturbation, and it is worse when more
-experts compete (k=8 of 64). The shuffled control behaves as random routing
-overall (TinyMixtral 0.207 vs chance 0.167, OLMoE 0.000 vs 2.3e-10 with mean
-Jaccard 0.0710 vs 0.0705), although on TinyMixtral its per-layer values span
-0.00–0.80 because layers 6 and 8 drew the identity permutation — those layers
-show that input drift alone from upstream random routing moves ≈20–25% of rows,
-which is the right scale for reading the `all_q4` numbers. Per-domain results
+experts compete (k=8 of 64). The shuffled control is a negative control, not a
+calibrated near-chance test: each layer applies one fixed permutation to every
+token, so the overall mean is a mixture over the drawn cycle types (TinyMixtral
+0.207, OLMoE 0.000; mean Jaccard 0.429 vs chance 0.389, and 0.0710 vs 0.0705).
+On TinyMixtral its per-layer values span 0.00–0.80 because layers 6 and 8 drew
+the identity permutation and measure 0.753/0.798 — those layers show that input
+drift alone from upstream random routing moves ≈20–25% of rows, which is the
+right scale for reading the `all_q4` numbers — while layer 0 drew a 3-cycle and
+measures exactly its closed-form 0.000. E3's band passed because this fixed
+mixture landed at 0.207, not because the control concentrates at chance; the
+exact layer-0 predictions are what calibrate it. Per-domain results
 are flat — within 2 points for TinyMixtral `experts_q4` (0.945–0.963) and
 within 6 points for OLMoE (0.733–0.786) — so the degradation tracks the router
 geometry rather than the prompt domain.
