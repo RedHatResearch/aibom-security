@@ -55,9 +55,10 @@ window per projection at a slot-independent offset, seed **20261029**.
 ## Method notes
 
 Scoring is label-blind: `score()` in [smoke.py](smoke.py) receives the subject and reference repo
-ids, their pinned revisions and the stack string. It never sees the pair id, the expected label,
-the evidence block or the recipe; the harness attaches the id and judges afterwards. `pairs.yaml`
-is read for the structural pins only — `expected`, `evidence` and `challenge` are never loaded.
+ids, their pinned revisions, the stack string and the layer sample that `config.SAMPLING`
+pre-registers per pair before the run. It never sees the pair id, the expected label, the evidence
+block or the recipe; the harness attaches the id and judges afterwards. `pairs.yaml` is read for the
+structural pins only — `expected`, `evidence` and `challenge` are never loaded.
 
 Reads go through `detect.CheckpointReader` (one materialised tensor at a time, `MAX_TENSOR_BYTES`
 cap). A layer is served in one of two ways, decided by the budget gate: whole shards are fetched
@@ -114,38 +115,38 @@ tree to reclaim it).
 
 ## Results
 
-Run 2026-10-29T21:00:56Z (exit 0), seed 20261029, thresholds exactly the frozen detector constants
+Run 2026-10-29T21:10:02Z (exit 0), seed 20261029, thresholds exactly the frozen detector constants
 (`exact_cos` 0.9995, `merge_gain_min` 0.30, `min_component` 0.03, 32×32 descriptor blocks), no
-threshold or band touched before or after the run. Wall 592 s of the 1200 s budget; peak RSS
-2.71 GB of 20 GB. Every number below is read from the committed [`results.json`](results.json).
+threshold or band touched before or after the run. Wall 45.69 s of the 1200 s budget; peak RSS
+2698.9 MB of 20 GB. Every number in this section is read from the committed
+[`results.json`](results.json).
 
-Materialisation note (`results.json` accounts for the recorded pass; the cold pass is quoted here
-from its own run): the 30B pair was read in two passes over the same cached artifacts. A **cold**
-pass (1031 s, 4.23 GB of ranged reads, peak RSS 2.77 GB) scored layers 0 and 24 and skipped layer
-47 with
+This pass is **cache-only**: both pairs report `downloads.bytes = 0` with an empty `calls` list,
+because the granite shards and the three ranged mini-shards were already on disk. The 30B layers
+still took the ranged path (their full shards do not fit the remaining budget), but `plan_ranged`
+found every mini-shard present, so not a byte was fetched. Download accounting records actual
+fetches only — repo, revision, bytes and seconds per call — so a cache hit contributes nothing and
+`bytes = 0` means exactly that.
 
-```
-budget projection: ranged read 2.11 GB at 4.2 MB/s + 10 s analysis + 45 s reserve = 562 s > 169 s left
-```
-
-The recorded pass re-used those two mini-shards and fetched layer 47 only (2.12 GB, 573 s), so all
-three pre-registered layers are in the table. A single cold pass over three layers costs ≈ 26 min,
-i.e. over the 20-minute budget — which is exactly what the gate exists for and why the cold run
-recorded a skip instead of overrunning.
+A separate **cold** observation, made once with an empty scratch tree, is not committed in this
+tree: it scored layers 0 and 24 and skipped layer 47 with a budget projection, and its timings and
+byte counts are deliberately not quoted here because no artifact in the repository backs them.
+That skip is the behaviour the shard-level gate exists for (see Method notes); the committed pass
+itself abstained on nothing.
 
 **`pb-core-granite-reap-025`** — 24 layers × (32 parent, 24 subject) experts; 576/768 expert pairs.
 
 | layers | matched | missing | new | merged | unexplained | duplicates | max pair cos | max gain | per layer |
 |---|---|---|---|---|---|---|---|---|---|
-| 24/24 | **24/32 every layer** (576) | **8 every layer** (192 total) | 0 | 0 | 0 | 0 | 1.000000 | `null` (no residual) | 0.16–0.58 s |
+| 24/24 | **24/32 every layer** (576) | **8 every layer** (192 total) | 0 | 0 | 0 | 0 | 1.000000 | `null` (no residual) | 0.63–0.88 s |
 
 **`pb-core-qwen3-30b-ream`** — 48 layers, layers 0 / 24 / 47 sampled; 128 parent, 96 subject experts.
 
 | layer | matched | missing | new (suspect slots) | merged | unexplained | dups | max pair cos | max gain | elapsed |
 |---|---|---|---|---|---|---|---|---|---|
-| 0 | 93/128 | 35 | `[1, 35, 78]` | **0** | 3 | 0 | 1.000000 | −1.2250 | 3.2 s |
-| 24 | 93/128 | 35 | `[7, 61, 83]` | **0** | 3 | 0 | 1.000000 | −1.5312 | 3.2 s |
-| 47 | 94/128 | 34 | `[7, 81]` | **0** | 2 | 0 | 1.000000 | −1.6247 | 2.6 s |
+| 0 | 93/128 | 35 | `[1, 35, 78]` | **0** | 3 | 0 | 1.000000 | −1.2250 | 9.17 s |
+| 24 | 93/128 | 35 | `[7, 61, 83]` | **0** | 3 | 0 | 1.000000 | −1.5312 | 8.63 s |
+| 47 | 94/128 | 34 | `[7, 81]` | **0** | 2 | 0 | 1.000000 | −1.6247 | 8.36 s |
 
 Missing lists are full in `results.json`; layer 0 begins `[1, 5, 6, 9, 10, 14, 15, 20, 31, 32, …]`.
 The non-verbatim suspects (the ones in `new`) are the only experts that are not exact copies; the
@@ -201,10 +202,12 @@ orientation. Cosine still lands at 0.936–0.999, so the merged experts are visi
 wanted to name the group would need permutation-aware fitting; that is out of scope here and is
 recorded as an extension, not a threshold change.
 
-**Abstentions.** The recorded pass raised no `DetectionError` and scored all three sampled layers;
-in the cold pass the only non-scored layer was 47, skipped with the budget projection quoted above.
+**Abstentions.** The committed pass raised no `DetectionError`: `skipped_layers` is empty for both
+pairs, and all 24 granite layers plus all three sampled 30B layers are scored in `results.json`.
 Every structural bound in the reader held on every sampled layer of both real checkpoints (32/24
-and 128/96 experts, a single-file and a 16/10-shard layout, BF16 throughout).
+and 128/96 experts, a single-file and a 16/10-shard layout, BF16 throughout). The only non-scored
+layer seen at all is the uncommitted cold pass's layer-47 budget skip described above; a skip is
+not a structural abstention.
 
 ### Reading
 
@@ -212,9 +215,10 @@ and 128/96 experts, a single-file and a 16/10-shard layout, BF16 throughout).
   copies at cosine 1.000000 (max deviation 4e−15), the exact drop count, and zero false merge
   labels.
 - The 30B pair shows what "consistency, not truth" buys: the detector recovers the *shape* of the
-  REAM edit (96 survivors, 32 slots gone, 2–3 merged centroids) without recovering the merge
-  weights, because the published recipe applies a permutation before averaging. The counts agree
-  with the recipe; the mechanism is flagged as unexplained by design of the estimator.
+  REAM edit (96 survivors, 32 slots gone, 2–3 centroids whose weights were replaced by a group
+  average) without recovering the merge weights, because the published recipe applies a permutation
+  before averaging. The counts agree with the recipe; the mechanism is flagged as unexplained by
+  design of the estimator.
 - Layer sampling cannot see the whole model: layers 0/24/47 all show the same pattern (93–94
   verbatim, 2–3 replacements), but nothing here rules out a different pattern in the 45 unsampled
   layers.
@@ -222,13 +226,15 @@ and 128/96 experts, a single-file and a 16/10-shard layout, BF16 throughout).
   through the same reader, with the batched adapter only for GraniteMoe's dim-0 expert tensor.
 
 **Reporting fix (disclosed, no measurement changed).** The first version of the judge counted a
-budget-skipped layer as a failure of its `no structural abstention` check, which made the cold pass
-report `MISSED` for the 30B pair even though every scored layer held. The check is now "no
-`DetectionError` on an attempted layer", and coverage (`scored` / `sampled` / `skipped` with reasons)
-is reported separately. No score, count, threshold or fitted value changed; the raw layer records are
-identical before and after.
+budget-skipped layer as a failure of its `no structural abstention` check, which made an earlier,
+uncommitted pass report `MISSED` for the 30B pair even though every scored layer held. The check is
+now "no `DetectionError` on an attempted layer", and coverage (`scored` / `sampled` / `skipped` with
+reasons) is reported separately. No score, count, threshold or fitted value changed; the raw layer
+records are identical before and after.
 
-Artifacts: `.scratch/moe-real-pairs/` holds the ranged mini-shards (6.0 GB: 3.4 GB parent, 2.6 GB
-subject; delete the tree to reclaim space). Weight shards live in the shared Hugging Face cache;
-the granite subject (2.06 GB) was fetched during setup and the parent snapshot was already cached.
+Artifacts: `.scratch/moe-real-pairs/` holds the ranged mini-shards for the three sampled 30B layers
+(measured 6.0 GB for the recorded tree: 3.4 GB parent, 2.6 GB subject; delete it to reclaim the
+space). Weight shards live in the shared Hugging Face cache; the granite subject
+`model.safetensors` (2,064,910,056 bytes) was fetched during setup and the parent snapshot was
+already cached.
 

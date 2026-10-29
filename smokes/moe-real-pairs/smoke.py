@@ -7,19 +7,31 @@ the injection" but "do the detector's per-layer counts agree with the recipe the
 model card states, and where does it abstain".
 
 Label-blindness: ``score()`` receives a subject repo id + pinned revision, a
-reference repo id + pinned revision, and the stack string. It never sees the
-pair id, the expected label, the evidence block, or the recipe. The harness
-attaches the pair id and judges the result against ``config.PREREG`` after the
-fact; nothing that judges feeds back into scoring.
+reference repo id + pinned revision, the stack string, and the layer sample
+pre-registered per pair in ``config.SAMPLING`` (fixed before the run, never
+derived from a result). It never sees the pair id, the expected label, the
+evidence block, or the recipe. The harness attaches the pair id and judges the
+result against ``config.PREREG`` after the fact; nothing that judges feeds back
+into scoring.
 
-Ours, not from the paper (disclosed in README.md):
+Ours, not from the paper (the same list as README.md's disclosures):
 - ``BatchedExpertView``: GraniteMoe stores every expert of a layer in one tensor
   with the expert index in dim 0. The view presents that storage through the
   detector's per-expert reader API; no detector code is copied or changed.
-- layered materialisation and budgeting: whole shards when they fit the
-  remaining budget, otherwise only the tensors of the sampled layer by HTTP
-  range; a layer is skipped (with the projection that failed) if it would not
-  fit the wall-clock / RSS budget.
+- Layer sampling: layers 0 / 24 / 47 (first, middle, last) of the 48-layer 30B
+  pair instead of all 48; the granite pair scores every layer.
+- Shard-level budget gate: a layer whose projected download + analysis time or
+  RSS would not fit the remaining budget is skipped with that projection
+  recorded, never silently truncated.
+- HTTP ranged materialisation (``plan_ranged`` / ``run_ranged``): the shard
+  header is size-capped, offsets are validated against the ``Content-Range``
+  total, only ``206`` is accepted, and the fetched tensors become a compact
+  mini-shard reused on a rerun, keyed by repo, revision and layer.
+- Default download-rate assumption (2.5 MB/s) for the first projection, replaced
+  by the measured rate afterwards; it decides which layers are attempted, never
+  a score.
+- The shard index is a download hint only: the pinned revision decides what is
+  fetched and the reader re-derives tensor names from the safetensors headers.
 """
 
 from __future__ import annotations
@@ -67,7 +79,13 @@ def peak_rss_mb() -> float:
 
 @dataclass
 class Downloads:
-    """Per-repo, per-fetch accounting so the budget decisions are auditable."""
+    """Per-repo, per-fetch accounting so the budget decisions are auditable.
+
+    ``bytes``/``seconds`` count every byte that crossed the wire, shard headers
+    included. ``calls`` carries one entry per completed materialisation (a
+    whole-shard fetch or a mini-shard write) with the repo and pinned revision
+    it came from. A cache hit adds neither.
+    """
 
     bytes_total: int = 0
     seconds: float = 0.0
@@ -272,7 +290,7 @@ def _plan_layers(
     root: Path, repo_files: set[str], layers: list[int]
 ) -> tuple[dict[int, tuple[str, ...]], str]:
     if "model.safetensors.index.json" in repo_files:
-        document = detect._read_json(root / "model.safetensors.index.json", "shard index")
+        document = detect.read_json(root / "model.safetensors.index.json", "shard index")
         if not isinstance(document, dict):
             raise detect.DetectionError("shard index is not an object")
         weight_map = document.get("weight_map")
@@ -287,7 +305,7 @@ def _plan_layers(
             if not files:
                 raise detect.DetectionError(f"layer {layer}: no tensors in the shard index")
             for value in files:
-                detect._checkpoint_file(root, value, "shard index")
+                detect.checkpoint_file(root, value, "shard index")
             absent = [name for name in files if name not in repo_files]
             if absent:
                 raise detect.DetectionError(
@@ -304,7 +322,7 @@ def open_model(repo: str, revision: str, layers: tuple[int, ...] | None) -> Mode
     """Resolve config + layout for one pinned snapshot; no weight bytes are read."""
     repo_files = _repo_files(repo, revision)
     root = _snapshot(repo, revision, ["config.json"])
-    raw = detect._read_json(root / "config.json", "config")
+    raw = detect.read_json(root / "config.json", "config")
     model_type = raw.get("model_type") if isinstance(raw, dict) else None
     if not isinstance(model_type, str) or model_type not in config.ARCHES:
         raise detect.DetectionError(f"unsupported model_type {model_type!r}")
@@ -444,8 +462,8 @@ class ShardPlan:
     shard: RemoteShard | None
     entries: dict[str, dict]
     groups: tuple[tuple[int, int], ...]
-    repo: str = ""
-    revision: str = ""
+    repo: str
+    revision: str
 
     @property
     def cached(self) -> bool:
@@ -569,22 +587,24 @@ def plan_ranged(
     plans: list[ShardPlan] = []
     for name in model.plan[layer]:
         dest = scratch / name
-        if dest.is_file():
-            covered = _mini_shard_names(dest) & wanted
-            if covered:
-                found |= covered
-                plans.append(ShardPlan(name=name, dest=dest, shard=None, entries={}, groups=()))
-                continue
-        shard = _remote_shard(session, _remote_url(model, name), downloads, rate)
-        entries = {key: shard.entries[key] for key in needed if key in shard.entries}
-        found |= set(entries)
+        covered = _mini_shard_names(dest) & wanted if dest.is_file() else set()
+        if covered:
+            found |= covered
+            shard, entries, groups = None, {}, ()
+        else:
+            shard = _remote_shard(session, _remote_url(model, name), downloads, rate)
+            entries = {key: shard.entries[key] for key in needed if key in shard.entries}
+            groups = _coalesce(entries)
+            found |= set(entries)
         plans.append(
             ShardPlan(
                 name=name,
                 dest=dest,
                 shard=shard,
                 entries=entries,
-                groups=_coalesce(entries),
+                groups=groups,
+                repo=model.repo,
+                revision=model.revision,
             )
         )
     missing = [name for name in needed if name not in found]
@@ -696,7 +716,15 @@ def score(
     analysis_estimate: float,
     rate: Rate,
 ) -> dict:
-    """Score one pair. Inputs are ids, pinned revisions and the stack only."""
+    """Score one pair, label-blind.
+
+    The only inputs are the subject and reference repo ids, their pinned
+    revisions, the stack string, and ``layers``: the layer sample that
+    ``config.SAMPLING`` pre-registers per pair before the run. The sample fixes
+    which layers are attempted; it is never derived from the pair's expected
+    label or from a result. The pair id, the expected label, the evidence block
+    and the recipe never reach this function.
+    """
     started = time.monotonic()
     downloads = Downloads()
     session = _session()

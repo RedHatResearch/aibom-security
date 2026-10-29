@@ -2,7 +2,7 @@
  "schema": "moe-real-pairs/1",
  "issue": 68,
  "run": {
-  "utc": "2026-10-29T21:10:02+00:00",
+  "utc": "2026-10-29T23:12:28+00:00",
   "seed": 20261029,
   "budget_s": 1200.0,
   "rss_budget_mb": 20480,
@@ -13,8 +13,8 @@
    "merge_gain_min": 0.3,
    "min_component": 0.03
   },
-  "wall_s": 45.69,
-  "peak_rss_mb": 2698.9
+  "wall_s": 125.91,
+  "peak_rss_mb": 2394.1
  },
  "pairs": [
   {
@@ -616,8 +616,8 @@
      "max_candidate_cos": null,
      "max_assigned_cos": 1.0000000000000036,
      "download_mode": "full-shard",
-     "elapsed_s": 0.73,
-     "peak_rss_mb": 507.2
+     "elapsed_s": 1.14,
+     "peak_rss_mb": 507.1
     },
     {
      "layer": 1,
@@ -1178,8 +1178,8 @@
      "max_candidate_cos": null,
      "max_assigned_cos": 1.0000000000000038,
      "download_mode": "full-shard",
-     "elapsed_s": 0.67,
-     "peak_rss_mb": 507.3
+     "elapsed_s": 1.3,
+     "peak_rss_mb": 508.3
     },
     {
      "layer": 2,
@@ -1740,8 +1740,8 @@
      "max_candidate_cos": null,
      "max_assigned_cos": 1.0000000000000033,
      "download_mode": "full-shard",
-     "elapsed_s": 0.67,
-     "peak_rss_mb": 507.3
+     "elapsed_s": 2.41,
+     "peak_rss_mb": 508.3
     },
     {
      "layer": 3,
@@ -2302,8 +2302,8 @@
      "max_candidate_cos": null,
      "max_assigned_cos": 1.0000000000000027,
      "download_mode": "full-shard",
-     "elapsed_s": 0.69,
-     "peak_rss_mb": 507.3
+     "elapsed_s": 1.59,
+     "peak_rss_mb": 508.3
     },
     {
      "layer": 4,
@@ -2864,8 +2864,8 @@
      "max_candidate_cos": null,
      "max_assigned_cos": 1.0000000000000027,
      "download_mode": "full-shard",
-     "elapsed_s": 0.79,
-     "peak_rss_mb": 507.4
+     "elapsed_s": 3.05,
+     "peak_rss_mb": 508.3
     },
     {
      "layer": 5,
@@ -3426,8 +3426,8 @@
      "max_candidate_cos": null,
      "max_assigned_cos": 1.0000000000000044,
      "download_mode": "full-shard",
-     "elapsed_s": 0.65,
-     "peak_rss_mb": 507.4
+     "elapsed_s": 2.97,
+     "peak_rss_mb": 508.3
     },
     {
      "layer": 6,
@@ -3988,8 +3988,8 @@
      "max_candidate_cos": null,
      "max_assigned_cos": 1.0000000000000018,
      "download_mode": "full-shard",
-     "elapsed_s": 0.63,
-     "peak_rss_mb": 507.4
+     "elapsed_s": 1.59,
+     "peak_rss_mb": 508.3
     },
     {
      "layer": 7,
@@ -4550,8 +4550,8 @@
      "max_candidate_cos": null,
      "max_assigned_cos": 1.000000000000003,
      "download_mode": "full-shard",
-     "elapsed_s": 0.66,
-     "peak_rss_mb": 507.4
+     "elapsed_s": 1.66,
+     "peak_rss_mb": 508.3
     },
     {
      "layer": 8,
@@ -5112,8 +5112,8 @@
      "max_candidate_cos": null,
      "max_assigned_cos": 1.000000000000002,
      "download_mode": "full-shard",
-     "elapsed_s": 0.64,
-     "peak_rss_mb": 507.4
+     "elapsed_s": 1.59,
+     "peak_rss_mb": 508.3
     },
     {
      "layer": 9,
@@ -5674,8 +5674,8 @@
      "max_candidate_cos": null,
      "max_assigned_cos": 1.0000000000000024,
      "download_mode": "full-shard",
-     "elapsed_s": 0.67,
-     "peak_rss_mb": 507.4
+     "elapsed_s": 1.49,
+     "peak_rss_mb": 508.3
     },
     {
      "layer": 10,
@@ -6236,8 +6236,8 @@
      "max_candidate_cos": null,
      "max_assigned_cos": 1.000000000000003,
      "download_mode": "full-shard",
-     "elapsed_s": 0.8,
-     "peak_rss_mb": 508.5
+     "elapsed_s": 1.5,
+     "peak_rss_mb": 508.3
     },
     {
      "layer": 11,
@@ -6798,8 +6798,8 @@
      "max_candidate_cos": null,
      "max_assigned_cos": 1.0000000000000027,
      "download_mode": "full-shard",
-     "elapsed_s": 0.66,
-     "peak_rss_mb": 508.5
+     "elapsed_s": 2.33,
+     "peak_rss_mb": 508.3
     },
     {
      "layer": 12,
@@ -7360,8 +7360,8 @@
      "max_candidate_cos": null,
      "max_assigned_cos": 1.0000000000000013,
      "download_mode": "full-shard",
-     "elapsed_s": 0.75,
-     "peak_rss_mb": 508.5
+     "elapsed_s": 2.29,
+     "peak_rss_mb": 508.3
     },
     {
      "layer": 13,
@@ -7922,8 +7922,8 @@
      "max_candidate_cos": null,
      "max_assigned_cos": 1.0000000000000022,
      "download_mode": "full-shard",
-     "elapsed_s": 0.79,
-     "peak_rss_mb": 508.5
+     "elapsed_s": 2.26,
+     "peak_rss_mb": 508.3
     },
     {
      "layer": 14,
@@ -8484,8 +8484,8 @@
      "max_candidate_cos": null,
      "max_assigned_cos": 1.0000000000000013,
      "download_mode": "full-shard",
-     "elapsed_s": 0.88,
-     "peak_rss_mb": 508.5
+     "elapsed_s": 2.18,
+     "peak_rss_mb": 508.3
     },
     {
      "layer": 15,
@@ -9046,8 +9046,8 @@
      "max_candidate_cos": null,
      "max_assigned_cos": 1.0000000000000036,
      "download_mode": "full-shard",
-     "elapsed_s": 0.69,
-     "peak_rss_mb": 508.6
+     "elapsed_s": 2.73,
+     "peak_rss_mb": 508.3
     },
     {
      "layer": 16,
@@ -9608,8 +9608,8 @@
      "max_candidate_cos": null,
      "max_assigned_cos": 1.0000000000000018,
      "download_mode": "full-shard",
-     "elapsed_s": 0.66,
-     "peak_rss_mb": 508.6
+     "elapsed_s": 2.23,
+     "peak_rss_mb": 508.3
     },
     {
      "layer": 17,
@@ -10170,8 +10170,8 @@
      "max_candidate_cos": null,
      "max_assigned_cos": 1.0000000000000016,
      "download_mode": "full-shard",
-     "elapsed_s": 0.7,
-     "peak_rss_mb": 508.6
+     "elapsed_s": 2.23,
+     "peak_rss_mb": 508.3
     },
     {
      "layer": 18,
@@ -10732,8 +10732,8 @@
      "max_candidate_cos": null,
      "max_assigned_cos": 1.000000000000001,
      "download_mode": "full-shard",
-     "elapsed_s": 0.83,
-     "peak_rss_mb": 508.6
+     "elapsed_s": 1.99,
+     "peak_rss_mb": 508.3
     },
     {
      "layer": 19,
@@ -11294,8 +11294,8 @@
      "max_candidate_cos": null,
      "max_assigned_cos": 1.0000000000000024,
      "download_mode": "full-shard",
-     "elapsed_s": 0.7,
-     "peak_rss_mb": 508.7
+     "elapsed_s": 2.36,
+     "peak_rss_mb": 508.3
     },
     {
      "layer": 20,
@@ -11856,8 +11856,8 @@
      "max_candidate_cos": null,
      "max_assigned_cos": 1.000000000000002,
      "download_mode": "full-shard",
-     "elapsed_s": 0.68,
-     "peak_rss_mb": 508.7
+     "elapsed_s": 2.47,
+     "peak_rss_mb": 508.3
     },
     {
      "layer": 21,
@@ -12418,8 +12418,8 @@
      "max_candidate_cos": null,
      "max_assigned_cos": 1.0000000000000033,
      "download_mode": "full-shard",
-     "elapsed_s": 0.69,
-     "peak_rss_mb": 508.7
+     "elapsed_s": 2.25,
+     "peak_rss_mb": 508.3
     },
     {
      "layer": 22,
@@ -12980,8 +12980,8 @@
      "max_candidate_cos": null,
      "max_assigned_cos": 1.000000000000002,
      "download_mode": "full-shard",
-     "elapsed_s": 0.85,
-     "peak_rss_mb": 508.7
+     "elapsed_s": 1.44,
+     "peak_rss_mb": 508.3
     },
     {
      "layer": 23,
@@ -13542,8 +13542,8 @@
      "max_candidate_cos": null,
      "max_assigned_cos": 1.0000000000000022,
      "download_mode": "full-shard",
-     "elapsed_s": 0.73,
-     "peak_rss_mb": 508.7
+     "elapsed_s": 1.66,
+     "peak_rss_mb": 508.3
     }
    ],
    "downloads": {
@@ -13569,7 +13569,7 @@
      "num_experts": 24
     }
    },
-   "wall_s": 18.29,
+   "wall_s": 49.62,
    "id": "pb-core-granite-reap-025",
    "judgement": {
     "verdict": "HELD",
@@ -15901,8 +15901,8 @@
      "max_candidate_cos": 0.9832910555345074,
      "max_assigned_cos": 1.0000000000000036,
      "download_mode": "ranged",
-     "elapsed_s": 9.17,
-     "peak_rss_mb": 2693.8
+     "elapsed_s": 27.2,
+     "peak_rss_mb": 2394.1
     },
     {
      "layer": 24,
@@ -18076,8 +18076,8 @@
      "max_candidate_cos": 0.9989572948946444,
      "max_assigned_cos": 1.0000000000000058,
      "download_mode": "ranged",
-     "elapsed_s": 8.63,
-     "peak_rss_mb": 2696.9
+     "elapsed_s": 26.06,
+     "peak_rss_mb": 2394.1
     },
     {
      "layer": 47,
@@ -20250,8 +20250,8 @@
      "max_candidate_cos": 0.9985708007908342,
      "max_assigned_cos": 1.0000000000000049,
      "download_mode": "ranged",
-     "elapsed_s": 8.36,
-     "peak_rss_mb": 2698.9
+     "elapsed_s": 21.23,
+     "peak_rss_mb": 2394.1
     }
    ],
    "downloads": {
@@ -20277,7 +20277,7 @@
      "num_experts": 96
     }
    },
-   "wall_s": 27.36,
+   "wall_s": 76.16,
    "id": "pb-core-qwen3-30b-ream",
    "judgement": {
     "verdict": "HELD",

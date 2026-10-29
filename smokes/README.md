@@ -20,6 +20,7 @@ Runnable checks for the [#26](https://github.com/RedHatResearch/aibom-security/i
 | What-you-sign | [`what-you-sign/`](what-you-sign/) | GGUF re-derivability: FP-contraction divergence, recipe/imatrix gaps, detection floor, ggufpacker EXACT/NEAR | [#26 What You Sign](https://github.com/RedHatResearch/aibom-security/issues/26#issuecomment-6289519448) |
 | GATE spectral | [`gate-spectral/`](gate-spectral/) | Gate-proj spectral entropy, depth-segment pooling, linear CKA | [#26 GATE](https://github.com/RedHatResearch/aibom-security/issues/26) · pbench pairs |
 | MoE expert lineage | [`moe-expert-lineage/`](moe-expert-lineage/) | Synthetic expert permutation/prune/merge recovery: descriptor + Hungarian, constrained mixture fit | [#26](https://github.com/RedHatResearch/aibom-security/issues/26) · TinyMixtral + OLMoE synthetic variants |
+| MoE real pairs | [`moe-real-pairs/`](moe-real-pairs/) | Published REAP/REAM checkpoints: per-layer expert match/drop/merge counts vs the model-card recipe | [#68](https://github.com/RedHatResearch/aibom-security/issues/68) · pbench pairs |
 
 Shared helpers: [`_lib/`](_lib/) (Hub load, fixture pairs).
 
