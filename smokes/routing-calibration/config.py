@@ -47,8 +47,16 @@ _spec.loader.exec_module(_RA)
 SEQ_LEN = _RA.SEQ_LEN
 DOMAINS = _RA.DOMAINS
 PROMPTS = _RA.PROMPTS
-QUANT_BITS = _RA.QUANT_BITS
-QUANT_BLOCK = _RA.QUANT_BLOCK
+
+# The QDQ grid is defined once, in quant.py; the routing config no longer
+# restates it, so read it from the module that applies it.
+_spec_q = importlib.util.spec_from_file_location("_routing_agreement_quant", _QUANT_PATH)
+if _spec_q is None or _spec_q.loader is None:  # pragma: no cover - import wiring
+    raise RuntimeError(f"cannot load QDQ source {_QUANT_PATH}")
+_QUANT = importlib.util.module_from_spec(_spec_q)
+_spec_q.loader.exec_module(_QUANT)
+QUANT_BITS = _QUANT.BITS
+QUANT_BLOCK = _QUANT.BLOCK
 
 _REPO_ROOT = Path(__file__).resolve().parents[2]
 
