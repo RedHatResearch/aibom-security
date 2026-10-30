@@ -128,9 +128,7 @@ and `sota_render.py --check` pass; lint-rule or script changes go through a PR.
 ### Claim an issue
 
 ```bash
-gh issue edit N --add-assignee @me \
-  --remove-label "blocked" \
-  --add-label "in-progress"
+gh issue edit N --add-assignee @me
 ```
 
 Open a **draft PR** early once there is a branch.
@@ -152,10 +150,10 @@ gh issue comment N --body "Done: …"
 When blocked:
 
 ```bash
-gh issue edit N --remove-label "in-progress" --add-label "blocked"
+gh issue edit N --add-label "blocked"
 ```
 
-Say why in Stuck On or a `Stuck:` comment (hard block) or a short `Context:` / `Decision:` comment (needs a human call).
+Say why in Stuck On or a `Stuck:` comment (hard block) or a short `Context:` / `Decision:` comment (needs a human call). Remove the label when unblocked.
 
 ### Board Mermaid and diagrams (issues / PRs / comments)
 
@@ -196,7 +194,7 @@ Check off epic checklist items only when child work is actually complete.
 
 - Commits while WIP: `Refs #N` (does not close).
 - Draft PR: `Refs #N` in the body **and** PR milestone matches the issue.
-- If merge used `Refs` only (issue stayed open): post `Done:`, clear `in-progress` / `blocked`, close manually.
+- If merge used `Refs` only (issue stayed open): post `Done:`, remove `blocked` if set, close manually.
 
 ### Closeout
 
@@ -208,29 +206,33 @@ Check off epic checklist items only when child work is actually complete.
 | Blocked on human | Waiting on review | `blocked` until answered |
 
 ```bash
-gh issue edit N --remove-label "in-progress" --remove-label "blocked"
 gh issue close N --reason completed
 ```
 
 ### Parking (icelog)
 
 ```bash
-gh issue edit N --add-label "icelog" \
-  --remove-label "in-progress" --remove-label "blocked"
+gh issue edit N --add-label "icelog" --remove-label "blocked"
 ```
 
-Also move to **Icebox** milestone. Do not implement without asking.
+Do not implement parked work without asking. There is no Icebox milestone; `icelog` plus no milestone is the parked state.
 
-### Status labels
+### Issue types and labels
 
-At most one status label on an open issue:
+Every issue gets one **type**: Feature (product behaviour), Bug (product off-spec), and, once the organisation enables them, Research, Data, Writeup and Experiment. Until then, non-product work is `Task` and a research question also carries `question`.
+
+Labels are few and orthogonal:
 
 | Label | Meaning |
 |-------|---------|
-| `in-progress` | Assignee and/or draft PR |
-| `blocked` | Cannot proceed, or waiting on human review/decision |
+| `area:verifier` | `verifier/`, `cli/`, `server/`; gate is ruff + offline pytest |
+| `area:pbench` | ProvenanceBench registry and cohorts; gate is registry validation |
+| `area:survey` | `docs/sota/` and the wiki; gate is `sota_lint.py` + `sota_render.py --check` |
+| `blocked` | Waiting on something external; the body says what |
+| `icelog` | Parked; do not implement without asking |
+| `question` | Interim marker for research until the Research type exists |
 
-No status label = ready to pick up. Parked = `icelog` + Icebox. Type labels stay as today (`enhancement`, `bug`, `question`, …).
+State is native: open/closed, assignee, draft PR, and blocked-by links. There are no status labels; do not add them back.
 
 ### Public board copy
 
