@@ -5,7 +5,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent
 CACHE_DIR = ROOT / ".cache"
 
-# feeds #17; see smokes/fixtures.yaml deferred.moe
+# feeds M1.3 (MoE); see smokes/fixtures.yaml deferred.moe
 FIXTURES = {
     "parent": "allenai/OLMoE-1B-7B-0924",
     "child": "allenai/OLMoE-1B-7B-0924-SFT",

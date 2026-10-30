@@ -1,0 +1,1622 @@
+[
+ {
+  "id": "tensorlock",
+  "name": "TensorLock",
+  "class": "static",
+  "action": "row",
+  "duplicate_of": null,
+  "alias_of": null,
+  "legacy": {
+   "issue": 26,
+   "raw": "- [x] TensorLock ([doi:10.1145/3832119](https://doi.org/10.1145/3832119)) \u2014 MSA gate strong, QPS new, FT direction thin \u00b7 **benchmark** \u00b7 [findings](https://git"
+  }
+ },
+ {
+  "id": "witness-overlap",
+  "name": "Witness Overlap",
+  "class": "static",
+  "action": "row",
+  "duplicate_of": null,
+  "alias_of": null,
+  "legacy": {
+   "issue": 26,
+   "raw": "- [x] Witness Overlap ([arXiv:2609.31784](https://arxiv.org/abs/2609.31784)) \u2014 directional update-delta overlap via a third witness checkpoint \u00b7 **adopt** \u00b7 [fi"
+  }
+ },
+ {
+  "id": "centered-residual-signatures",
+  "name": "Centered Residual Signatures",
+  "class": "static",
+  "action": "row",
+  "duplicate_of": null,
+  "alias_of": null,
+  "legacy": {
+   "issue": 26,
+   "raw": "- [x] Centered Residual Signatures ([arXiv:2608.14929](https://arxiv.org/abs/2608.14929)) \u2014 centered residual products, empirical null \u00b7 **benchmark** \u00b7 [findin"
+  }
+ },
+ {
+  "id": "llm-biometrics",
+  "name": "LLM-Biometrics",
+  "class": "static",
+  "action": "row",
+  "duplicate_of": null,
+  "alias_of": null,
+  "legacy": {
+   "issue": 26,
+   "raw": "- [x] LLM-Biometrics ([arXiv:2608.07786](https://arxiv.org/abs/2608.07786)) \u2014 layer energy curves, principal-angle subspaces \u00b7 **benchmark** \u00b7 [findings](https:"
+  }
+ },
+ {
+  "id": "huref",
+  "name": "HuRef",
+  "class": "static",
+  "action": "row",
+  "duplicate_of": null,
+  "alias_of": null,
+  "legacy": {
+   "issue": 26,
+   "raw": "- [x] HuRef ([LUMIA-Group/HuRef](https://github.com/LUMIA-Group/HuRef)) \u2014 rare-token invariant cosine terms \u00b7 [findings](https://github.com/RedHatResearch/aibom"
+  }
+ },
+ {
+  "id": "intrinsic-fingerprint",
+  "name": "Intrinsic Fingerprint",
+  "class": "static",
+  "action": "row",
+  "duplicate_of": null,
+  "alias_of": null,
+  "legacy": {
+   "issue": 26,
+   "raw": "- [x] Intrinsic Fingerprint ([Iamlovingit/LLM-Fingerprint](https://github.com/Iamlovingit/LLM-Fingerprint) fork; PDF-only) \u2014 per-layer Q/K/V/O std curves \u00b7 [fin"
+  }
+ },
+ {
+  "id": "mother",
+  "name": "MoTHer",
+  "class": "static",
+  "action": "row",
+  "duplicate_of": null,
+  "alias_of": null,
+  "legacy": {
+   "issue": 26,
+   "raw": "- [x] MoTHer ([eliahuhorwitz/MoTHer](https://github.com/eliahuhorwitz/MoTHer) + [Model-Atlas](https://github.com/eliahuhorwitz/Model-Atlas)) \u2014 weight distance +"
+  }
+ },
+ {
+  "id": "awm",
+  "name": "AWM",
+  "class": "static",
+  "action": "row",
+  "duplicate_of": null,
+  "alias_of": null,
+  "legacy": {
+   "issue": 26,
+   "raw": "- [x] AWM ([LUMIA-Group/AWM](https://github.com/LUMIA-Group/AWM)) \u2014 embedding-aligned attention Q/K unbiased CKA \u00b7 [findings](https://github.com/RedHatResearch/"
+  }
+ },
+ {
+  "id": "ghostspec",
+  "name": "GhostSpec",
+  "class": "static",
+  "action": "row",
+  "duplicate_of": null,
+  "alias_of": null,
+  "legacy": {
+   "issue": 26,
+   "raw": "- [x] GhostSpec ([DX0369/GhostSpec](https://github.com/DX0369/GhostSpec)) \u2014 attention-product spectra, POSA layer alignment \u00b7 [findings](https://github.com/RedH"
+  }
+ },
+ {
+  "id": "self",
+  "name": "SELF",
+  "class": "static",
+  "action": "row",
+  "duplicate_of": null,
+  "alias_of": null,
+  "legacy": {
+   "issue": 26,
+   "raw": "- [x] SELF ([arXiv:2512.03620](https://arxiv.org/abs/2512.03620) \u00b7 [HanxiuZhang/SELF_v2](https://github.com/HanxiuZhang/SELF_v2)) \u2014 attention-product spectra + "
+  }
+ },
+ {
+  "id": "mdir",
+  "name": "MDIR",
+  "class": "static",
+  "action": "row",
+  "duplicate_of": null,
+  "alias_of": null,
+  "legacy": {
+   "issue": 26,
+   "raw": "- [x] MDIR ([arXiv 2508.06309](https://arxiv.org/abs/2508.06309)) \u2014 polar matrix alignment + calibrated p-values \u00b7 paper only \u00b7 [findings](https://github.com/Re"
+  }
+ },
+ {
+  "id": "shadowgenes",
+  "name": "ShadowGenes",
+  "class": "static",
+  "action": "row",
+  "duplicate_of": null,
+  "alias_of": null,
+  "legacy": {
+   "issue": 26,
+   "raw": "- [x] ShadowGenes ([arXiv 2501.11830](https://arxiv.org/abs/2501.11830)) \u2014 graph subgraph-pattern family signatures \u00b7 paper only \u00b7 [findings](https://github.com"
+  }
+ },
+ {
+  "id": "independence-tests",
+  "name": "Independence Tests",
+  "class": "static",
+  "action": "row",
+  "duplicate_of": null,
+  "alias_of": null,
+  "legacy": {
+   "issue": 26,
+   "raw": "- [x] Independence Tests ([arXiv:2502.12292](https://arxiv.org/abs/2502.12292), ICML 2025 \u00b7 [PMLR v267](https://proceedings.mlr.press/v267/zhu25a.html)) \u2014 exact"
+  }
+ },
+ {
+  "id": "trace",
+  "name": "TRACE",
+  "class": "static",
+  "action": "row",
+  "duplicate_of": null,
+  "alias_of": null,
+  "legacy": {
+   "issue": 26,
+   "raw": "- [x] TRACE ([arXiv:2610.07518](https://arxiv.org/abs/2610.07518)) \u2014 checkpoint-update geometry vs objective prototypes, weights-only SFT auditing \u00b7 Eq. 1/2/4/5"
+  }
+ },
+ {
+  "id": "lora-hash",
+  "name": "LoRA-Hash",
+  "class": "static",
+  "action": "row",
+  "duplicate_of": null,
+  "alias_of": null,
+  "legacy": {
+   "issue": 26,
+   "raw": "- [x] LoRA-Hash (ICME 2026) \u2014 parameter-level hash of LoRA delta-W extrema, adapter plagiarism \u00b7 **benchmark** \u00b7 [PDF](https://nesa.zju.edu.cn/download/icme2026"
+  }
+ },
+ {
+  "id": "mps",
+  "name": "MPS",
+  "class": "static",
+  "action": "row",
+  "duplicate_of": null,
+  "alias_of": null,
+  "legacy": {
+   "issue": 26,
+   "raw": "- [ ] MPS ([arXiv:2602.00772](https://arxiv.org/abs/2602.00772)) \u2014 provenance sets with formal error control, wraps any fingerprint"
+  }
+ },
+ {
+  "id": "solar-vs-glm-dispute",
+  "name": "Solar-vs-GLM dispute",
+  "class": "static",
+  "action": "row",
+  "duplicate_of": null,
+  "alias_of": null,
+  "legacy": {
+   "issue": 26,
+   "raw": "- [x] Solar-vs-GLM dispute ([sionic-ai/solar-vs-glm](https://github.com/sionic-ai/solar-vs-glm) + [rebuttal](https://github.com/hyunwoongko/solar-vs-glm-vs-phi)"
+  }
+ },
+ {
+  "id": "pangu-pro-moe-vs-qwen2-5-dispute",
+  "name": "Pangu Pro MoE vs Qwen2.5 dispute",
+  "class": "static",
+  "action": "row",
+  "duplicate_of": null,
+  "alias_of": null,
+  "legacy": {
+   "issue": 26,
+   "raw": "- [ ] Pangu Pro MoE vs Qwen2.5 dispute (2025-07) \u2014 HonestAGI method: per-layer `std()` of Q/K/V/O, z-scored across layers, Pearson-correlated (linear interpolat"
+  }
+ },
+ {
+  "id": "neural-phylogeny",
+  "name": "Neural Phylogeny",
+  "class": "static",
+  "action": "row",
+  "duplicate_of": null,
+  "alias_of": null,
+  "legacy": {
+   "issue": 26,
+   "raw": "- [ ] Neural Phylogeny ([ICLR 2025](https://proceedings.iclr.cc/paper_files/paper/2025/file/631bb9434d718ea309af82566347d607-Paper-Conference.pdf)) \u2014 parameter-"
+  }
+ },
+ {
+  "id": "what-you-sign-is-not-what-you-run",
+  "name": "What You Sign Is Not What You Run",
+  "class": "static",
+  "action": "row",
+  "duplicate_of": null,
+  "alias_of": null,
+  "legacy": {
+   "issue": 26,
+   "raw": "- [x] What You Sign Is Not What You Run ([arXiv:2610.19498](https://arxiv.org/abs/2610.19498)) \u2014 GGUF re-derivation protocol, manifest binds imatrix + build env"
+  }
+ },
+ {
+  "id": "gate-spectral-fingerprinting",
+  "name": "GATE Spectral Fingerprinting",
+  "class": "static",
+  "action": "row",
+  "duplicate_of": null,
+  "alias_of": null,
+  "legacy": {
+   "issue": 26,
+   "raw": "- [x] GATE Spectral Fingerprinting ([arXiv:2610.30626](https://arxiv.org/abs/2610.30626)) \u2014 spectral entropy of gate-proj SVDs, depth-segmented pooling, linear "
+  }
+ },
+ {
+  "id": "spectral-signatures-of-llms",
+  "name": "Spectral Signatures of LLMs",
+  "class": "static",
+  "action": "row",
+  "duplicate_of": null,
+  "alias_of": null,
+  "legacy": {
+   "issue": 26,
+   "raw": "- [ ] Spectral Signatures of LLMs ([arXiv:2607.03377](https://arxiv.org/abs/2607.03377), KDD 2026) \u2014 HTSR empirical-spectral-density shape signatures, post-trai"
+  }
+ },
+ {
+  "id": "trfp",
+  "name": "TrFP",
+  "class": "static",
+  "action": "row",
+  "duplicate_of": null,
+  "alias_of": null,
+  "legacy": {
+   "issue": 26,
+   "raw": "- [ ] TrFP ([arXiv:2610.34675](https://arxiv.org/abs/2610.34675), Oct 26) \u2014 computational-trajectory descriptors (update magnitude/delta/escape), permutation-in"
+  }
+ },
+ {
+  "id": "watch-the-weights",
+  "name": "Watch the Weights",
+  "class": "static",
+  "action": "row",
+  "duplicate_of": null,
+  "alias_of": null,
+  "legacy": {
+   "issue": 26,
+   "raw": "- [ ] Watch the Weights ([arXiv:2508.00161](https://arxiv.org/abs/2508.00161)) \u2014 unsupervised weight-space monitoring of fine-tuned LLMs"
+  }
+ },
+ {
+  "id": "has-this-fact-been-edited",
+  "name": "Has this Fact been Edited?",
+  "class": "static",
+  "action": "row",
+  "duplicate_of": null,
+  "alias_of": null,
+  "legacy": {
+   "issue": 26,
+   "raw": "- [ ] Has this Fact been Edited? ([arXiv:2405.02765](https://arxiv.org/abs/2405.02765), NAACL 2025) \u2014 detects ROME/MEMIT knowledge edits from weights"
+  }
+ },
+ {
+  "id": "tracing-and-reversing-edits-in-llms",
+  "name": "Tracing and Reversing Edits in LLMs",
+  "class": "static",
+  "action": "row",
+  "duplicate_of": null,
+  "alias_of": null,
+  "legacy": {
+   "issue": 26,
+   "raw": "- [ ] Tracing and Reversing Edits in LLMs ([arXiv:2505.20819](https://arxiv.org/abs/2505.20819)) \u2014 locates and inverts rank-one edits via bottom-rank SVD"
+  }
+ },
+ {
+  "id": "stemma-nagayu",
+  "name": "Stemma, NagaYu",
+  "class": "static",
+  "action": "row",
+  "duplicate_of": null,
+  "alias_of": null,
+  "legacy": {
+   "issue": 26,
+   "raw": "- [ ] Stemma, NagaYu ([repo](https://github.com/NagaYu/stemma)) \u2014 HTTP-Range weight sketches, abstaining direction, merge NNLS \u00b7 name collision with query-only "
+  }
+ },
+ {
+  "id": "rio-3-5-open-397b-vs-nex-n2-pro-qwen3-5",
+  "name": "Rio-3.5-Open-397B vs Nex-N2-Pro/Qwen3.5",
+  "class": "static",
+  "action": "row",
+  "duplicate_of": null,
+  "alias_of": null,
+  "legacy": {
+   "issue": 26,
+   "raw": "- [ ] Rio-3.5-Open-397B vs Nex-N2-Pro/Qwen3.5 (2026-06) \u2014 delta-space blend across all 60 layers; card edited to disclose merge \u00b7 field case"
+  }
+ },
+ {
+  "id": "llama3-v-vs-minicpm-llama3-v-2-5",
+  "name": "Llama3-V vs MiniCPM-Llama3-V 2.5",
+  "class": "static",
+  "action": "row",
+  "duplicate_of": null,
+  "alias_of": null,
+  "legacy": {
+   "issue": 26,
+   "raw": "- [ ] Llama3-V vs MiniCPM-Llama3-V 2.5 (2024) \u2014 manual weight-diff exposed unattributed rebrand \u00b7 field case"
+  }
+ },
+ {
+  "id": "yi-34b-vs-llama",
+  "name": "Yi-34B vs Llama",
+  "class": "static",
+  "action": "row",
+  "duplicate_of": null,
+  "alias_of": null,
+  "legacy": {
+   "issue": 26,
+   "raw": "- [ ] Yi-34B vs Llama (2023) \u2014 raw-tensor clone exposure, forced renames \u00b7 field case"
+  }
+ },
+ {
+  "id": "multi-resolution-llm-fingerprinting",
+  "name": "Multi-Resolution LLM Fingerprinting",
+  "class": "inference",
+  "action": "row",
+  "duplicate_of": null,
+  "alias_of": null,
+  "legacy": {
+   "issue": 26,
+   "raw": "- [ ] Multi-Resolution LLM Fingerprinting ([arXiv:2610.28434](https://arxiv.org/abs/2610.28434)) \u2014 behavioral/stylometric/lexical/semantic text fingerprints, pa"
+  }
+ },
+ {
+  "id": "scalable-fingerprinting-of-llms",
+  "name": "Scalable Fingerprinting of LLMs",
+  "class": "inference",
+  "action": "row",
+  "duplicate_of": null,
+  "alias_of": null,
+  "legacy": {
+   "issue": 26,
+   "raw": "- [ ] Scalable Fingerprinting of LLMs ([arXiv:2502.07760](https://arxiv.org/abs/2502.07760), NeurIPS 2025) \u2014 scalable black-box fingerprinting at Hub population"
+  }
+ },
+ {
+  "id": "errortrace",
+  "name": "ErrorTrace",
+  "class": "inference",
+  "action": "row",
+  "duplicate_of": null,
+  "alias_of": null,
+  "legacy": {
+   "issue": 26,
+   "raw": "- [ ] ErrorTrace ([NeurIPS 2025](https://proceedings.neurips.cc/paper_files/paper/2025/hash/632bd15f4a957cb912f36bea7d19daea-Abstract-Conference.html) \u00b7 [code]("
+  }
+ },
+ {
+  "id": "easydetector",
+  "name": "EasyDetector",
+  "class": "inference",
+  "action": "row",
+  "duplicate_of": null,
+  "alias_of": null,
+  "legacy": {
+   "issue": 26,
+   "raw": "- [ ] EasyDetector ([IEEE TrustCom 2024](https://doi.org/10.1109/trustcom63139.2024.00333)) \u2014 linear-probe provenance detection of LLMs"
+  }
+ },
+ {
+  "id": "lineagemark",
+  "name": "LineageMark",
+  "class": "inference",
+  "action": "row",
+  "duplicate_of": null,
+  "alias_of": null,
+  "legacy": {
+   "issue": 26,
+   "raw": "- [ ] LineageMark ([arXiv:2606.17123](https://arxiv.org/abs/2606.17123)) \u2014 white-box watermark for contribution tracing in derivation chains \u00b7 grouped-rejection"
+  }
+ },
+ {
+  "id": "duffin",
+  "name": "DuFFin",
+  "class": "inference",
+  "action": "row",
+  "duplicate_of": null,
+  "alias_of": null,
+  "legacy": {
+   "issue": 26,
+   "raw": "- [ ] DuFFin ([arXiv:2505.16530](https://arxiv.org/abs/2505.16530), EACL 2026 Findings \u00b7 [code](https://github.com/yuliangyan0807/llm-fingerprint)) \u2014 dual-level"
+  }
+ },
+ {
+  "id": "agentic-behavior-fingerprinting",
+  "name": "Agentic-Behavior Fingerprinting",
+  "class": "inference",
+  "action": "row",
+  "duplicate_of": null,
+  "alias_of": null,
+  "legacy": {
+   "issue": 26,
+   "raw": "- [ ] Agentic-Behavior Fingerprinting ([arXiv:2609.28559](https://arxiv.org/abs/2609.28559)) \u2014 coding-agent harness behavior fingerprints, model substitution de"
+  }
+ },
+ {
+  "id": "fpedit",
+  "name": "FPEdit",
+  "class": "inference",
+  "action": "row",
+  "duplicate_of": null,
+  "alias_of": null,
+  "legacy": {
+   "issue": 26,
+   "raw": "- [ ] FPEdit ([COLM 2026](https://openreview.net/forum?id=UZ8hA4b6Nz)) \u2014 localized parameter-editing fingerprints; white-box but ACTIVE (edit-then-probe) \u00b7 buck"
+  }
+ },
+ {
+  "id": "fingerprinting-llms-via-prompt-injection",
+  "name": "Fingerprinting LLMs via Prompt Injection",
+  "class": "inference",
+  "action": "row",
+  "duplicate_of": null,
+  "alias_of": null,
+  "legacy": {
+   "issue": 26,
+   "raw": "- [ ] Fingerprinting LLMs via Prompt Injection ([arXiv:2509.25448](https://arxiv.org/abs/2509.25448)) \u2014 crafted-trigger ownership verification under post-proces"
+  }
+ },
+ {
+  "id": "fnf",
+  "name": "FNF",
+  "class": "inference",
+  "action": "row",
+  "duplicate_of": null,
+  "alias_of": null,
+  "legacy": {
+   "issue": 26,
+   "raw": "- [ ] FNF ([arXiv:2601.22692](https://arxiv.org/abs/2601.22692) \u00b7 [code](https://github.com/WhatAboutMyStar/LLM_ACTIVATION)) \u2014 functional-network neuronal-activ"
+  }
+ },
+ {
+  "id": "qurd",
+  "name": "QuRD",
+  "class": "inference",
+  "action": "row",
+  "duplicate_of": null,
+  "alias_of": null,
+  "legacy": {
+   "issue": 26,
+   "raw": "- [ ] QuRD ([arXiv:2412.13021](https://arxiv.org/abs/2412.13021)) \u2014 Query/Representation/Detection decomposition, ~100 scheme combinations, benchmark metrics \u00b7 "
+  }
+ },
+ {
+  "id": "retrospective-distillation-attribution",
+  "name": "Retrospective Distillation Attribution",
+  "class": "inference",
+  "action": "row",
+  "duplicate_of": null,
+  "alias_of": null,
+  "legacy": {
+   "issue": 26,
+   "raw": "- [ ] Retrospective Distillation Attribution ([arXiv:2609.32749](https://arxiv.org/abs/2609.32749)) \u2014 normalized response similarity, retrospective distillation"
+  }
+ },
+ {
+  "id": "watermark-basins-wm-basin",
+  "name": "Watermark Basins / WM-Basin",
+  "class": "inference",
+  "action": "row",
+  "duplicate_of": null,
+  "alias_of": null,
+  "legacy": {
+   "issue": 26,
+   "raw": "- [ ] Watermark Basins / WM-Basin ([arXiv:2610.37266](https://arxiv.org/abs/2610.37266), Meta/FAIR, Oct 27) \u2014 black-box distillation detection via watermark-bas"
+  }
+ },
+ {
+  "id": "relay-auditing",
+  "name": "Relay Auditing",
+  "class": "inference",
+  "action": "row",
+  "duplicate_of": null,
+  "alias_of": null,
+  "legacy": {
+   "issue": 26,
+   "raw": "- [ ] Relay Auditing ([arXiv:2610.37086](https://arxiv.org/abs/2610.37086), Oct 27) \u2014 low-cost test of whether a relay/reseller API serves the model it claims"
+  }
+ },
+ {
+  "id": "from-bits-to-beliefs",
+  "name": "From Bits to Beliefs",
+  "class": "inference",
+  "action": "row",
+  "duplicate_of": null,
+  "alias_of": null,
+  "legacy": {
+   "issue": 26,
+   "raw": "- [ ] From Bits to Beliefs ([arXiv:2609.24084](https://arxiv.org/abs/2609.24084)) \u2014 recoverable semantic fingerprints for black-box verification"
+  }
+ },
+ {
+  "id": "the-shape-of-ownership",
+  "name": "The Shape of Ownership",
+  "class": "inference",
+  "action": "row",
+  "duplicate_of": null,
+  "alias_of": null,
+  "legacy": {
+   "issue": 26,
+   "raw": "- [ ] The Shape of Ownership ([arXiv:2609.02553](https://arxiv.org/abs/2609.02553)) \u2014 semantic-structure provenance verification"
+  }
+ },
+ {
+  "id": "who-s-behind-the-text",
+  "name": "Who's Behind the Text?",
+  "class": "inference",
+  "action": "row",
+  "duplicate_of": null,
+  "alias_of": null,
+  "legacy": {
+   "issue": 26,
+   "raw": "- [ ] Who's Behind the Text? ([arXiv:2610.19583](https://arxiv.org/abs/2610.19583)) \u2014 robust model authorship attribution"
+  }
+ },
+ {
+  "id": "adaptprint",
+  "name": "AdaptPrint",
+  "class": "inference",
+  "action": "row",
+  "duplicate_of": null,
+  "alias_of": null,
+  "legacy": {
+   "issue": 26,
+   "raw": "- [ ] AdaptPrint ([arXiv:2608.22213](https://arxiv.org/abs/2608.22213)) \u2014 response-adaptive fingerprinting of black-box LLM services"
+  }
+ },
+ {
+  "id": "flips",
+  "name": "FLIPS",
+  "class": "inference",
+  "action": "row",
+  "duplicate_of": null,
+  "alias_of": null,
+  "legacy": {
+   "issue": 26,
+   "raw": "- [ ] FLIPS ([arXiv:2606.03330](https://arxiv.org/abs/2606.03330)) \u2014 instance fingerprinting via pseudo-random sequences"
+  }
+ },
+ {
+  "id": "fingerprinting-multimodal-llms",
+  "name": "Fingerprinting Multimodal LLMs",
+  "class": "inference",
+  "action": "row",
+  "duplicate_of": null,
+  "alias_of": null,
+  "legacy": {
+   "issue": 26,
+   "raw": "- [ ] Fingerprinting Multimodal LLMs (AttnPrint/DistillTrace) ([arXiv:2609.20457](https://arxiv.org/abs/2609.20457)) \u2014 cross-modal attention low-frequency finge"
+  }
+ },
+ {
+  "id": "tensorguard",
+  "name": "TensorGuard",
+  "class": "inference",
+  "action": "row",
+  "duplicate_of": null,
+  "alias_of": null,
+  "legacy": {
+   "issue": 26,
+   "raw": "- [ ] TensorGuard ([arXiv:2506.01631](https://arxiv.org/abs/2506.01631)) \u2014 gradient-response signatures, centroid K-Means family classification \u00b7 paper only \u00b7 n"
+  }
+ },
+ {
+  "id": "refusal-vector-fingerprint",
+  "name": "Refusal-Vector Fingerprint",
+  "class": "inference",
+  "action": "row",
+  "duplicate_of": null,
+  "alias_of": null,
+  "legacy": {
+   "issue": 26,
+   "raw": "- [ ] Refusal-Vector Fingerprint ([arXiv:2602.09434](https://arxiv.org/abs/2602.09434)) \u2014 refusal-vector behavioral fingerprint \u00b7 needs prompt-driven forward pa"
+  }
+ },
+ {
+  "id": "reef",
+  "name": "REEF",
+  "class": "inference",
+  "action": "row",
+  "duplicate_of": null,
+  "alias_of": null,
+  "legacy": {
+   "issue": 26,
+   "raw": "- [ ] REEF ([AI45Lab/REEF](https://github.com/AI45Lab/REEF) \u00b7 [arXiv:2410.14273](https://arxiv.org/abs/2410.14273)) \u2014 centered kernel alignment on shared-sample"
+  }
+ },
+ {
+  "id": "attndiff",
+  "name": "AttnDiff",
+  "class": "inference",
+  "action": "row",
+  "duplicate_of": null,
+  "alias_of": null,
+  "legacy": {
+   "issue": 26,
+   "raw": "- [ ] AttnDiff ([arXiv:2604.05502](https://arxiv.org/abs/2604.05502)) \u2014 forward differential-attention fingerprint"
+  }
+ },
+ {
+  "id": "seedprints",
+  "name": "SeedPrints",
+  "class": "inference",
+  "action": "row",
+  "duplicate_of": null,
+  "alias_of": null,
+  "legacy": {
+   "issue": 26,
+   "raw": "- [ ] SeedPrints ([YnezT0311/SeedPrints](https://github.com/YnezT0311/SeedPrints) \u00b7 [arXiv:2509.26404](https://arxiv.org/abs/2509.26404), ICLR 2026) \u2014 init-seed"
+  }
+ },
+ {
+  "id": "llm-dna",
+  "name": "LLM-DNA",
+  "class": "inference",
+  "action": "row",
+  "duplicate_of": null,
+  "alias_of": null,
+  "legacy": {
+   "issue": 26,
+   "raw": "- [ ] LLM-DNA ([Xtra-Computing/LLM-DNA](https://github.com/Xtra-Computing/LLM-DNA), ICLR 2026 oral) \u2014 probe-response embedding vectors for evolutionary trees (n"
+  }
+ },
+ {
+  "id": "zeroprint",
+  "name": "ZeroPrint",
+  "class": "inference",
+  "action": "row",
+  "duplicate_of": null,
+  "alias_of": null,
+  "legacy": {
+   "issue": 26,
+   "raw": "- [ ] ZeroPrint ([shaoshuo-ss/ZeroPrint](https://github.com/shaoshuo-ss/ZeroPrint) \u00b7 [arXiv:2510.06605](https://arxiv.org/abs/2510.06605), WWW 2026) \u2014 zeroth-or"
+  }
+ },
+ {
+  "id": "tokenprint",
+  "name": "TokenPrint",
+  "class": "inference",
+  "action": "row",
+  "duplicate_of": null,
+  "alias_of": null,
+  "legacy": {
+   "issue": 26,
+   "raw": "- [ ] TokenPrint ([arXiv:2608.08139](https://arxiv.org/abs/2608.08139)) \u2014 calibrated top-k token Jaccard ladder \u00b7 blind-spots cite (behavior certifies data over"
+  }
+ },
+ {
+  "id": "reference-based-distillation-detection",
+  "name": "Reference-Based Distillation Detection",
+  "class": "inference",
+  "action": "row",
+  "duplicate_of": null,
+  "alias_of": null,
+  "legacy": {
+   "issue": 26,
+   "raw": "- [ ] Reference-Based Distillation Detection ([arXiv:2607.09692](https://arxiv.org/abs/2607.09692)) \u2014 reference-normalized NLL vs earlier checkpoint \u00b7 blind-spo"
+  }
+ },
+ {
+  "id": "stemma",
+  "name": "Stemma",
+  "class": "inference",
+  "action": "row",
+  "duplicate_of": null,
+  "alias_of": null,
+  "legacy": {
+   "issue": 26,
+   "raw": "- [ ] Stemma ([arXiv:2607.25880](https://arxiv.org/abs/2607.25880)) \u2014 decision-region inheritance, query-only verification"
+  }
+ },
+ {
+  "id": "model-provenance-testing",
+  "name": "Model Provenance Testing",
+  "class": "inference",
+  "action": "row",
+  "duplicate_of": null,
+  "alias_of": null,
+  "legacy": {
+   "issue": 26,
+   "raw": "- [ ] Model Provenance Testing ([arXiv:2502.00706](https://arxiv.org/abs/2502.00706)) \u2014 black-box next-token agreement vs controls \u00b7 benchmark download-heavy"
+  }
+ },
+ {
+  "id": "bref",
+  "name": "BReF",
+  "class": "inference",
+  "action": "row",
+  "duplicate_of": null,
+  "alias_of": null,
+  "legacy": {
+   "issue": 26,
+   "raw": "- [ ] BReF ([arXiv:2609.06330](https://arxiv.org/abs/2609.06330)) \u2014 perturbation log-ratio directions on option probabilities \u00b7 needs option log-probs"
+  }
+ },
+ {
+  "id": "attesting-model-lineage",
+  "name": "Attesting Model Lineage",
+  "class": "inference",
+  "action": "row",
+  "duplicate_of": null,
+  "alias_of": null,
+  "legacy": {
+   "issue": 26,
+   "raw": "- [ ] Attesting Model Lineage ([arXiv:2601.11683](https://arxiv.org/abs/2601.11683), USENIX Security 2026 \u00b7 [code](https://github.com/Tthvic/Model_lineage)) \u2014 k"
+  }
+ },
+ {
+  "id": "palimpsestic-membership-inference",
+  "name": "Palimpsestic Membership Inference",
+  "class": "inference",
+  "action": "row",
+  "duplicate_of": null,
+  "alias_of": null,
+  "legacy": {
+   "issue": 26,
+   "raw": "- [ ] Palimpsestic Membership Inference ([arXiv:2510.19796](https://arxiv.org/abs/2510.19796)) \u2014 training-order correlation signal, p to 1e-8, query and text-on"
+  }
+ },
+ {
+  "id": "tensorguard-lite",
+  "name": "TensorGuard-Lite",
+  "class": "inference",
+  "action": "row",
+  "duplicate_of": null,
+  "alias_of": null,
+  "legacy": {
+   "issue": 26,
+   "raw": "- [ ] TensorGuard-Lite ([abhinav-phi/TensorGuard-Lite](https://github.com/abhinav-phi/TensorGuard-Lite)) \u2014 16-dim gradient fingerprints + governance scorecard \u00b7"
+  }
+ },
+ {
+  "id": "rafp",
+  "name": "RAFP",
+  "class": "inference",
+  "action": "row",
+  "duplicate_of": null,
+  "alias_of": null,
+  "legacy": {
+   "issue": 26,
+   "raw": "- [ ] RAFP ([arXiv:2505.12682](https://arxiv.org/abs/2505.12682)) \u2014 rare-region behavioral fingerprints with FT-persistence bound"
+  }
+ },
+ {
+  "id": "one-token-is-enough",
+  "name": "One Token Is Enough",
+  "class": "inference",
+  "action": "row",
+  "duplicate_of": null,
+  "alias_of": null,
+  "legacy": {
+   "issue": 26,
+   "raw": "- [ ] One Token Is Enough ([arXiv:2607.10252](https://arxiv.org/abs/2607.10252) \u00b7 [code](https://github.com/ToseaAI/llm-fingerprint-detector)) \u2014 single-token ou"
+  }
+ },
+ {
+  "id": "modeltrace",
+  "name": "ModelTrace",
+  "class": "inference",
+  "action": "row",
+  "duplicate_of": null,
+  "alias_of": null,
+  "legacy": {
+   "issue": 26,
+   "raw": "- [ ] ModelTrace ([xqy2006/ModelTrace](https://github.com/xqy2006/ModelTrace)) \u2014 integer-challenge output fingerprints, bank-based family attribution"
+  }
+ },
+ {
+  "id": "vail-stability-monitor",
+  "name": "VAIL Stability Monitor",
+  "class": "inference",
+  "action": "row",
+  "duplicate_of": null,
+  "alias_of": null,
+  "legacy": {
+   "issue": 26,
+   "raw": "- [ ] VAIL Stability Monitor ([arXiv:2603.19022](https://arxiv.org/abs/2603.19022), ACM CAIS 26) \u2014 periodic endpoint fingerprinting via energy-distance permutat"
+  }
+ },
+ {
+  "id": "phylolm",
+  "name": "PhyloLM",
+  "class": "inference",
+  "action": "row",
+  "duplicate_of": null,
+  "alias_of": null,
+  "legacy": {
+   "issue": 26,
+   "raw": "- [ ] PhyloLM ([arXiv:2404.04671](https://arxiv.org/abs/2404.04671), ICLR 2025 \u00b7 [code](https://github.com/Nicolas-Yax/PhyloLM)) \u2014 output-similarity phylogeneti"
+  }
+ },
+ {
+  "id": "fit-print",
+  "name": "FIT-Print",
+  "class": "inference",
+  "action": "row",
+  "duplicate_of": null,
+  "alias_of": null,
+  "legacy": {
+   "issue": 26,
+   "raw": "- [ ] FIT-Print ([arXiv:2501.15509](https://arxiv.org/abs/2501.15509), IEEE TIFS 2026) \u2014 targeted fingerprints, false-claim-resistant ownership verification"
+  }
+ },
+ {
+  "id": "attnprint-distilltrace",
+  "name": "AttnPrint / DistillTrace",
+  "class": "inference",
+  "action": "duplicate_of",
+  "duplicate_of": "fingerprinting-multimodal-llms",
+  "alias_of": null,
+  "legacy": {
+   "issue": 26,
+   "raw": "- [ ] AttnPrint / DistillTrace ([arXiv:2609.20457](https://arxiv.org/abs/2609.20457)) \u2014 cross-modal attention low-frequency fingerprints, first MLLM-provenance "
+  }
+ },
+ {
+  "id": "leave-it-to-the-experts",
+  "name": "Leave It to the Experts",
+  "class": "inference",
+  "action": "row",
+  "duplicate_of": null,
+  "alias_of": null,
+  "legacy": {
+   "issue": 26,
+   "raw": "- [ ] Leave It to the Experts ([arXiv:2510.16968](https://arxiv.org/abs/2510.16968)) \u2014 MoE expert-collaboration signatures, distillation detection"
+  }
+ },
+ {
+  "id": "origin-tracer",
+  "name": "Origin Tracer",
+  "class": "inference",
+  "action": "row",
+  "duplicate_of": null,
+  "alias_of": null,
+  "legacy": {
+   "issue": 26,
+   "raw": "- [x] Origin Tracer ([arXiv:2505.19466](https://arxiv.org/abs/2505.19466)) \u2014 activation-injection LoRA-origin probe, rank estimate \u00b7 **benchmark** \u00b7 [findings]("
+  }
+ },
+ {
+  "id": "tcf",
+  "name": "TCF",
+  "class": "inference",
+  "action": "row",
+  "duplicate_of": null,
+  "alias_of": null,
+  "legacy": {
+   "issue": 26,
+   "raw": "- [ ] TCF ([arXiv:2608.08195](https://arxiv.org/abs/2608.08195)) \u2014 targeted counterfactual black-box ownership verification"
+  }
+ },
+ {
+  "id": "dnf",
+  "name": "DNF",
+  "class": "inference",
+  "action": "row",
+  "duplicate_of": null,
+  "alias_of": null,
+  "legacy": {
+   "issue": 26,
+   "raw": "- [ ] DNF ([arXiv:2601.08223](https://arxiv.org/abs/2601.08223)) \u2014 dual-layer nested fingerprinting, fine-tune/merge robust (Korean)"
+  }
+ },
+ {
+  "id": "tokenizer-differential-counting",
+  "name": "Tokenizer differential counting",
+  "class": "inference",
+  "action": "row",
+  "duplicate_of": null,
+  "alias_of": null,
+  "legacy": {
+   "issue": 26,
+   "raw": "- [ ] Tokenizer differential counting ([whitepaper](https://isimplifyme.com/whitepapers/the-tokenizer-is-a-fingerprint)) \u2014 usage.prompt_tokens cancels template "
+  }
+ },
+ {
+  "id": "nyu-mlab-model-fingerprinting",
+  "name": "nyu-mlab model-fingerprinting",
+  "class": "inference",
+  "action": "row",
+  "duplicate_of": null,
+  "alias_of": null,
+  "legacy": {
+   "issue": 26,
+   "raw": "- [ ] nyu-mlab model-fingerprinting ([repo](https://github.com/nyu-mlab/model-fingerprinting)) \u2014 19 models \u00d7 16 probes; 87% misidentify own developer"
+  }
+ },
+ {
+  "id": "miqu-1-70b",
+  "name": "miqu-1-70b",
+  "class": "inference",
+  "action": "row",
+  "duplicate_of": null,
+  "alias_of": null,
+  "legacy": {
+   "issue": 26,
+   "raw": "- [ ] miqu-1-70b ([HF](https://huggingface.co/miqudev/miqu-1-70b)) \u2014 community identified early Mistral-Medium, closed parent \u00b7 field case"
+  }
+ },
+ {
+  "id": "reflection-70b",
+  "name": "Reflection-70B",
+  "class": "inference",
+  "action": "row",
+  "duplicate_of": null,
+  "alias_of": null,
+  "legacy": {
+   "issue": 26,
+   "raw": "- [ ] Reflection-70B (2024) \u2014 declared base correct, model claim wrong \u00b7 field case"
+  }
+ },
+ {
+  "id": "routemark",
+  "name": "RouteMark",
+  "class": "moe",
+  "action": "row",
+  "duplicate_of": null,
+  "alias_of": null,
+  "legacy": {
+   "issue": 26,
+   "raw": "- [ ] RouteMark ([arXiv:2508.01784](https://arxiv.org/abs/2508.01784)) \u2014 routing-score and routing-preference fingerprints for merged MoE attribution"
+  }
+ },
+ {
+  "id": "router-telemetry-privacy",
+  "name": "Router Telemetry Privacy",
+  "class": "moe",
+  "action": "row",
+  "duplicate_of": null,
+  "alias_of": null,
+  "legacy": {
+   "issue": 26,
+   "raw": "- [ ] Router Telemetry Privacy ([arXiv:2610.10616](https://arxiv.org/abs/2610.10616)) \u2014 MoE routing telemetry membership leakage \u00b7 caution cite for routing-tele"
+  }
+ },
+ {
+  "id": "leave-it-to-the-experts-2",
+  "name": "Leave It to the Experts",
+  "class": "moe",
+  "action": "alias_of",
+  "duplicate_of": null,
+  "alias_of": "Leave It to the Experts",
+  "legacy": {
+   "issue": 26,
+   "raw": "- [ ] Leave It to the Experts \u2014 listed under needs-inference (grey-box, routing telemetry over inputs)"
+  }
+ },
+ {
+  "id": "cisco-ai-defense-model-provenance-kit",
+  "name": "[cisco-ai-defense/model-provenance-kit](https://github.com/cisco-ai-defense/model-provenance-kit)",
+  "class": "engine",
+  "action": "row",
+  "duplicate_of": null,
+  "alias_of": null,
+  "legacy": {
+   "issue": 26,
+   "raw": "- [x] [cisco-ai-defense/model-provenance-kit](https://github.com/cisco-ai-defense/model-provenance-kit) \u2014 gated config/tensor/norm/tokenizer similarity \u00b7 [findi"
+  }
+ },
+ {
+  "id": "models-don-t-have-passports",
+  "name": "[Models Don't Have Passports](https://www.cisco.com/c/dam/en/us/products/security/models-dont-have-passports.pdf)",
+  "class": "engine",
+  "action": "row",
+  "duplicate_of": null,
+  "alias_of": null,
+  "legacy": {
+   "issue": 26,
+   "raw": "- [x] [Models Don't Have Passports](https://www.cisco.com/c/dam/en/us/products/security/models-dont-have-passports.pdf) (Cisco + VAIL, Aug 2026) \u2014 MPK \u00d7 behavio"
+  }
+ },
+ {
+  "id": "sentient-fingerprinting-leaderboard",
+  "name": "[Sentient Fingerprinting Leaderboard](https://fingerprint.sentient.foundation/leaderboard)",
+  "class": "engine",
+  "action": "row",
+  "duplicate_of": null,
+  "alias_of": null,
+  "legacy": {
+   "issue": 26,
+   "raw": "- [ ] [Sentient Fingerprinting Leaderboard](https://fingerprint.sentient.foundation/leaderboard) \u2014 open benchmark scoring schemes on robustness / utility / veri"
+  }
+ },
+ {
+  "id": "cisco-model-provenance-constitution",
+  "name": "[Cisco Model Provenance Constitution](https://blogs.cisco.com/ai/model-provenance-constitution)",
+  "class": "engine",
+  "action": "row",
+  "duplicate_of": null,
+  "alias_of": null,
+  "legacy": {
+   "issue": 26,
+   "raw": "- [ ] [Cisco Model Provenance Constitution](https://blogs.cisco.com/ai/model-provenance-constitution) \u2014 **normative evidence standard**: a lineage label needs d"
+  }
+ },
+ {
+  "id": "awaisadilkhokhar-modeldna",
+  "name": "[AwaisAdilKhokhar/modelDNA](https://github.com/AwaisAdilKhokhar/modelDNA)",
+  "class": "engine",
+  "action": "row",
+  "duplicate_of": null,
+  "alias_of": null,
+  "legacy": {
+   "issue": 26,
+   "raw": "- [x] [AwaisAdilKhokhar/modelDNA](https://github.com/AwaisAdilKhokhar/modelDNA) \u2014 sampled tensor/bias/norm/spectral fingerprints \u00b7 [findings](https://github.com"
+  }
+ },
+ {
+  "id": "shaoshuo-ss-leafbench-sok-survey",
+  "name": "[shaoshuo-ss/LeaFBench](https://github.com/shaoshuo-ss/LeaFBench) + [SoK survey](https://arxiv.org/abs/2508.19843)",
+  "class": "engine",
+  "action": "row",
+  "duplicate_of": null,
+  "alias_of": null,
+  "legacy": {
+   "issue": 26,
+   "raw": "- [x] [shaoshuo-ss/LeaFBench](https://github.com/shaoshuo-ss/LeaFBench) + [SoK survey](https://arxiv.org/abs/2508.19843) \u2014 eight-method benchmark + access taxon"
+  }
+ },
+ {
+  "id": "cisco-provenance-explorer",
+  "name": "[Cisco Provenance Explorer](https://provenance.aidefense.cisco.com/)",
+  "class": "engine",
+  "action": "row",
+  "duplicate_of": null,
+  "alias_of": null,
+  "legacy": {
+   "issue": 26,
+   "raw": "- [ ] [Cisco Provenance Explorer](https://provenance.aidefense.cisco.com/) ([announcement](https://blogs.cisco.com/ai/supply-chain-provenance-explorer)) \u2014 ~900-"
+  }
+ },
+ {
+  "id": "modsleuth",
+  "name": "[ModSleuth](https://github.com/cal-data-audit/modsleuth)",
+  "class": "engine",
+  "action": "row",
+  "duplicate_of": null,
+  "alias_of": null,
+  "legacy": {
+   "issue": 26,
+   "raw": "- [ ] [ModSleuth](https://github.com/cal-data-audit/modsleuth) ([arXiv:2606.12385](https://arxiv.org/abs/2606.12385) \u00b7 [graph dataset](https://huggingface.co/da"
+  }
+ },
+ {
+  "id": "hiddenlayer-model-intelligence",
+  "name": "[HiddenLayer Model Intelligence](https://docs.hiddenlayer.ai/docs/products/console/supply_chain_model_intelligence)",
+  "class": "engine",
+  "action": "row",
+  "duplicate_of": null,
+  "alias_of": null,
+  "legacy": {
+   "issue": 26,
+   "raw": "- [ ] [HiddenLayer Model Intelligence](https://docs.hiddenlayer.ai/docs/products/console/supply_chain_model_intelligence) \u2014 computational-graph genealogy, comme"
+  }
+ },
+ {
+  "id": "ml-model-attribution-challenge",
+  "name": "[ML Model Attribution Challenge](https://arxiv.org/abs/2302.06716)",
+  "class": "engine",
+  "action": "row",
+  "duplicate_of": null,
+  "alias_of": null,
+  "legacy": {
+   "issue": 26,
+   "raw": "- [ ] [ML Model Attribution Challenge](https://arxiv.org/abs/2302.06716) (MITRE \u00d7 Robust Intelligence \u00d7 HF, SaTML'23) \u2014 24-model parentless attribution protocol"
+  }
+ },
+ {
+  "id": "stemma-bench",
+  "name": "[stemma-bench](https://huggingface.co/datasets/NagaYu/stemma-bench)",
+  "class": "engine",
+  "action": "row",
+  "duplicate_of": null,
+  "alias_of": null,
+  "legacy": {
+   "issue": 26,
+   "raw": "- [ ] [stemma-bench](https://huggingface.co/datasets/NagaYu/stemma-bench) \u2014 190 labelled pairs incl. quant/prune/merge, 25 seed negatives"
+  }
+ },
+ {
+  "id": "llmfp-fingerprint-library",
+  "name": "[llmfp fingerprint library](https://huggingface.co/datasets/marcjon/llmfp-fingerprints)",
+  "class": "engine",
+  "action": "row",
+  "duplicate_of": null,
+  "alias_of": null,
+  "legacy": {
+   "issue": 26,
+   "raw": "- [ ] [llmfp fingerprint library](https://huggingface.co/datasets/marcjon/llmfp-fingerprints) \u2014 Cisco weight-extrema data, 432 models, proprietary licence"
+  }
+ },
+ {
+  "id": "ckasketch-sketches",
+  "name": "[ckasketch sketches](https://huggingface.co/datasets/marcjon/ckasketch-sketches)",
+  "class": "engine",
+  "action": "row",
+  "duplicate_of": null,
+  "alias_of": null,
+  "legacy": {
+   "issue": 26,
+   "raw": "- [ ] [ckasketch sketches](https://huggingface.co/datasets/marcjon/ckasketch-sketches) \u2014 145 models, five spectral sketches + activations"
+  }
+ },
+ {
+  "id": "by321-safetensors-util",
+  "name": "[by321/safetensors_util](https://github.com/by321/safetensors_util)",
+  "class": "tooling",
+  "action": "row",
+  "duplicate_of": null,
+  "alias_of": null,
+  "legacy": {
+   "issue": 26,
+   "raw": "- [ ] [by321/safetensors_util](https://github.com/by321/safetensors_util)"
+  }
+ },
+ {
+  "id": "p1atdev-safemetadata",
+  "name": "[p1atdev/safemetadata](https://github.com/p1atdev/safemetadata)",
+  "class": "tooling",
+  "action": "row",
+  "duplicate_of": null,
+  "alias_of": null,
+  "legacy": {
+   "issue": 26,
+   "raw": "- [ ] [p1atdev/safemetadata](https://github.com/p1atdev/safemetadata)"
+  }
+ },
+ {
+  "id": "dreamfast-ungguf",
+  "name": "[dreamfast/ungguf](https://github.com/dreamfast/ungguf)",
+  "class": "tooling",
+  "action": "row",
+  "duplicate_of": null,
+  "alias_of": null,
+  "legacy": {
+   "issue": 26,
+   "raw": "- [ ] [dreamfast/ungguf](https://github.com/dreamfast/ungguf)"
+  }
+ },
+ {
+  "id": "fjzzq2002-weightwatch",
+  "name": "[fjzzq2002/WeightWatch](https://github.com/fjzzq2002/WeightWatch)",
+  "class": "tooling",
+  "action": "row",
+  "duplicate_of": null,
+  "alias_of": null,
+  "legacy": {
+   "issue": 26,
+   "raw": "- [ ] [fjzzq2002/WeightWatch](https://github.com/fjzzq2002/WeightWatch)"
+  }
+ },
+ {
+  "id": "chayan-bit-pentimento",
+  "name": "[chayan-bit/pentimento](https://github.com/chayan-bit/pentimento)",
+  "class": "tooling",
+  "action": "row",
+  "duplicate_of": null,
+  "alias_of": null,
+  "legacy": {
+   "issue": 26,
+   "raw": "- [ ] [chayan-bit/pentimento](https://github.com/chayan-bit/pentimento) \u2014 static weight IR, diff, LoRA-graft recovery, rule scans (pre-alpha)"
+  }
+ },
+ {
+  "id": "mlab-sh-assay",
+  "name": "[mlab-sh/assay](https://github.com/mlab-sh/assay)",
+  "class": "tooling",
+  "action": "row",
+  "duplicate_of": null,
+  "alias_of": null,
+  "legacy": {
+   "issue": 26,
+   "raw": "- [ ] [mlab-sh/assay](https://github.com/mlab-sh/assay) \u2014 manifest hash + full hash, tamper vs drift compare, secret scanning"
+  }
+ },
+ {
+  "id": "joe-nv-modelsig",
+  "name": "[joe-nv/modelsig](https://github.com/joe-nv/modelsig)",
+  "class": "tooling",
+  "action": "row",
+  "duplicate_of": null,
+  "alias_of": null,
+  "legacy": {
+   "issue": 26,
+   "raw": "- [ ] [joe-nv/modelsig](https://github.com/joe-nv/modelsig) \u2014 header-only structural fingerprints, remote isomorphism comparison"
+  }
+ },
+ {
+  "id": "bdas-sec-weightprobe",
+  "name": "[bdas-sec/weightprobe](https://github.com/bdas-sec/weightprobe)",
+  "class": "tooling",
+  "action": "row",
+  "duplicate_of": null,
+  "alias_of": null,
+  "legacy": {
+   "issue": 26,
+   "raw": "- [ ] [bdas-sec/weightprobe](https://github.com/bdas-sec/weightprobe) \u2014 structural hash, inventory, spectral SVD fingerprint, payload-shape classifier, ed25519 "
+  }
+ },
+ {
+  "id": "weight-oracles",
+  "name": "[Weight Oracles](https://arxiv.org/abs/2610.07334)",
+  "class": "tooling",
+  "action": "row",
+  "duplicate_of": null,
+  "alias_of": null,
+  "legacy": {
+   "issue": 26,
+   "raw": "- [ ] [Weight Oracles](https://arxiv.org/abs/2610.07334) \u2014 reading NN weights with language models \u00b7 feeds the #56 universal-interpreter thread"
+  }
+ },
+ {
+  "id": "multimodal-model-diffing",
+  "name": "[Multimodal Model Diffing](https://arxiv.org/abs/2608.09928)",
+  "class": "tooling",
+  "action": "row",
+  "duplicate_of": null,
+  "alias_of": null,
+  "legacy": {
+   "issue": 26,
+   "raw": "- [ ] [Multimodal Model Diffing](https://arxiv.org/abs/2608.09928) \u2014 model-diffing technique for feature discovery and control"
+  }
+ },
+ {
+  "id": "model-genome",
+  "name": "[Model Genome](https://huggingface.co/blog/mayafree/model-dna)",
+  "class": "tooling",
+  "action": "row",
+  "duplicate_of": null,
+  "alias_of": null,
+  "legacy": {
+   "issue": 26,
+   "raw": "- [ ] [Model Genome](https://huggingface.co/blog/mayafree/model-dna) ([Space](https://huggingface.co/spaces/mayafree/Model-Genome-Korea)) \u2014 arch-config + tokeni"
+  }
+ },
+ {
+  "id": "mintesnot-teshome-llm-verify",
+  "name": "[mintesnot-teshome/llm-verify](https://github.com/mintesnot-teshome/llm-verify)",
+  "class": "tooling",
+  "action": "row",
+  "duplicate_of": null,
+  "alias_of": null,
+  "legacy": {
+   "issue": 26,
+   "raw": "- [ ] [mintesnot-teshome/llm-verify](https://github.com/mintesnot-teshome/llm-verify) \u2014 verify an OpenAI-compatible endpoint actually serves the claimed model ("
+  }
+ },
+ {
+  "id": "majiayu000-stealthprint",
+  "name": "[majiayu000/stealthprint](https://github.com/majiayu000/stealthprint)",
+  "class": "tooling",
+  "action": "row",
+  "duplicate_of": null,
+  "alias_of": null,
+  "legacy": {
+   "issue": 26,
+   "raw": "- [ ] [majiayu000/stealthprint](https://github.com/majiayu000/stealthprint) \u2014 tokenizer/endpoint fingerprinting of anonymous OpenAI-compatible services"
+  }
+ },
+ {
+  "id": "harperz9-model-provenance-validator",
+  "name": "[HarperZ9/model-provenance-validator](https://github.com/HarperZ9/model-provenance-validator)",
+  "class": "tooling",
+  "action": "row",
+  "duplicate_of": null,
+  "alias_of": null,
+  "legacy": {
+   "issue": 26,
+   "raw": "- [ ] [HarperZ9/model-provenance-validator](https://github.com/HarperZ9/model-provenance-validator) \u2014 validate model and release claims against compact provenan"
+  }
+ },
+ {
+  "id": "sunilgentyala-model-provenance-guard",
+  "name": "[sunilgentyala/model-provenance-guard](https://github.com/sunilgentyala/model-provenance-guard)",
+  "class": "tooling",
+  "action": "row",
+  "duplicate_of": null,
+  "alias_of": null,
+  "legacy": {
+   "issue": 26,
+   "raw": "- [ ] [sunilgentyala/model-provenance-guard](https://github.com/sunilgentyala/model-provenance-guard) \u2014 cryptographic provenance verification plus binary inspec"
+  }
+ },
+ {
+  "id": "saga-ai-labs-weight-atlas",
+  "name": "[Saga-AI-Labs/weight-atlas](https://github.com/Saga-AI-Labs/weight-atlas)",
+  "class": "tooling",
+  "action": "row",
+  "duplicate_of": null,
+  "alias_of": null,
+  "legacy": {
+   "issue": 26,
+   "raw": "- [ ] [Saga-AI-Labs/weight-atlas](https://github.com/Saga-AI-Labs/weight-atlas) \u2014 per-tensor norm/rank/kurtosis artifacts, deterministic compare"
+  }
+ },
+ {
+  "id": "xyc2016-stprobe",
+  "name": "[xyc2016/stprobe](https://github.com/Xyc2016/stprobe)",
+  "class": "tooling",
+  "action": "row",
+  "duplicate_of": null,
+  "alias_of": null,
+  "legacy": {
+   "issue": 26,
+   "raw": "- [ ] [xyc2016/stprobe](https://github.com/Xyc2016/stprobe) \u2014 remote safetensors probe, HTTP range reads, diffable output"
+  }
+ },
+ {
+  "id": "dreadnode-tensor-man",
+  "name": "[dreadnode/tensor-man](https://github.com/dreadnode/tensor-man)",
+  "class": "tooling",
+  "action": "row",
+  "duplicate_of": null,
+  "alias_of": null,
+  "legacy": {
+   "issue": 26,
+   "raw": "- [ ] [dreadnode/tensor-man](https://github.com/dreadnode/tensor-man) \u2014 multi-format inspect/validate plus Ed25519 signing"
+  }
+ },
+ {
+  "id": "las7-weight-inspect",
+  "name": "[las7/weight-inspect](https://github.com/las7/weight-inspect)",
+  "class": "tooling",
+  "action": "row",
+  "duplicate_of": null,
+  "alias_of": null,
+  "legacy": {
+   "issue": 26,
+   "raw": "- [ ] [las7/weight-inspect](https://github.com/las7/weight-inspect) \u2014 cross-format structural ID hash, tensor-level diff, CI mode"
+  }
+ },
+ {
+  "id": "joannany-model-lineage-audit",
+  "name": "[joannany/model-lineage-audit](https://github.com/joannany/model-lineage-audit)",
+  "class": "tooling",
+  "action": "row",
+  "duplicate_of": null,
+  "alias_of": null,
+  "legacy": {
+   "issue": 26,
+   "raw": "- [ ] [joannany/model-lineage-audit](https://github.com/joannany/model-lineage-audit) \u2014 null-distribution hypothesis testing over similarity scores"
+  }
+ },
+ {
+  "id": "mi-for-the-rust-of-us-hf-fetch-model",
+  "name": "[mi-for-the-rust-of-us/hf-fetch-model](https://github.com/mi-for-the-rust-of-us/hf-fetch-model)",
+  "class": "tooling",
+  "action": "row",
+  "duplicate_of": null,
+  "alias_of": null,
+  "legacy": {
+   "issue": 26,
+   "raw": "- [ ] [mi-for-the-rust-of-us/hf-fetch-model](https://github.com/mi-for-the-rust-of-us/hf-fetch-model) \u2014 header/config diff, SHA-256 vs Hub LFS metadata"
+  }
+ },
+ {
+  "id": "stef41-ckptkit",
+  "name": "[stef41/ckptkit](https://github.com/stef41/ckptkit)",
+  "class": "tooling",
+  "action": "row",
+  "duplicate_of": null,
+  "alias_of": null,
+  "legacy": {
+   "issue": 26,
+   "raw": "- [ ] [stef41/ckptkit](https://github.com/stef41/ckptkit) \u2014 inspect, diff, merge, convert SafeTensors/GGUF checkpoints"
+  }
+ },
+ {
+  "id": "o018bum8uqeey2e5-model-fingerprint",
+  "name": "[o018BUm8UQEEY2e5/model-fingerprint](https://github.com/o018BUm8UQEEY2e5/model-fingerprint)",
+  "class": "tooling",
+  "action": "row",
+  "duplicate_of": null,
+  "alias_of": null,
+  "legacy": {
+   "issue": 26,
+   "raw": "- [ ] [o018BUm8UQEEY2e5/model-fingerprint](https://github.com/o018BUm8UQEEY2e5/model-fingerprint) \u2014 content-derived Merkle fingerprint, name-independent, GGUF +"
+  }
+ },
+ {
+  "id": "jnopareboateng-modelmeta-rmems-engram-parser-pip",
+  "name": "[jnopareboateng/modelmeta](https://github.com/jnopareboateng/modelmeta) \u00b7 [rmems/engram-parser](https://github.com/rmems/engram-parser) \u00b7 [pipe1os/modelinfo-cli](https://github.com/pipe1os/modelinfo-cli)",
+  "class": "tooling",
+  "action": "row",
+  "duplicate_of": null,
+  "alias_of": null,
+  "legacy": {
+   "issue": 26,
+   "raw": "- [ ] [jnopareboateng/modelmeta](https://github.com/jnopareboateng/modelmeta) \u00b7 [rmems/engram-parser](https://github.com/rmems/engram-parser) \u00b7 [pipe1os/modelin"
+  }
+ },
+ {
+  "id": "theadamdanielsson-ggufpacker",
+  "name": "[theadamdanielsson/ggufpacker](https://github.com/theadamdanielsson/ggufpacker)",
+  "class": "tooling",
+  "action": "row",
+  "duplicate_of": null,
+  "alias_of": null,
+  "legacy": {
+   "issue": 26,
+   "raw": "- [x] [theadamdanielsson/ggufpacker](https://github.com/theadamdanielsson/ggufpacker) \u2014 bit-exact GGUF quant recipes, cross-machine derivation attestations \u00b7 **"
+  }
+ },
+ {
+  "id": "chrishayuk-larql",
+  "name": "[chrishayuk/larql](https://github.com/chrishayuk/larql)",
+  "class": "tooling",
+  "action": "row",
+  "duplicate_of": null,
+  "alias_of": null,
+  "legacy": {
+   "issue": 26,
+   "raw": "- [ ] [chrishayuk/larql](https://github.com/chrishayuk/larql) \u2014 VINDEX3: encode/inspect/verify/query weights as artifacts, Rust"
+  }
+ },
+ {
+  "id": "secai-hub-gguf-guard",
+  "name": "[SecAI-Hub/gguf-guard](https://github.com/SecAI-Hub/gguf-guard)",
+  "class": "tooling",
+  "action": "row",
+  "duplicate_of": null,
+  "alias_of": null,
+  "legacy": {
+   "issue": 26,
+   "raw": "- [ ] [SecAI-Hub/gguf-guard](https://github.com/SecAI-Hub/gguf-guard) \u2014 quant-block-aware GGUF lineage, per-format loss normalisation"
+  }
+ },
+ {
+  "id": "mysterionrise-ggufkit",
+  "name": "[MysterionRise/ggufkit](https://github.com/MysterionRise/ggufkit)",
+  "class": "tooling",
+  "action": "row",
+  "duplicate_of": null,
+  "alias_of": null,
+  "legacy": {
+   "issue": 26,
+   "raw": "- [ ] [MysterionRise/ggufkit](https://github.com/MysterionRise/ggufkit) \u2014 three-digest identity: metadata / structure / weight bytes"
+  }
+ },
+ {
+  "id": "exileai-model-audit",
+  "name": "[ExileAI/model-audit](https://github.com/ExileAI/model-audit)",
+  "class": "tooling",
+  "action": "row",
+  "duplicate_of": null,
+  "alias_of": null,
+  "legacy": {
+   "issue": 26,
+   "raw": "- [ ] [ExileAI/model-audit](https://github.com/ExileAI/model-audit) \u2014 safetensors+GGUF auditor, evidence rubric, no numeric score"
+  }
+ },
+ {
+  "id": "tekoztek-lora-scan",
+  "name": "[tekoztek/lora-scan](https://github.com/tekoztek/lora-scan)",
+  "class": "tooling",
+  "action": "row",
+  "duplicate_of": null,
+  "alias_of": null,
+  "legacy": {
+   "issue": 26,
+   "raw": "- [ ] [tekoztek/lora-scan](https://github.com/tekoztek/lora-scan) \u2014 Hub LoRA funnel, \u0394W SVD on CPU, odd-one-out peers"
+  }
+ },
+ {
+  "id": "kako-jun-diffai",
+  "name": "[kako-jun/diffai](https://github.com/kako-jun/diffai)",
+  "class": "tooling",
+  "action": "row",
+  "duplicate_of": null,
+  "alias_of": null,
+  "legacy": {
+   "issue": 26,
+   "raw": "- [ ] [kako-jun/diffai](https://github.com/kako-jun/diffai) \u2014 semantic tensor diff, CI exit codes, Rust crate"
+  }
+ },
+ {
+  "id": "srijitiyer-alloy",
+  "name": "[srijitiyer/alloy](https://github.com/srijitiyer/alloy)",
+  "class": "tooling",
+  "action": "row",
+  "duplicate_of": null,
+  "alias_of": null,
+  "legacy": {
+   "issue": 26,
+   "raw": "- [ ] [srijitiyer/alloy](https://github.com/srijitiyer/alloy) \u2014 mergekit-compatible merge generator, labelled merge fixtures"
+  }
+ },
+ {
+  "id": "llama-cpp-kl-divergence",
+  "name": "[llama.cpp KL-divergence](https://github.com/ggml-org/llama.cpp/blob/master/tools/perplexity/README.md)",
+  "class": "tooling",
+  "action": "row",
+  "duplicate_of": null,
+  "alias_of": null,
+  "legacy": {
+   "issue": 26,
+   "raw": "- [ ] [llama.cpp KL-divergence](https://github.com/ggml-org/llama.cpp/blob/master/tools/perplexity/README.md) \u2014 community quant-vs-base GGUF check \u00b7 wrapper [kl"
+  }
+ },
+ {
+  "id": "ds2-lab-tensordex",
+  "name": "[ds2-lab/TensorDex](https://github.com/ds2-lab/TensorDex)",
+  "class": "tooling",
+  "action": "row",
+  "duplicate_of": null,
+  "alias_of": null,
+  "legacy": {
+   "issue": 26,
+   "raw": "- [ ] [ds2-lab/TensorDex](https://github.com/ds2-lab/TensorDex) \u2014 hub-scale tensor dedup index, 2,890 models, SOSP'26"
+  }
+ },
+ {
+  "id": "h9-tec-model-family-tree",
+  "name": "[h9-tec/model-family-tree](https://github.com/h9-tec/model-family-tree)",
+  "class": "tooling",
+  "action": "row",
+  "duplicate_of": null,
+  "alias_of": null,
+  "legacy": {
+   "issue": 26,
+   "raw": "- [ ] [h9-tec/model-family-tree](https://github.com/h9-tec/model-family-tree) \u2014 3.19M-model declared lineage graph, nightly rebuild"
+  }
+ },
+ {
+  "id": "parameter-space-inspector",
+  "name": "[Parameter Space Inspector](https://parameterspaceinspector.com/)",
+  "class": "tooling",
+  "action": "row",
+  "duplicate_of": null,
+  "alias_of": null,
+  "legacy": {
+   "issue": 26,
+   "raw": "- [ ] [Parameter Space Inspector](https://parameterspaceinspector.com/) \u2014 desktop distance screen; proof/evidence/claim separated"
+  }
+ },
+ {
+  "id": "skyld-labs-modeldna",
+  "name": "[Skyld-Labs/ModelDNA](https://github.com/Skyld-Labs/ModelDNA)",
+  "class": "tooling",
+  "action": "row",
+  "duplicate_of": null,
+  "alias_of": null,
+  "legacy": {
+   "issue": 26,
+   "raw": "- [ ] [Skyld-Labs/ModelDNA](https://github.com/Skyld-Labs/ModelDNA) \u2014 TensorRT .engine family ID from tensor lengths"
+  }
+ },
+ {
+  "id": "200lz-open-model-integration-validator",
+  "name": "[200lz/open-model-integration-validator](https://github.com/200lz/open-model-integration-validator)",
+  "class": "tooling",
+  "action": "row",
+  "duplicate_of": null,
+  "alias_of": null,
+  "legacy": {
+   "issue": 26,
+   "raw": "- [ ] [200lz/open-model-integration-validator](https://github.com/200lz/open-model-integration-validator) \u2014 offline evidence framework, unchecked never PASS"
+  }
+ },
+ {
+  "id": "gavxm-yurai",
+  "name": "[gavxm/yurai](https://github.com/gavxm/yurai)",
+  "class": "tooling",
+  "action": "row",
+  "duplicate_of": null,
+  "alias_of": null,
+  "legacy": {
+   "issue": 26,
+   "raw": "- [ ] [gavxm/yurai](https://github.com/gavxm/yurai) \u2014 declared-metadata lint, license inheritance, SARIF"
+  }
+ }
+]

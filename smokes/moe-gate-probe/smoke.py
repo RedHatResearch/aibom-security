@@ -1,4 +1,4 @@
-"""MoE gate probe smoke — smokes/moe-gate-probe/ · TensorLock Eq. 1 · #17.
+"""MoE gate probe smoke — smokes/moe-gate-probe/ · TensorLock Eq. 1 · M1.3 (MoE).
 
 Gate-only probe of the TensorLock (doi:10.1145/3832119) Eq. 1
 attention-statistic gate on native MoE models: s_MSA, the mean Spearman
@@ -8,10 +8,10 @@ gated at tau = 0.6. The gate reads only the shared attention stack — MoE
 experts and routers are invisible to it by design — so the question is
 whether a gate validated on dense models still separates same-lineage from
 cross-family pairs when one or both sides are MoE (OLMoE base <-> SFT).
-Feeds #17 (moe-router-gram family of signals); QPS, FT-direction and
-router/expert signals are follow-ups, not part of this probe.
+Feeds M1.3, MoE static fingerprinting (moe-router-gram family of signals); QPS,
+FT-direction and router/expert signals are follow-ups, not part of this probe.
 
-https://github.com/RedHatResearch/aibom-security/issues/17
+https://github.com/RedHatResearch/aibom-security/milestone/8
 """
 
 from __future__ import annotations

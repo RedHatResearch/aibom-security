@@ -19,6 +19,10 @@ dev = [
     "ty>=0.0.65",
     "fakeredis>=2.26",
     "httpx>=0.27",
+    "pyyaml>=6.0",
+]
+docs = [
+    "pyyaml>=6.0",
 ]
 smokes = [
     "aibom-verifier",
@@ -38,7 +42,7 @@ smokes = [
 aibom-verifier = { workspace = true }
 
 [tool.pytest.ini_options]
-testpaths = ["verifier/tests", "cli/tests", "server/tests", "provenancebench/tests"]
+testpaths = ["verifier/tests", "cli/tests", "server/tests", "provenancebench/tests", "scripts/tests"]
 pythonpath = ["verifier/tests"]
 addopts = "--import-mode=importlib"
 markers = ["network: tests that require Hugging Face Hub network access"]
@@ -55,4 +59,4 @@ select = ["E", "F", "I", "UP", "B", "SIM"]
 root = ["./verifier/src", "./cli/src", "./provenancebench/src", "./verifier/tests", "./server/src"]
 
 [tool.ty.src]
-include = ["verifier/src", "cli/src", "provenancebench/src", "verifier/tests", "server/src"]
+include = ["verifier/src", "cli/src", "provenancebench/src", "verifier/tests", "server/src", "scripts"]

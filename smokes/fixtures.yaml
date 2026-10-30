@@ -14,7 +14,7 @@ pairs:
 
 deferred:
   moe:
-    note: feeds #17; matches smokes/moe-router-gram/config.py
+    note: feeds M1.3 (MoE); matches smokes/moe-router-gram/config.py
     ref: allenai/OLMoE-1B-7B-0924
     sus: allenai/OLMoE-1B-7B-0924-SFT
   dense_qwen3:

@@ -18,8 +18,9 @@ When explaining why this work matters, lead with compliance: an AI BOM is only u
 aibom-security/
 ├── cli/              # thin `aibom` umbrella; verify impl in verifier/
 ├── verifier/         # aibom_verifier — see verifier/AGENTS.md
-├── smokes/           # survey runnable checks (#26 / #17) — smokes/README.md
-├── docker-compose.yml
+├── smokes/           # survey runnable checks (#26 / M1.3 MoE) — smokes/README.md
+├── docs/             # survey catalog, style guide, ADRs — docs/sota/AGENTS.md
+├── scripts/          # catalog lint + renderer (docs/sota)
 └── pyproject.toml
 ```
 
@@ -116,6 +117,12 @@ gh issue list --milestone "M1.2 — Pipeline telemetry & ops" --state open
 ```
 
 Treat `Plan:` / `Decision:` / `Context:` / `Stuck:` / `Done:` comments as session history.
+
+The SOTA survey's catalog is a file: `docs/sota/catalog.yaml`. #26 is its hub (scope, links,
+sub-issues); rows and rendered views live in `docs/sota/` and follow `docs/sota/AGENTS.md`.
+A living survey stays open; the wiki carries a snapshot rendered at publish time, not a
+committed draft. After a sweep, `docs/sota/**` may be committed directly once `sota_lint.py`
+and `sota_render.py --check` pass; lint-rule or script changes go through a PR.
 
 ### Claim an issue
 

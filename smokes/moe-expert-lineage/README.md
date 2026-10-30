@@ -1,7 +1,7 @@
 # MoE expert lineage smoke
 
-- Issue: [#26](https://github.com/RedHatResearch/aibom-security/issues/26) — Experiment A of
-  [`.scratch/specs/moe-p0-and-routing.md`](../../.scratch/specs/moe-p0-and-routing.md)
+- Issue: [#26](https://github.com/RedHatResearch/aibom-security/issues/26) — Experiment A of the
+  M1.3 MoE spec (local working doc; not committed)
 - Sibling: [`routing-agreement/`](../routing-agreement/) (Experiment B, same spec)
 
 ## What this checks
