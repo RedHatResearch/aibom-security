@@ -22,6 +22,7 @@ Runnable checks for the [#26](https://github.com/RedHatResearch/aibom-security/i
 | MoE expert lineage | [`moe-expert-lineage/`](moe-expert-lineage/) | Synthetic expert permutation/prune/merge recovery: descriptor + Hungarian, constrained mixture fit | [#26](https://github.com/RedHatResearch/aibom-security/issues/26) · TinyMixtral + OLMoE synthetic variants |
 | Routing agreement | [`routing-agreement/`](routing-agreement/) | Router-vs-expert 4-bit QDQ, top-k routing set agreement, shuffled-router control | [#26](https://github.com/RedHatResearch/aibom-security/issues/26) · TinyMixtral + OLMoE |
 | MoE real pairs | [`moe-real-pairs/`](moe-real-pairs/) | Published REAP/REAM checkpoints: per-layer expert match/drop/merge counts vs the model-card recipe | [#68](https://github.com/RedHatResearch/aibom-security/issues/68) · pbench pairs |
+| Routing calibration | [`routing-calibration/`](routing-calibration/) | Top-k Jaccard across requant / different-checkpoint / different-family; mean−3sd threshold + FPR | [#69](https://github.com/RedHatResearch/aibom-security/issues/69) · TinyMixtral + OLMoE + TinyLLama |
 
 Shared helpers: [`_lib/`](_lib/) (Hub load, fixture pairs).
 
