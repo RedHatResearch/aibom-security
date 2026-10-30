@@ -1,9 +1,9 @@
 """MoE expert-lineage smoke — Experiment A (issue #26).
 
-Builds six derived checkpoints from each cached parent MoE with known ground truth, writes them
-to ``.scratch/moe-expert-lineage/<model>/<variant>/`` as safetensors, then runs the label-blind
-weights-only detector over the written files. Scores the expectation registry in config.py
-(pre-registered plus post-hoc claims) and writes ``results.json``.
+Builds eleven derived checkpoints from each cached parent MoE with known ground truth, writes
+them to ``.scratch/moe-expert-lineage/<model>/<variant>/`` as safetensors, then runs the
+label-blind weights-only detector over the written files. Scores the expectation registry in
+config.py (pre-registered plus post-hoc claims) and writes ``results.json``.
 """
 
 from __future__ import annotations
@@ -30,15 +30,23 @@ from config import (  # noqa: E402
     EXPECTATIONS,
     MERGE_ALPHA,
     MERGE_GAIN_MIN,
+    MERGED_VARIANT_ALPHA,
     MIN_COMPONENT,
     NEAR_EXACT_COS,
+    NOISY_SIGMA,
     PRIMARY,
     RESULTS,
+    SALIENCY_ALPHA,
     SCRATCH,
     SECONDARY,
     SECONDARY_BUDGET_S,
     SEED,
     SHALLOW_ALPHA,
+    SKEWED_ALPHA,
+    THREE_ALPHA,
+    TIES_ALPHA,
+    TIES_ALPHA_TOL,
+    TIES_TRIM,
     VARIANTS,
 )
 
@@ -50,7 +58,12 @@ ORIGINS = {item["variant"]: item["origin"] for item in EXPECTATIONS}
 # variant build + detection
 # --------------------------------------------------------------------------- #
 def run_variant(
-    model: dict, variant: str, layers: list[int], parent_layer, parent_reader, parent_desc
+    model: dict,
+    variant: str,
+    layers: list[int],
+    parent_layer,
+    parent_reader,
+    parent_desc,
 ) -> dict:
     rec: dict = {"variant": variant, "status": "ok"}
     arch = model["arch"]
@@ -73,6 +86,14 @@ def run_variant(
                 synth.layer_rng(variant, layer, SEED),
             )
             truth[layer] = ground_truth
+            parents = ground_truth.get("merge_parents")
+            if parents:
+                desc = parent_desc[layer]
+                rec.setdefault("parent_pair_cos", {})[str(layer)] = {
+                    f"{a},{b}": float(desc[a] @ desc[b])
+                    for index, a in enumerate(parents)
+                    for b in parents[index + 1 :]
+                }
             counts[layer] = len(built)
             for slot, expert in enumerate(built):
                 for role in roles:
@@ -103,7 +124,9 @@ def run_variant(
         if manifest.get("tensor_file") != "model.safetensors":
             raise detect.DetectionError(f"unsupported tensor_file {manifest.get('tensor_file')!r}")
         reader = detect.CheckpointReader(
-            out_dir, detect.TensorSpec(**ARCHES[arch]), tensor_file=manifest["tensor_file"]
+            out_dir,
+            detect.TensorSpec(**ARCHES[arch]),
+            tensor_file=manifest["tensor_file"],
         )
     except Exception as exc:  # noqa: BLE001
         print(f"SKIP {model['label']}/{variant}: {type(exc).__name__}: {exc}")
@@ -137,7 +160,11 @@ def run_variant(
         except Exception as exc:  # noqa: BLE001 - per-layer skip, keep the rest
             print(f"SKIP {model['label']}/{variant} layer {layer}: {type(exc).__name__}: {exc}")
             reports.append(
-                {"layer": layer, "status": "skipped", "reason": f"{type(exc).__name__}: {exc}"}
+                {
+                    "layer": layer,
+                    "status": "skipped",
+                    "reason": f"{type(exc).__name__}: {exc}",
+                }
             )
 
     rec["layers"] = reports
@@ -166,6 +193,20 @@ def _e_minus_two_survivors(
         and report["missing"] == truth[report["layer"]][missing_key]
         and report["new"] == ([truth[report["layer"]][new_key]] if new_key else [])
     ]
+
+
+def _in_band(alpha: list[float], expected: tuple[float, ...], tol: float) -> bool:
+    return len(alpha) == len(expected) and all(
+        abs(a - w) <= tol for a, w in zip(alpha, expected, strict=True)
+    )
+
+
+def _gain_ok(entry: dict) -> bool:
+    return entry["gain"] is not None and entry["gain"] >= MERGE_GAIN_MIN
+
+
+def _shadowed(entry: dict) -> bool:
+    return entry["cos"] >= EXACT_COS
 
 
 def evaluate(
@@ -236,18 +277,11 @@ def evaluate(
             if len(merged) != 1:
                 continue
             entry = merged[0]
-            alpha = entry["alpha"]
-            in_band = (
-                len(alpha) == 2
-                and abs(alpha[0] - SHALLOW_ALPHA[0]) <= ALPHA_TOL
-                and abs(alpha[1] - SHALLOW_ALPHA[1]) <= ALPHA_TOL
-            )
-            gain_ok = entry["gain"] is not None and entry["gain"] >= MERGE_GAIN_MIN
             # Diagnostic, not a gate: on near-duplicate experts 5% is invisible to
             # cosine matching, and this flag is what the mixture fit rescues.
-            if entry["cos"] >= EXACT_COS:
+            if _shadowed(entry):
                 shadowed += 1
-            if in_band and gain_ok:
+            if _in_band(entry["alpha"], SHALLOW_ALPHA, ALPHA_TOL) and _gain_ok(entry):
                 good.append(r)
         held = complete and len(good) == total
         observed = (
@@ -323,6 +357,124 @@ def evaluate(
             else None,
             gain_min=min(merge_gains) if merge_gains else None,
             gain_max=max(merge_gains) if merge_gains else None,
+        )
+
+    elif variant in MERGED_VARIANT_ALPHA:
+        expected, tol = MERGED_VARIANT_ALPHA[variant]
+        parents = list(range(len(expected)))
+
+        def kept_exact(report: dict) -> bool:
+            layer_truth = truth[report["layer"]]
+            return all(
+                report["recovered_perm"].get(slot) == parent
+                for slot, parent in zip(layer_truth["kept_slots"], layer_truth["kept"], strict=True)
+            )
+
+        good: list[dict] = []
+        on_components: list[dict] = []
+        alpha_errors: list[float] = []
+        fit_gains: list[float] = []
+        labels: dict[str, int] = {}
+        alpha_lengths: dict[int, int] = {}
+        top_parents: dict[int, int] = {}
+        top_alphas: list[float] = []
+        in_band = gain_ok = kept_ok = spread = shadowed = 0
+        unique = kept_merged = 0
+        for r in scored:
+            layer_truth = truth[r["layer"]]
+            kept = kept_exact(r)
+            kept_ok += int(kept)
+            injected_slot = layer_truth["suspect_slot"]
+            merged = [c for c in r["classifications"] if c["label"] == "merged"]
+            # Exactly one merged classification, and it must be the injected
+            # suspect: a second label on a kept slot is the false-positive mode
+            # this suite exists to catch.
+            unique_here = len(merged) == 1 and merged[0]["suspect"] == injected_slot
+            unique += int(unique_here)
+            kept_merged += int(any(c["suspect"] in layer_truth["kept_slots"] for c in merged))
+            injected = [
+                entry for entry in r["classifications"] if entry["suspect"] == injected_slot
+            ]
+            if len(injected) != 1:
+                continue
+            entry = injected[0]
+            labels[entry["label"]] = labels.get(entry["label"], 0) + 1
+            if _shadowed(entry):
+                shadowed += 1
+            gain = entry["gain"]
+            if gain is not None:
+                fit_gains.append(gain)
+            ok_gain = _gain_ok(entry)
+            gain_ok += int(ok_gain)
+            alpha_lengths[len(entry["alpha"])] = alpha_lengths.get(len(entry["alpha"]), 0) + 1
+            if entry["alpha"]:
+                top = max(range(len(entry["alpha"])), key=entry["alpha"].__getitem__)
+                top_parent = entry["components"][top]
+                top_parents[top_parent] = top_parents.get(top_parent, 0) + 1
+                top_alphas.append(entry["alpha"][top])
+            if entry["components"] != parents or len(entry["alpha"]) != len(expected):
+                spread += 1
+                continue
+            on_components.append(entry)
+            errors = [abs(a - w) for a, w in zip(entry["alpha"], expected, strict=True)]
+            alpha_errors.extend(errors)
+            band = _in_band(entry["alpha"], expected, tol)
+            in_band += int(band)
+            if entry["label"] == "merged" and band and ok_gain and kept and unique_here:
+                good.append(r)
+        held = complete and len(good) == total
+        max_error = max(alpha_errors) if alpha_errors else None
+        mean_alpha = (
+            [
+                sum(entry["alpha"][index] for entry in on_components) / len(on_components)
+                for index in range(len(expected))
+            ]
+            if on_components
+            else None
+        )
+        alpha_text = (
+            f"alpha mean ({', '.join(f'{a:.4f}' for a in mean_alpha)}) in band on "
+            f"{in_band}/{total}, max |dalpha| {max_error:.4f}"
+            if mean_alpha is not None
+            else "no on-components mixture fit"
+        )
+        gain_text = (
+            f"gain {min(fit_gains):.4f}..{max(fit_gains):.4f}, >= {MERGE_GAIN_MIN} on "
+            f"{gain_ok}/{total}"
+            if fit_gains
+            else "no gain"
+        )
+        top_text = (
+            f"top component alpha {min(top_alphas):.4f}..{max(top_alphas):.4f} on parents "
+            f"{sorted(top_parents)}"
+            if top_alphas
+            else "no fitted components"
+        )
+        label_text = ", ".join(f"{name} {count}" for name, count in sorted(labels.items()))
+        observed = (
+            f"{len(good)}/{total} layers pass; injected-suspect labels: "
+            f"{label_text or 'none'}; {alpha_text}; {gain_text}; {top_text}; kept parents "
+            f"exact on {kept_ok}/{total}; exactly one merged label on {unique}/{total}; "
+            f"kept slot labelled merged on {kept_merged}/{total}; off-components spread on "
+            f"{spread}/{total}; cos shadowed (>= {EXACT_COS}) on {shadowed}/{total}"
+        )
+        summary.update(
+            merged_layers=len(good),
+            unique_merged_layers=unique,
+            kept_merged_layers=kept_merged,
+            suspect_labels=labels,
+            injected_alpha_lengths=alpha_lengths,
+            injected_top_parents=top_parents,
+            injected_top_alpha=([min(top_alphas), max(top_alphas)] if top_alphas else None),
+            alpha_layers=in_band,
+            alpha_error_max=max_error,
+            alpha_mean=mean_alpha,
+            gain_min=min(fit_gains) if fit_gains else None,
+            gain_max=max(fit_gains) if fit_gains else None,
+            gain_over_layers=gain_ok,
+            kept_layers=kept_ok,
+            components_spread_layers=spread,
+            shadowed_layers=shadowed,
         )
 
     elif variant == "control":
@@ -694,7 +846,7 @@ def main() -> int:
     print(
         f"Experiment A — MoE expert lineage | seed {SEED} | block {BLOCK} | "
         f"exact cos >= {EXACT_COS} | merge gain >= {MERGE_GAIN_MIN} | "
-        f"alpha {MERGE_ALPHA} +/- {ALPHA_TOL}"
+        f"alpha bands {ALPHA_TOL} (TIES {TIES_ALPHA_TOL})"
     )
     print(f"scratch {SCRATCH}")
 
@@ -737,6 +889,13 @@ def main() -> int:
         "merge_gain_min": MERGE_GAIN_MIN,
         "merge_alpha": list(MERGE_ALPHA),
         "shallow_alpha": list(SHALLOW_ALPHA),
+        "skewed_alpha": list(SKEWED_ALPHA),
+        "three_alpha": list(THREE_ALPHA),
+        "saliency_alpha": list(SALIENCY_ALPHA),
+        "noisy_sigma": NOISY_SIGMA,
+        "ties_trim": TIES_TRIM,
+        "ties_alpha": list(TIES_ALPHA),
+        "ties_alpha_tol": TIES_ALPHA_TOL,
         "alpha_tol": ALPHA_TOL,
         "min_component": MIN_COMPONENT,
         "variants": list(VARIANTS),
