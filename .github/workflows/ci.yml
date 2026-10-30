@@ -30,6 +30,13 @@ jobs:
       - name: Type check (ty)
         run: uv run ty check
 
+      # docs/sota/README.md is generated from docs/sota/catalog.yaml. Fail here
+      # on catalog rule violations or stale output before the test suite runs.
+      - name: SOTA docs (lint + drift)
+        run: |
+          uv run --group docs python scripts/sota_lint.py
+          uv run --group docs python scripts/sota_render.py --check
+
       # Model-download/network integration tests are excluded from CI on purpose —
       # they hit the Hugging Face Hub and shouldn't gate every push. Run them
       # locally with `uv run pytest -m network`.

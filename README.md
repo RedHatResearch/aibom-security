@@ -65,4 +65,6 @@ Contributing workflow and PR conventions: [AGENTS.md](AGENTS.md).
 |-----|-----|
 | [verifier/AGENTS.md](verifier/AGENTS.md) | Verifier internals and backends |
 | [smokes/README.md](smokes/README.md) | Fingerprint survey checks |
+| [docs/sota/README.md](docs/sota/README.md) | Fingerprint survey catalog and verdicts |
+| [docs/style/board-and-wiki-style.md](docs/style/board-and-wiki-style.md) | House style for issues, PRs, wiki, ADRs |
 | [AGENTS.md](AGENTS.md) | Board protocol and agent workflow |

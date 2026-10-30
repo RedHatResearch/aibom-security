@@ -14,7 +14,7 @@ everything below is implemented from the paper equations only.
 
 Corpus-level machinery — HDBSCAN clustering, the MDST provenance tree, edge
 merging (IPS/LASSO/TPS, τ_mg=0.9) — is out of scope for this pairwise check, as
-is MoE (feeds [#17](https://github.com/RedHatResearch/aibom-security/issues/17)).
+is MoE (feeds [M1.3](https://github.com/RedHatResearch/aibom-security/milestone/8)).
 
 ```bash
 uv sync --all-packages --group smokes

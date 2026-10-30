@@ -1,6 +1,6 @@
 # MoE router Gram smoke
 
-- Issue: [#17](https://github.com/RedHatResearch/aibom-security/issues/17) MoE signal probe · survey context [#26](https://github.com/RedHatResearch/aibom-security/issues/26)
+- Context: [M1.3 MoE milestone](https://github.com/RedHatResearch/aibom-security/milestone/8) signal probe · survey context [#26](https://github.com/RedHatResearch/aibom-security/issues/26)
 - Code: [`smokes/moe-router-gram/`](https://github.com/RedHatResearch/aibom-security/tree/main/smokes/moe-router-gram)
 
 Cosine similarity of MoE `mlp.gate.weight` row Gram matrices; Hungarian expert alignment per layer. Ranged safetensors reads via `aibom_verifier.hf.safetensors_io`.

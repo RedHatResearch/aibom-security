@@ -1,6 +1,6 @@
 # MoE gate probe smoke
 
-- Issue: [#17](https://github.com/RedHatResearch/aibom-security/issues/17) MoE signal probe · sibling [`moe-router-gram/`](../moe-router-gram/)
+- Context: [M1.3 MoE milestone](https://github.com/RedHatResearch/aibom-security/milestone/8) signal probe · sibling [`moe-router-gram/`](../moe-router-gram/)
 - Code: [`smokes/moe-gate-probe/`](https://github.com/RedHatResearch/aibom-security/tree/main/smokes/moe-gate-probe)
 
 ## What this checks
@@ -11,7 +11,7 @@ curves (std, skew, kurtosis) of the projection weights are compared across two c
 with Spearman correlation, truncated to the shorter stack; s_MSA is the mean of the twelve
 curves and the gate fires at s_MSA ≥ τ = 0.6. The question: does a gate validated on dense
 checkpoints still separate same-lineage from cross-family pairs when both sides are MoE
-(OLMoE base ↔ SFT)? Feeds #17; this probe is gate-only — QPS, FT-direction and
+(OLMoE base ↔ SFT)? Feeds [M1.3](https://github.com/RedHatResearch/aibom-security/milestone/8); this probe is gate-only — QPS, FT-direction and
 router/expert signals are follow-ups.
 
 ## Fixtures

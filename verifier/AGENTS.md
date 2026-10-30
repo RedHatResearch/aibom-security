@@ -80,11 +80,11 @@ PoC orchestration code lives in this package; root `docker-compose.yml` builds t
 
 | Location | Purpose |
 |----------|---------|
-| `../smokes/<topic>/` | Survey runnable checks (#26 / #17); not the product verifier |
+| `../smokes/<topic>/` | Survey runnable checks (#26 / M1.3 MoE); not the product verifier |
 | `../.scratch/<tool>/` | Clones of upstream tools — not committed product code |
 | `tests/` here | Shipped unit/integration tests for verifier |
 
-Smokes need HF network and multi-GB downloads for dense models; not CI. Each topic README links paper, #26 (or #17) note, and run command.
+Smokes need HF network and multi-GB downloads for dense models; not CI. Each topic README links paper, #26 (or M1.3 MoE) note, and run command.
 
 When a smoke graduates into the verifier, move logic here and thin or delete the smoke wrapper.
 
