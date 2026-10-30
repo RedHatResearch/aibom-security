@@ -21,6 +21,7 @@ aibom-security/
 ├── smokes/           # survey runnable checks (#26 / M1.3 MoE) — smokes/README.md
 ├── docs/             # survey catalog, style guide, ADRs — docs/sota/AGENTS.md
 ├── scripts/          # catalog lint + renderer (docs/sota)
+├── docker-compose.yml
 └── pyproject.toml
 ```
 

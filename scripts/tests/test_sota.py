@@ -53,8 +53,35 @@ def catalog(tmp_path, monkeypatch):
     lint = _load("sota_lint_under_test", LINT)
     monkeypatch.setattr(lint, "CATALOG", tmp_path / "catalog.yaml")
     monkeypatch.setattr(lint, "FIXTURES", ROOT / "smokes/fixtures.yaml")
+    monkeypatch.setattr(lint, "PB_PAIRS", ROOT / "provenancebench/pairs.yaml")
     write([dict(GOOD_ENTRY)])
     return write, lint
+
+
+def test_lint_minimal_documented_fields_pass(catalog):
+    """The AGENTS.md required set alone must lint: confidence/priority default."""
+    write, lint = catalog
+    minimal = {k: v for k, v in GOOD_ENTRY.items() if k not in ("confidence", "priority")}
+    write([minimal])
+    assert lint.main() == 0
+
+
+def test_lint_fixture_ids_resolve_across_registries(catalog):
+    """deferred.moe (smokes) and pb-* (provenancebench) both resolve; junk does not."""
+    write, lint = catalog
+    good = dict(GOOD_ENTRY, fixtures=["deferred.moe", "pb-smoke-qwen25-awq"])
+    write([good])
+    assert lint.main() == 0
+    write([dict(GOOD_ENTRY, fixtures=["not-a-fixture"])])
+    assert lint.main() == 1
+
+
+def test_lint_rejects_email_and_home_paths_anywhere(catalog):
+    write, lint = catalog
+    write([dict(GOOD_ENTRY, name="Someone someone@example.com")])
+    assert lint.main() == 1
+    write([dict(GOOD_ENTRY, findings=["https://x.example/Users/leak/a"])])
+    assert lint.main() == 1
 
 
 def test_lint_happy_path(catalog):

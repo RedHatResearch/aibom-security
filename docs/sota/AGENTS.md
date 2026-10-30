@@ -7,7 +7,7 @@ The SOTA survey catalog lives here. This file overrides the root AGENTS.md for p
 | Content | Home |
 |---|---|
 | Catalog rows (methods, engines, tooling, field cases) | `catalog.yaml` — the only hand-edited list |
-| Rendered views (by class, by verdict, next up) | `README.md` — generated, never hand-edited |
+| Rendered views (by class, next up) | `README.md` — generated, never hand-edited |
 | Wiki snapshot | not in the repo: rendered at publish time into a `*.wiki.git` clone |
 | Evidence (deep dives, verdicts, numbers) | issue #26 comments — linked from rows, never moved |
 | Fixtures | `smokes/fixtures.yaml` and `provenancebench/pairs.yaml` — referenced by ID |
@@ -59,7 +59,7 @@ uv run pytest scripts/tests/test_sota.py
 - Identity fields (`id`, `name`, `class`, `source`) are immutable after creation; correct a mistake with `notes` or a new row, not a rename.
 - Mutable fields: `status`, `verdict`, `priority`, `last_verified`, `notes`, `findings` (append-only).
 - `status: reference` marks entries kept for citation only — they are not backlog.
-- `confidence: lead` marks unverified claims; the renderer separates them.
+- `confidence: lead` marks unverified claims; treat them as leads, not findings, when reading the rendered views. `confidence` defaults to `inferred` and `priority` to `none` when omitted.
 
 ## Decision tree
 

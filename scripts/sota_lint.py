@@ -17,6 +17,7 @@ import yaml
 ROOT = Path(__file__).resolve().parent.parent
 CATALOG = ROOT / "docs/sota/catalog.yaml"
 FIXTURES = ROOT / "smokes/fixtures.yaml"
+PB_PAIRS = ROOT / "provenancebench/pairs.yaml"
 
 CLASSES = {"static", "inference", "moe", "engine", "tooling", "field-case"}
 ACCESS = {"white", "grey", "black", "mixed", "na"}
@@ -28,6 +29,7 @@ DATE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
 FORBIDDEN_IN_NOTES = re.compile(r"[\|`]")
 MD_LINK = re.compile(r"\[[^\]]*\]\([^)]*\)")
 NAME_IS_LINK = re.compile(r"^\[[^\]]+\]\([^)]+\)$")
+EMAIL = re.compile(r"[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}")
 NAME_MAX = 120
 
 errors: list[str] = []
@@ -54,12 +56,19 @@ def main() -> int:
         err(None, "schema_version must be 1")
 
     fixture_ids: set[str] = set()
-    if FIXTURES.exists():
-        fx = yaml.safe_load(FIXTURES.read_text()) or {}
-        for pair in (fx.get("pairs") or {}).values():
-            fixture_ids.add(str(pair.get("ref", "")))
-        for group in (fx.get("deferred") or {}).values():
-            fixture_ids.add(str(group.get("ref", "")))
+    for registry in (FIXTURES, PB_PAIRS):
+        if not registry.exists():
+            err(None, f"fixture registry not found: {registry}")
+            continue
+        fx = yaml.safe_load(registry.read_text()) or {}
+        pairs = fx.get("pairs") or []
+        if isinstance(pairs, dict):  # smokes/fixtures.yaml: mapping of fixtures
+            pairs = list(pairs.values())
+        for pair in pairs:  # provenancebench/pairs.yaml: list with id: keys
+            if isinstance(pair, dict):
+                fixture_ids.add(str(pair.get("id", pair.get("ref", ""))))
+        for key in fx.get("deferred") or {}:
+            fixture_ids.add(f"deferred.{key}")
 
     seen_ids: set[str] = set()
     seen_sources: dict[str, str] = {}
@@ -87,6 +96,10 @@ def main() -> int:
             err(e, f"access must be one of {sorted(ACCESS)}")
         if e.get("status") not in STATUS:
             err(e, f"status must be one of {sorted(STATUS)}")
+        if e.get("confidence") is None:
+            e["confidence"] = "inferred"  # documented default; see docs/sota/AGENTS.md
+        if e.get("priority") is None:
+            e["priority"] = "none"
         if e.get("confidence") not in CONFIDENCE:
             err(e, f"confidence must be one of {sorted(CONFIDENCE)}")
         if e.get("priority") not in PRIORITY:
@@ -137,8 +150,8 @@ def main() -> int:
                 err(e, f"smoke directory not tracked: {sm}")
         # fixtures exist
         for fx in e.get("fixtures") or []:
-            if fixture_ids and fx not in fixture_ids:
-                err(e, f"fixture id not in canonical registry: {fx}")
+            if fx not in fixture_ids:
+                err(e, f"fixture id not in a fixture registry: {fx}")
         # notes hygiene
         notes = e.get("notes")
         if notes:
@@ -146,11 +159,16 @@ def main() -> int:
                 err(e, "notes exceed 300 chars")
             if FORBIDDEN_IN_NOTES.search(str(notes)):
                 err(e, "notes must not contain '|' or backticks")
-        # public-copy hygiene on any string field
-        for f in ("source", "code", "notes"):
-            val = e.get(f)
-            if val and (".scratch/" in str(val) or "/Users/" in str(val) or "/home/" in str(val)):
-                err(e, f"{f} must not reference .scratch/ or home paths")
+        # public-copy hygiene on every string field, findings included
+        for f, val in e.items():
+            values = val if isinstance(val, list) else [val]
+            for v in values:
+                if not isinstance(v, str):
+                    continue
+                if ".scratch/" in v or "/Users/" in v or "/home/" in v:
+                    err(e, f"{f} must not reference .scratch/ or home paths")
+                if EMAIL.search(v):
+                    err(e, f"{f} must not contain an email address")
 
     if errors:
         for line in errors:

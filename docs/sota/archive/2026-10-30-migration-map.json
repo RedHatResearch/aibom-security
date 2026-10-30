@@ -1618,5 +1618,161 @@
    "issue": 26,
    "raw": "- [ ] [gavxm/yurai](https://github.com/gavxm/yurai) \u2014 declared-metadata lint, license inheritance, SARIF"
   }
+ },
+ {
+  "id": "write-decision-sections-for-the-11-evalu",
+  "name": "Write Decision sections for the 11 evaluated methods whose comments lack them (t",
+  "class": "wrapup",
+  "action": "wrapup",
+  "duplicate_of": null,
+  "alias_of": null,
+  "legacy": {
+   "issue": 26,
+   "raw": "- [ ] Write Decision sections for the 11 evaluated methods whose comments lack them (the August 5 batch)"
+  }
+ },
+ {
+  "id": "grouped-rejection-comment-watermarks-bom",
+  "name": "Grouped rejection comment: watermarks + BOM/crypto false friends. Include PathMa",
+  "class": "wrapup",
+  "action": "wrapup",
+  "duplicate_of": null,
+  "alias_of": null,
+  "legacy": {
+   "issue": 26,
+   "raw": "- [ ] Grouped rejection comment: watermarks + BOM/crypto false friends. Include PathMark ([arXiv:2607.03688](https://arxiv.org/abs/2607.03688)) as the MoE-nativ"
+  }
+ },
+ {
+  "id": "summary-comment-reusable-parts-by-stage",
+  "name": "Summary comment: reusable parts by stage, plus the MPK/modelDNA takeaway",
+  "class": "wrapup",
+  "action": "wrapup",
+  "duplicate_of": null,
+  "alias_of": null,
+  "legacy": {
+   "issue": 26,
+   "raw": "- [ ] Summary comment: reusable parts by stage, plus the MPK/modelDNA takeaway"
+  }
+ },
+ {
+  "id": "blind-spots-comment",
+  "name": "Blind-spots comment:",
+  "class": "wrapup",
+  "action": "wrapup",
+  "duplicate_of": null,
+  "alias_of": null,
+  "legacy": {
+   "issue": 26,
+   "raw": "- [ ] Blind-spots comment:"
+  }
+ },
+ {
+  "id": "adversarial-robustness-comment-arxiv-250",
+  "name": "Adversarial robustness comment: [arXiv:2509.26598](https://arxiv.org/abs/2509.26",
+  "class": "wrapup",
+  "action": "wrapup",
+  "duplicate_of": null,
+  "alias_of": null,
+  "legacy": {
+   "issue": 26,
+   "raw": "- [ ] Adversarial robustness comment: [arXiv:2509.26598](https://arxiv.org/abs/2509.26598) \u2014 adaptive model-host attacks bypass ten fingerprinting schemes. Add "
+  }
+ },
+ {
+  "id": "laundering-leads-unverified-x-only-anon",
+  "name": "**Laundering leads (unverified, X-only):** anonymous '\u76d8\u53e4\u4e4b\u6b87' post (deleted) claim",
+  "class": "wrapup",
+  "action": "wrapup",
+  "duplicate_of": null,
+  "alias_of": null,
+  "legacy": {
+   "issue": 26,
+   "raw": "- [ ] **Laundering leads (unverified, X-only):** anonymous '\u76d8\u53e4\u4e4b\u6b87' post (deleted) claims Pangu 135B V2 derives from Qwen1.5-110B with parameters 'washed' using n"
+  }
+ },
+ {
+  "id": "token-count-false-friend-arxiv-2608-2993",
+  "name": "Token-count false friend: [arXiv:2608.29930](https://arxiv.org/abs/2608.29930)",
+  "class": "wrapup",
+  "action": "wrapup",
+  "duplicate_of": null,
+  "alias_of": null,
+  "legacy": {
+   "issue": 26,
+   "raw": "- [ ] Token-count false friend: [arXiv:2608.29930](https://arxiv.org/abs/2608.29930) \u2014 token-count consistency is tokenizer and wrapper evidence, not weight lin"
+  }
+ },
+ {
+  "id": "cka-bias-caution-measured-affects-exist",
+  "name": "**CKA-bias caution (measured, affects existing entries):** [TrFP](https://arxiv.",
+  "class": "wrapup",
+  "action": "wrapup",
+  "duplicate_of": null,
+  "alias_of": null,
+  "legacy": {
+   "issue": 26,
+   "raw": "- [ ] **CKA-bias caution (measured, affects existing entries):** [TrFP](https://arxiv.org/abs/2610.34675) \u00a7III shows biased linear CKA between two **unrelated**"
+  }
+ },
+ {
+  "id": "field-case-lessons-pangu-qwen-2025-07",
+  "name": "**Field-case lessons (Pangu/Qwen, 2025-07",
+  "class": "wrapup",
+  "action": "wrapup",
+  "duplicate_of": null,
+  "alias_of": null,
+  "legacy": {
+   "issue": 26,
+   "raw": "- [ ] **Field-case lessons (Pangu/Qwen, 2025-07 \u2014 verified at primary sources):** (a) **no null was ever computed by the accusers**; the only control in the rec"
+  }
+ },
+ {
+  "id": "aibom-signing-gap-belongs-to-the-aibom",
+  "name": "**AIBOM signing gap (belongs to the AIBOM track, recorded here for the wiki):** ",
+  "class": "wrapup",
+  "action": "wrapup",
+  "duplicate_of": null,
+  "alias_of": null,
+  "legacy": {
+   "issue": 26,
+   "raw": "- [ ] **AIBOM signing gap (belongs to the AIBOM track, recorded here for the wiki):** SPDX 3.0.1 has **no signature construct at all** (`verifiedUsing` \u2192 Hash/C"
+  }
+ },
+ {
+  "id": "grouped-rejection-addendum-fine-tuning-i",
+  "name": "Grouped rejection addendum: Fine-Tuning Integrity ZK proofs ([arXiv:2604.04738](",
+  "class": "wrapup",
+  "action": "wrapup",
+  "duplicate_of": null,
+  "alias_of": null,
+  "legacy": {
+   "issue": 26,
+   "raw": "- [ ] Grouped rejection addendum: Fine-Tuning Integrity ZK proofs ([arXiv:2604.04738](https://arxiv.org/abs/2604.04738), crypto false friend), MOE-XRAY routing "
+  }
+ },
+ {
+  "id": "methodological-cite-ethanpturner-whence",
+  "name": "Methodological cite: [ethanpturner/whence](https://github.com/ethanpturner/whenc",
+  "class": "wrapup",
+  "action": "wrapup",
+  "duplicate_of": null,
+  "alias_of": null,
+  "legacy": {
+   "issue": 26,
+   "raw": "- [ ] Methodological cite: [ethanpturner/whence](https://github.com/ethanpturner/whence) (retired) \u2014 postmortem separating claimed vs established lineage edges;"
+  }
+ },
+ {
+  "id": "wiki-page-promoted-link-below",
+  "name": "Wiki page promoted (link below)",
+  "class": "wrapup",
+  "action": "wrapup",
+  "duplicate_of": null,
+  "alias_of": null,
+  "legacy": {
+   "issue": 26,
+   "raw": "- [ ] Wiki page promoted (link below)"
+  }
  }
 ]

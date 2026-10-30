@@ -17,7 +17,6 @@ entries:
     priority: "none"
     first_seen: "2026-10-30"
     last_verified: "2026-10-30"
-    legacy: { issue: 26 }
   - id: witness-overlap
     name: "Witness Overlap"
     class: "static"
@@ -32,7 +31,6 @@ entries:
     priority: "none"
     first_seen: "2026-10-30"
     last_verified: "2026-10-30"
-    legacy: { issue: 26 }
   - id: centered-residual-signatures
     name: "Centered Residual Signatures"
     class: "static"
@@ -47,7 +45,6 @@ entries:
     priority: "none"
     first_seen: "2026-10-30"
     last_verified: "2026-10-30"
-    legacy: { issue: 26 }
   - id: llm-biometrics
     name: "LLM-Biometrics"
     class: "static"
@@ -61,7 +58,6 @@ entries:
     priority: "none"
     first_seen: "2026-10-30"
     last_verified: "2026-10-30"
-    legacy: { issue: 26 }
   - id: huref
     name: "HuRef"
     class: "static"
@@ -75,7 +71,6 @@ entries:
     priority: "none"
     first_seen: "2026-10-30"
     last_verified: "2026-10-30"
-    legacy: { issue: 26 }
   - id: intrinsic-fingerprint
     name: "Intrinsic Fingerprint"
     class: "static"
@@ -89,7 +84,6 @@ entries:
     priority: "none"
     first_seen: "2026-10-30"
     last_verified: "2026-10-30"
-    legacy: { issue: 26 }
   - id: mother
     name: "MoTHer"
     class: "static"
@@ -103,7 +97,6 @@ entries:
     priority: "none"
     first_seen: "2026-10-30"
     last_verified: "2026-10-30"
-    legacy: { issue: 26 }
   - id: awm
     name: "AWM"
     class: "static"
@@ -116,7 +109,6 @@ entries:
     priority: "none"
     first_seen: "2026-10-30"
     last_verified: "2026-10-30"
-    legacy: { issue: 26 }
   - id: ghostspec
     name: "GhostSpec"
     class: "static"
@@ -129,7 +121,6 @@ entries:
     priority: "none"
     first_seen: "2026-10-30"
     last_verified: "2026-10-30"
-    legacy: { issue: 26 }
   - id: self
     name: "SELF"
     class: "static"
@@ -142,7 +133,6 @@ entries:
     priority: "none"
     first_seen: "2026-10-30"
     last_verified: "2026-10-30"
-    legacy: { issue: 26 }
   - id: mdir
     name: "MDIR"
     class: "static"
@@ -155,7 +145,6 @@ entries:
     priority: "none"
     first_seen: "2026-10-30"
     last_verified: "2026-10-30"
-    legacy: { issue: 26 }
   - id: shadowgenes
     name: "ShadowGenes"
     class: "static"
@@ -168,7 +157,6 @@ entries:
     priority: "none"
     first_seen: "2026-10-30"
     last_verified: "2026-10-30"
-    legacy: { issue: 26 }
   - id: independence-tests
     name: "Independence Tests"
     class: "static"
@@ -183,7 +171,6 @@ entries:
     priority: "none"
     first_seen: "2026-10-30"
     last_verified: "2026-10-30"
-    legacy: { issue: 26 }
   - id: trace
     name: "TRACE"
     class: "static"
@@ -197,7 +184,6 @@ entries:
     priority: "none"
     first_seen: "2026-10-30"
     last_verified: "2026-10-30"
-    legacy: { issue: 26 }
   - id: lora-hash
     name: "LoRA-Hash"
     class: "static"
@@ -212,7 +198,6 @@ entries:
     priority: "none"
     first_seen: "2026-10-30"
     last_verified: "2026-10-30"
-    legacy: { issue: 26 }
   - id: mps
     name: "MPS"
     class: "static"
@@ -223,7 +208,6 @@ entries:
     priority: "none"
     first_seen: "2026-10-30"
     last_verified: "2026-10-30"
-    legacy: { issue: 26 }
   - id: solar-vs-glm-dispute
     name: "Solar-vs-GLM dispute"
     class: "static"
@@ -237,7 +221,6 @@ entries:
     priority: "none"
     first_seen: "2026-10-30"
     last_verified: "2026-10-30"
-    legacy: { issue: 26 }
   - id: pangu-pro-moe-vs-qwen2-5-dispute
     name: "Pangu Pro MoE vs Qwen2.5 dispute"
     class: "static"
@@ -249,7 +232,6 @@ entries:
     first_seen: "2026-10-30"
     last_verified: "2026-10-30"
     notes: "Field case; accuser repo deleted ~4h after posting. Verified matrix numbers in the #26 comment."
-    legacy: { issue: 26 }
   - id: neural-phylogeny
     name: "Neural Phylogeny"
     class: "static"
@@ -260,7 +242,6 @@ entries:
     priority: "none"
     first_seen: "2026-10-30"
     last_verified: "2026-10-30"
-    legacy: { issue: 26 }
   - id: what-you-sign-is-not-what-you-run
     name: "What You Sign Is Not What You Run"
     class: "static"
@@ -275,7 +256,6 @@ entries:
     priority: "none"
     first_seen: "2026-10-30"
     last_verified: "2026-10-30"
-    legacy: { issue: 26 }
   - id: gate-spectral-fingerprinting
     name: "GATE Spectral Fingerprinting"
     class: "static"
@@ -290,7 +270,6 @@ entries:
     priority: "none"
     first_seen: "2026-10-30"
     last_verified: "2026-10-30"
-    legacy: { issue: 26 }
   - id: spectral-signatures-of-llms
     name: "Spectral Signatures of LLMs"
     class: "static"
@@ -301,7 +280,6 @@ entries:
     priority: "none"
     first_seen: "2026-10-30"
     last_verified: "2026-10-30"
-    legacy: { issue: 26 }
   - id: trfp
     name: "TrFP"
     class: "static"
@@ -312,7 +290,6 @@ entries:
     priority: "none"
     first_seen: "2026-10-30"
     last_verified: "2026-10-30"
-    legacy: { issue: 26 }
   - id: watch-the-weights
     name: "Watch the Weights"
     class: "static"
@@ -323,7 +300,6 @@ entries:
     priority: "none"
     first_seen: "2026-10-30"
     last_verified: "2026-10-30"
-    legacy: { issue: 26 }
   - id: has-this-fact-been-edited
     name: "Has this Fact been Edited?"
     class: "static"
@@ -334,7 +310,6 @@ entries:
     priority: "none"
     first_seen: "2026-10-30"
     last_verified: "2026-10-30"
-    legacy: { issue: 26 }
   - id: tracing-and-reversing-edits-in-llms
     name: "Tracing and Reversing Edits in LLMs"
     class: "static"
@@ -345,7 +320,6 @@ entries:
     priority: "none"
     first_seen: "2026-10-30"
     last_verified: "2026-10-30"
-    legacy: { issue: 26 }
   - id: stemma-nagayu
     name: "Stemma, NagaYu"
     class: "static"
@@ -356,7 +330,6 @@ entries:
     priority: "none"
     first_seen: "2026-10-30"
     last_verified: "2026-10-30"
-    legacy: { issue: 26 }
   - id: rio-3-5-open-397b-vs-nex-n2-pro-qwen3-5
     name: "Rio-3.5-Open-397B vs Nex-N2-Pro/Qwen3.5"
     class: "static"
@@ -367,7 +340,6 @@ entries:
     priority: "none"
     first_seen: "2026-10-30"
     last_verified: "2026-10-30"
-    legacy: { issue: 26 }
   - id: llama3-v-vs-minicpm-llama3-v-2-5
     name: "Llama3-V vs MiniCPM-Llama3-V 2.5"
     class: "static"
@@ -378,7 +350,6 @@ entries:
     priority: "none"
     first_seen: "2026-10-30"
     last_verified: "2026-10-30"
-    legacy: { issue: 26 }
   - id: yi-34b-vs-llama
     name: "Yi-34B vs Llama"
     class: "static"
@@ -389,7 +360,6 @@ entries:
     priority: "none"
     first_seen: "2026-10-30"
     last_verified: "2026-10-30"
-    legacy: { issue: 26 }
   - id: multi-resolution-llm-fingerprinting
     name: "Multi-Resolution LLM Fingerprinting"
     class: "inference"
@@ -400,7 +370,6 @@ entries:
     priority: "none"
     first_seen: "2026-10-30"
     last_verified: "2026-10-30"
-    legacy: { issue: 26 }
   - id: scalable-fingerprinting-of-llms
     name: "Scalable Fingerprinting of LLMs"
     class: "inference"
@@ -411,7 +380,6 @@ entries:
     priority: "none"
     first_seen: "2026-10-30"
     last_verified: "2026-10-30"
-    legacy: { issue: 26 }
   - id: errortrace
     name: "ErrorTrace"
     class: "inference"
@@ -422,7 +390,6 @@ entries:
     priority: "none"
     first_seen: "2026-10-30"
     last_verified: "2026-10-30"
-    legacy: { issue: 26 }
   - id: easydetector
     name: "EasyDetector"
     class: "inference"
@@ -433,7 +400,6 @@ entries:
     priority: "none"
     first_seen: "2026-10-30"
     last_verified: "2026-10-30"
-    legacy: { issue: 26 }
   - id: lineagemark
     name: "LineageMark"
     class: "inference"
@@ -444,7 +410,6 @@ entries:
     priority: "none"
     first_seen: "2026-10-30"
     last_verified: "2026-10-30"
-    legacy: { issue: 26 }
   - id: duffin
     name: "DuFFin"
     class: "inference"
@@ -455,7 +420,6 @@ entries:
     priority: "none"
     first_seen: "2026-10-30"
     last_verified: "2026-10-30"
-    legacy: { issue: 26 }
   - id: agentic-behavior-fingerprinting
     name: "Agentic-Behavior Fingerprinting"
     class: "inference"
@@ -466,7 +430,6 @@ entries:
     priority: "none"
     first_seen: "2026-10-30"
     last_verified: "2026-10-30"
-    legacy: { issue: 26 }
   - id: fpedit
     name: "FPEdit"
     class: "inference"
@@ -477,7 +440,6 @@ entries:
     priority: "none"
     first_seen: "2026-10-30"
     last_verified: "2026-10-30"
-    legacy: { issue: 26 }
   - id: fingerprinting-llms-via-prompt-injection
     name: "Fingerprinting LLMs via Prompt Injection"
     class: "inference"
@@ -488,7 +450,6 @@ entries:
     priority: "none"
     first_seen: "2026-10-30"
     last_verified: "2026-10-30"
-    legacy: { issue: 26 }
   - id: fnf
     name: "FNF"
     class: "inference"
@@ -499,7 +460,6 @@ entries:
     priority: "none"
     first_seen: "2026-10-30"
     last_verified: "2026-10-30"
-    legacy: { issue: 26 }
   - id: qurd
     name: "QuRD"
     class: "inference"
@@ -510,7 +470,6 @@ entries:
     priority: "none"
     first_seen: "2026-10-30"
     last_verified: "2026-10-30"
-    legacy: { issue: 26 }
   - id: retrospective-distillation-attribution
     name: "Retrospective Distillation Attribution"
     class: "inference"
@@ -521,7 +480,6 @@ entries:
     priority: "none"
     first_seen: "2026-10-30"
     last_verified: "2026-10-30"
-    legacy: { issue: 26 }
   - id: watermark-basins-wm-basin
     name: "Watermark Basins / WM-Basin"
     class: "inference"
@@ -532,7 +490,6 @@ entries:
     priority: "none"
     first_seen: "2026-10-30"
     last_verified: "2026-10-30"
-    legacy: { issue: 26 }
   - id: relay-auditing
     name: "Relay Auditing"
     class: "inference"
@@ -543,7 +500,6 @@ entries:
     priority: "none"
     first_seen: "2026-10-30"
     last_verified: "2026-10-30"
-    legacy: { issue: 26 }
   - id: from-bits-to-beliefs
     name: "From Bits to Beliefs"
     class: "inference"
@@ -554,7 +510,6 @@ entries:
     priority: "none"
     first_seen: "2026-10-30"
     last_verified: "2026-10-30"
-    legacy: { issue: 26 }
   - id: the-shape-of-ownership
     name: "The Shape of Ownership"
     class: "inference"
@@ -565,7 +520,6 @@ entries:
     priority: "none"
     first_seen: "2026-10-30"
     last_verified: "2026-10-30"
-    legacy: { issue: 26 }
   - id: who-s-behind-the-text
     name: "Who's Behind the Text?"
     class: "inference"
@@ -576,7 +530,6 @@ entries:
     priority: "none"
     first_seen: "2026-10-30"
     last_verified: "2026-10-30"
-    legacy: { issue: 26 }
   - id: adaptprint
     name: "AdaptPrint"
     class: "inference"
@@ -587,7 +540,6 @@ entries:
     priority: "none"
     first_seen: "2026-10-30"
     last_verified: "2026-10-30"
-    legacy: { issue: 26 }
   - id: flips
     name: "FLIPS"
     class: "inference"
@@ -598,7 +550,6 @@ entries:
     priority: "none"
     first_seen: "2026-10-30"
     last_verified: "2026-10-30"
-    legacy: { issue: 26 }
   - id: fingerprinting-multimodal-llms
     name: "Fingerprinting Multimodal LLMs"
     class: "inference"
@@ -610,7 +561,6 @@ entries:
     first_seen: "2026-10-30"
     last_verified: "2026-10-30"
     notes: "Also listed in #26 as \"AttnPrint / DistillTrace\" (same arXiv 2609.20457); rows merged."
-    legacy: { issue: 26 }
   - id: tensorguard
     name: "TensorGuard"
     class: "inference"
@@ -621,7 +571,6 @@ entries:
     priority: "none"
     first_seen: "2026-10-30"
     last_verified: "2026-10-30"
-    legacy: { issue: 26 }
   - id: refusal-vector-fingerprint
     name: "Refusal-Vector Fingerprint"
     class: "inference"
@@ -632,7 +581,6 @@ entries:
     priority: "none"
     first_seen: "2026-10-30"
     last_verified: "2026-10-30"
-    legacy: { issue: 26 }
   - id: reef
     name: "REEF"
     class: "inference"
@@ -643,7 +591,6 @@ entries:
     priority: "none"
     first_seen: "2026-10-30"
     last_verified: "2026-10-30"
-    legacy: { issue: 26 }
   - id: attndiff
     name: "AttnDiff"
     class: "inference"
@@ -654,7 +601,6 @@ entries:
     priority: "none"
     first_seen: "2026-10-30"
     last_verified: "2026-10-30"
-    legacy: { issue: 26 }
   - id: seedprints
     name: "SeedPrints"
     class: "inference"
@@ -665,7 +611,6 @@ entries:
     priority: "none"
     first_seen: "2026-10-30"
     last_verified: "2026-10-30"
-    legacy: { issue: 26 }
   - id: llm-dna
     name: "LLM-DNA"
     class: "inference"
@@ -676,7 +621,6 @@ entries:
     priority: "none"
     first_seen: "2026-10-30"
     last_verified: "2026-10-30"
-    legacy: { issue: 26 }
   - id: zeroprint
     name: "ZeroPrint"
     class: "inference"
@@ -687,7 +631,6 @@ entries:
     priority: "none"
     first_seen: "2026-10-30"
     last_verified: "2026-10-30"
-    legacy: { issue: 26 }
   - id: tokenprint
     name: "TokenPrint"
     class: "inference"
@@ -698,7 +641,6 @@ entries:
     priority: "none"
     first_seen: "2026-10-30"
     last_verified: "2026-10-30"
-    legacy: { issue: 26 }
   - id: reference-based-distillation-detection
     name: "Reference-Based Distillation Detection"
     class: "inference"
@@ -709,7 +651,6 @@ entries:
     priority: "none"
     first_seen: "2026-10-30"
     last_verified: "2026-10-30"
-    legacy: { issue: 26 }
   - id: stemma
     name: "Stemma"
     class: "inference"
@@ -720,7 +661,6 @@ entries:
     priority: "none"
     first_seen: "2026-10-30"
     last_verified: "2026-10-30"
-    legacy: { issue: 26 }
   - id: model-provenance-testing
     name: "Model Provenance Testing"
     class: "inference"
@@ -731,7 +671,6 @@ entries:
     priority: "none"
     first_seen: "2026-10-30"
     last_verified: "2026-10-30"
-    legacy: { issue: 26 }
   - id: bref
     name: "BReF"
     class: "inference"
@@ -742,7 +681,6 @@ entries:
     priority: "none"
     first_seen: "2026-10-30"
     last_verified: "2026-10-30"
-    legacy: { issue: 26 }
   - id: attesting-model-lineage
     name: "Attesting Model Lineage"
     class: "inference"
@@ -753,7 +691,6 @@ entries:
     priority: "none"
     first_seen: "2026-10-30"
     last_verified: "2026-10-30"
-    legacy: { issue: 26 }
   - id: palimpsestic-membership-inference
     name: "Palimpsestic Membership Inference"
     class: "inference"
@@ -764,7 +701,6 @@ entries:
     priority: "none"
     first_seen: "2026-10-30"
     last_verified: "2026-10-30"
-    legacy: { issue: 26 }
   - id: tensorguard-lite
     name: "TensorGuard-Lite"
     class: "inference"
@@ -775,7 +711,6 @@ entries:
     priority: "none"
     first_seen: "2026-10-30"
     last_verified: "2026-10-30"
-    legacy: { issue: 26 }
   - id: rafp
     name: "RAFP"
     class: "inference"
@@ -786,7 +721,6 @@ entries:
     priority: "none"
     first_seen: "2026-10-30"
     last_verified: "2026-10-30"
-    legacy: { issue: 26 }
   - id: one-token-is-enough
     name: "One Token Is Enough"
     class: "inference"
@@ -797,7 +731,6 @@ entries:
     priority: "none"
     first_seen: "2026-10-30"
     last_verified: "2026-10-30"
-    legacy: { issue: 26 }
   - id: modeltrace
     name: "ModelTrace"
     class: "inference"
@@ -808,7 +741,6 @@ entries:
     priority: "none"
     first_seen: "2026-10-30"
     last_verified: "2026-10-30"
-    legacy: { issue: 26 }
   - id: vail-stability-monitor
     name: "VAIL Stability Monitor"
     class: "inference"
@@ -819,7 +751,6 @@ entries:
     priority: "none"
     first_seen: "2026-10-30"
     last_verified: "2026-10-30"
-    legacy: { issue: 26 }
   - id: phylolm
     name: "PhyloLM"
     class: "inference"
@@ -830,7 +761,6 @@ entries:
     priority: "none"
     first_seen: "2026-10-30"
     last_verified: "2026-10-30"
-    legacy: { issue: 26 }
   - id: fit-print
     name: "FIT-Print"
     class: "inference"
@@ -841,7 +771,6 @@ entries:
     priority: "none"
     first_seen: "2026-10-30"
     last_verified: "2026-10-30"
-    legacy: { issue: 26 }
   - id: leave-it-to-the-experts
     name: "Leave It to the Experts"
     class: "inference"
@@ -853,7 +782,6 @@ entries:
     first_seen: "2026-10-30"
     last_verified: "2026-10-30"
     notes: "Also cross-referenced from the MoE section of #26."
-    legacy: { issue: 26 }
   - id: origin-tracer
     name: "Origin Tracer"
     class: "inference"
@@ -868,7 +796,6 @@ entries:
     priority: "none"
     first_seen: "2026-10-30"
     last_verified: "2026-10-30"
-    legacy: { issue: 26 }
   - id: tcf
     name: "TCF"
     class: "inference"
@@ -879,7 +806,6 @@ entries:
     priority: "none"
     first_seen: "2026-10-30"
     last_verified: "2026-10-30"
-    legacy: { issue: 26 }
   - id: dnf
     name: "DNF"
     class: "inference"
@@ -890,7 +816,6 @@ entries:
     priority: "none"
     first_seen: "2026-10-30"
     last_verified: "2026-10-30"
-    legacy: { issue: 26 }
   - id: tokenizer-differential-counting
     name: "Tokenizer differential counting"
     class: "inference"
@@ -901,7 +826,6 @@ entries:
     priority: "none"
     first_seen: "2026-10-30"
     last_verified: "2026-10-30"
-    legacy: { issue: 26 }
   - id: nyu-mlab-model-fingerprinting
     name: "nyu-mlab model-fingerprinting"
     class: "inference"
@@ -912,7 +836,6 @@ entries:
     priority: "none"
     first_seen: "2026-10-30"
     last_verified: "2026-10-30"
-    legacy: { issue: 26 }
   - id: miqu-1-70b
     name: "miqu-1-70b"
     class: "inference"
@@ -923,7 +846,6 @@ entries:
     priority: "none"
     first_seen: "2026-10-30"
     last_verified: "2026-10-30"
-    legacy: { issue: 26 }
   - id: reflection-70b
     name: "Reflection-70B"
     class: "inference"
@@ -934,7 +856,6 @@ entries:
     priority: "none"
     first_seen: "2026-10-30"
     last_verified: "2026-10-30"
-    legacy: { issue: 26 }
   - id: routemark
     name: "RouteMark"
     class: "moe"
@@ -945,7 +866,6 @@ entries:
     priority: "none"
     first_seen: "2026-10-30"
     last_verified: "2026-10-30"
-    legacy: { issue: 26 }
   - id: router-telemetry-privacy
     name: "Router Telemetry Privacy"
     class: "moe"
@@ -956,7 +876,6 @@ entries:
     priority: "none"
     first_seen: "2026-10-30"
     last_verified: "2026-10-30"
-    legacy: { issue: 26 }
   - id: cisco-ai-defense-model-provenance-kit
     name: "[cisco-ai-defense/model-provenance-kit](https://github.com/cisco-ai-defense/model-provenance-kit)"
     class: "engine"
@@ -969,7 +888,6 @@ entries:
     priority: "none"
     first_seen: "2026-10-30"
     last_verified: "2026-10-30"
-    legacy: { issue: 26 }
   - id: models-don-t-have-passports
     name: "[Models Don't Have Passports](https://www.cisco.com/c/dam/en/us/products/security/models-dont-have-passports.pdf)"
     class: "engine"
@@ -983,7 +901,6 @@ entries:
     priority: "none"
     first_seen: "2026-10-30"
     last_verified: "2026-10-30"
-    legacy: { issue: 26 }
   - id: sentient-fingerprinting-leaderboard
     name: "[Sentient Fingerprinting Leaderboard](https://fingerprint.sentient.foundation/leaderboard)"
     class: "engine"
@@ -994,7 +911,6 @@ entries:
     priority: "none"
     first_seen: "2026-10-30"
     last_verified: "2026-10-30"
-    legacy: { issue: 26 }
   - id: cisco-model-provenance-constitution
     name: "[Cisco Model Provenance Constitution](https://blogs.cisco.com/ai/model-provenance-constitution)"
     class: "engine"
@@ -1005,7 +921,6 @@ entries:
     priority: "none"
     first_seen: "2026-10-30"
     last_verified: "2026-10-30"
-    legacy: { issue: 26 }
   - id: awaisadilkhokhar-modeldna
     name: "[AwaisAdilKhokhar/modelDNA](https://github.com/AwaisAdilKhokhar/modelDNA)"
     class: "engine"
@@ -1018,7 +933,6 @@ entries:
     priority: "none"
     first_seen: "2026-10-30"
     last_verified: "2026-10-30"
-    legacy: { issue: 26 }
   - id: shaoshuo-ss-leafbench-sok-survey
     name: "[shaoshuo-ss/LeaFBench + SoK survey](https://github.com/shaoshuo-ss/LeaFBench)"
     class: "engine"
@@ -1032,7 +946,6 @@ entries:
     priority: "none"
     first_seen: "2026-10-30"
     last_verified: "2026-10-30"
-    legacy: { issue: 26 }
   - id: cisco-provenance-explorer
     name: "[Cisco Provenance Explorer](https://provenance.aidefense.cisco.com/)"
     class: "engine"
@@ -1043,7 +956,6 @@ entries:
     priority: "none"
     first_seen: "2026-10-30"
     last_verified: "2026-10-30"
-    legacy: { issue: 26 }
   - id: modsleuth
     name: "[ModSleuth](https://github.com/cal-data-audit/modsleuth)"
     class: "engine"
@@ -1054,7 +966,6 @@ entries:
     priority: "none"
     first_seen: "2026-10-30"
     last_verified: "2026-10-30"
-    legacy: { issue: 26 }
   - id: hiddenlayer-model-intelligence
     name: "[HiddenLayer Model Intelligence](https://docs.hiddenlayer.ai/docs/products/console/supply_chain_model_intelligence)"
     class: "engine"
@@ -1065,7 +976,6 @@ entries:
     priority: "none"
     first_seen: "2026-10-30"
     last_verified: "2026-10-30"
-    legacy: { issue: 26 }
   - id: ml-model-attribution-challenge
     name: "[ML Model Attribution Challenge](https://arxiv.org/abs/2302.06716)"
     class: "engine"
@@ -1076,7 +986,6 @@ entries:
     priority: "none"
     first_seen: "2026-10-30"
     last_verified: "2026-10-30"
-    legacy: { issue: 26 }
   - id: stemma-bench
     name: "[stemma-bench](https://huggingface.co/datasets/NagaYu/stemma-bench)"
     class: "engine"
@@ -1087,7 +996,6 @@ entries:
     priority: "none"
     first_seen: "2026-10-30"
     last_verified: "2026-10-30"
-    legacy: { issue: 26 }
   - id: llmfp-fingerprint-library
     name: "[llmfp fingerprint library](https://huggingface.co/datasets/marcjon/llmfp-fingerprints)"
     class: "engine"
@@ -1098,7 +1006,6 @@ entries:
     priority: "none"
     first_seen: "2026-10-30"
     last_verified: "2026-10-30"
-    legacy: { issue: 26 }
   - id: ckasketch-sketches
     name: "[ckasketch sketches](https://huggingface.co/datasets/marcjon/ckasketch-sketches)"
     class: "engine"
@@ -1109,7 +1016,6 @@ entries:
     priority: "none"
     first_seen: "2026-10-30"
     last_verified: "2026-10-30"
-    legacy: { issue: 26 }
   - id: by321-safetensors-util
     name: "[by321/safetensors_util](https://github.com/by321/safetensors_util)"
     class: "tooling"
@@ -1120,7 +1026,6 @@ entries:
     priority: "none"
     first_seen: "2026-10-30"
     last_verified: "2026-10-30"
-    legacy: { issue: 26 }
   - id: p1atdev-safemetadata
     name: "[p1atdev/safemetadata](https://github.com/p1atdev/safemetadata)"
     class: "tooling"
@@ -1131,7 +1036,6 @@ entries:
     priority: "none"
     first_seen: "2026-10-30"
     last_verified: "2026-10-30"
-    legacy: { issue: 26 }
   - id: dreamfast-ungguf
     name: "[dreamfast/ungguf](https://github.com/dreamfast/ungguf)"
     class: "tooling"
@@ -1142,7 +1046,6 @@ entries:
     priority: "none"
     first_seen: "2026-10-30"
     last_verified: "2026-10-30"
-    legacy: { issue: 26 }
   - id: fjzzq2002-weightwatch
     name: "[fjzzq2002/WeightWatch](https://github.com/fjzzq2002/WeightWatch)"
     class: "tooling"
@@ -1153,7 +1056,6 @@ entries:
     priority: "none"
     first_seen: "2026-10-30"
     last_verified: "2026-10-30"
-    legacy: { issue: 26 }
   - id: chayan-bit-pentimento
     name: "[chayan-bit/pentimento](https://github.com/chayan-bit/pentimento)"
     class: "tooling"
@@ -1164,7 +1066,6 @@ entries:
     priority: "none"
     first_seen: "2026-10-30"
     last_verified: "2026-10-30"
-    legacy: { issue: 26 }
   - id: mlab-sh-assay
     name: "[mlab-sh/assay](https://github.com/mlab-sh/assay)"
     class: "tooling"
@@ -1175,7 +1076,6 @@ entries:
     priority: "none"
     first_seen: "2026-10-30"
     last_verified: "2026-10-30"
-    legacy: { issue: 26 }
   - id: joe-nv-modelsig
     name: "[joe-nv/modelsig](https://github.com/joe-nv/modelsig)"
     class: "tooling"
@@ -1186,7 +1086,6 @@ entries:
     priority: "none"
     first_seen: "2026-10-30"
     last_verified: "2026-10-30"
-    legacy: { issue: 26 }
   - id: bdas-sec-weightprobe
     name: "[bdas-sec/weightprobe](https://github.com/bdas-sec/weightprobe)"
     class: "tooling"
@@ -1197,7 +1096,6 @@ entries:
     priority: "none"
     first_seen: "2026-10-30"
     last_verified: "2026-10-30"
-    legacy: { issue: 26 }
   - id: weight-oracles
     name: "[Weight Oracles](https://arxiv.org/abs/2610.07334)"
     class: "tooling"
@@ -1208,7 +1106,6 @@ entries:
     priority: "none"
     first_seen: "2026-10-30"
     last_verified: "2026-10-30"
-    legacy: { issue: 26 }
   - id: multimodal-model-diffing
     name: "[Multimodal Model Diffing](https://arxiv.org/abs/2608.09928)"
     class: "tooling"
@@ -1219,7 +1116,6 @@ entries:
     priority: "none"
     first_seen: "2026-10-30"
     last_verified: "2026-10-30"
-    legacy: { issue: 26 }
   - id: model-genome
     name: "[Model Genome](https://huggingface.co/blog/mayafree/model-dna)"
     class: "tooling"
@@ -1230,7 +1126,6 @@ entries:
     priority: "none"
     first_seen: "2026-10-30"
     last_verified: "2026-10-30"
-    legacy: { issue: 26 }
   - id: mintesnot-teshome-llm-verify
     name: "[mintesnot-teshome/llm-verify](https://github.com/mintesnot-teshome/llm-verify)"
     class: "tooling"
@@ -1241,7 +1136,6 @@ entries:
     priority: "none"
     first_seen: "2026-10-30"
     last_verified: "2026-10-30"
-    legacy: { issue: 26 }
   - id: majiayu000-stealthprint
     name: "[majiayu000/stealthprint](https://github.com/majiayu000/stealthprint)"
     class: "tooling"
@@ -1252,7 +1146,6 @@ entries:
     priority: "none"
     first_seen: "2026-10-30"
     last_verified: "2026-10-30"
-    legacy: { issue: 26 }
   - id: harperz9-model-provenance-validator
     name: "[HarperZ9/model-provenance-validator](https://github.com/HarperZ9/model-provenance-validator)"
     class: "tooling"
@@ -1263,7 +1156,6 @@ entries:
     priority: "none"
     first_seen: "2026-10-30"
     last_verified: "2026-10-30"
-    legacy: { issue: 26 }
   - id: sunilgentyala-model-provenance-guard
     name: "[sunilgentyala/model-provenance-guard](https://github.com/sunilgentyala/model-provenance-guard)"
     class: "tooling"
@@ -1274,7 +1166,6 @@ entries:
     priority: "none"
     first_seen: "2026-10-30"
     last_verified: "2026-10-30"
-    legacy: { issue: 26 }
   - id: saga-ai-labs-weight-atlas
     name: "[Saga-AI-Labs/weight-atlas](https://github.com/Saga-AI-Labs/weight-atlas)"
     class: "tooling"
@@ -1285,7 +1176,6 @@ entries:
     priority: "none"
     first_seen: "2026-10-30"
     last_verified: "2026-10-30"
-    legacy: { issue: 26 }
   - id: xyc2016-stprobe
     name: "[xyc2016/stprobe](https://github.com/Xyc2016/stprobe)"
     class: "tooling"
@@ -1296,7 +1186,6 @@ entries:
     priority: "none"
     first_seen: "2026-10-30"
     last_verified: "2026-10-30"
-    legacy: { issue: 26 }
   - id: dreadnode-tensor-man
     name: "[dreadnode/tensor-man](https://github.com/dreadnode/tensor-man)"
     class: "tooling"
@@ -1307,7 +1196,6 @@ entries:
     priority: "none"
     first_seen: "2026-10-30"
     last_verified: "2026-10-30"
-    legacy: { issue: 26 }
   - id: las7-weight-inspect
     name: "[las7/weight-inspect](https://github.com/las7/weight-inspect)"
     class: "tooling"
@@ -1318,7 +1206,6 @@ entries:
     priority: "none"
     first_seen: "2026-10-30"
     last_verified: "2026-10-30"
-    legacy: { issue: 26 }
   - id: joannany-model-lineage-audit
     name: "[joannany/model-lineage-audit](https://github.com/joannany/model-lineage-audit)"
     class: "tooling"
@@ -1329,7 +1216,6 @@ entries:
     priority: "none"
     first_seen: "2026-10-30"
     last_verified: "2026-10-30"
-    legacy: { issue: 26 }
   - id: mi-for-the-rust-of-us-hf-fetch-model
     name: "[mi-for-the-rust-of-us/hf-fetch-model](https://github.com/mi-for-the-rust-of-us/hf-fetch-model)"
     class: "tooling"
@@ -1340,7 +1226,6 @@ entries:
     priority: "none"
     first_seen: "2026-10-30"
     last_verified: "2026-10-30"
-    legacy: { issue: 26 }
   - id: stef41-ckptkit
     name: "[stef41/ckptkit](https://github.com/stef41/ckptkit)"
     class: "tooling"
@@ -1351,7 +1236,6 @@ entries:
     priority: "none"
     first_seen: "2026-10-30"
     last_verified: "2026-10-30"
-    legacy: { issue: 26 }
   - id: o018bum8uqeey2e5-model-fingerprint
     name: "[o018BUm8UQEEY2e5/model-fingerprint](https://github.com/o018BUm8UQEEY2e5/model-fingerprint)"
     class: "tooling"
@@ -1362,7 +1246,6 @@ entries:
     priority: "none"
     first_seen: "2026-10-30"
     last_verified: "2026-10-30"
-    legacy: { issue: 26 }
   - id: jnopareboateng-modelmeta-rmems-engram-parser-pip
     name: "modelmeta / engram-parser / modelinfo-cli utilities"
     class: "tooling"
@@ -1374,7 +1257,6 @@ entries:
     priority: "none"
     first_seen: "2026-10-30"
     last_verified: "2026-10-30"
-    legacy: { issue: 26 }
   - id: theadamdanielsson-ggufpacker
     name: "[theadamdanielsson/ggufpacker](https://github.com/theadamdanielsson/ggufpacker)"
     class: "tooling"
@@ -1388,7 +1270,6 @@ entries:
     priority: "none"
     first_seen: "2026-10-30"
     last_verified: "2026-10-30"
-    legacy: { issue: 26 }
   - id: chrishayuk-larql
     name: "[chrishayuk/larql](https://github.com/chrishayuk/larql)"
     class: "tooling"
@@ -1399,7 +1280,6 @@ entries:
     priority: "none"
     first_seen: "2026-10-30"
     last_verified: "2026-10-30"
-    legacy: { issue: 26 }
   - id: secai-hub-gguf-guard
     name: "[SecAI-Hub/gguf-guard](https://github.com/SecAI-Hub/gguf-guard)"
     class: "tooling"
@@ -1410,7 +1290,6 @@ entries:
     priority: "none"
     first_seen: "2026-10-30"
     last_verified: "2026-10-30"
-    legacy: { issue: 26 }
   - id: mysterionrise-ggufkit
     name: "[MysterionRise/ggufkit](https://github.com/MysterionRise/ggufkit)"
     class: "tooling"
@@ -1421,7 +1300,6 @@ entries:
     priority: "none"
     first_seen: "2026-10-30"
     last_verified: "2026-10-30"
-    legacy: { issue: 26 }
   - id: exileai-model-audit
     name: "[ExileAI/model-audit](https://github.com/ExileAI/model-audit)"
     class: "tooling"
@@ -1432,7 +1310,6 @@ entries:
     priority: "none"
     first_seen: "2026-10-30"
     last_verified: "2026-10-30"
-    legacy: { issue: 26 }
   - id: tekoztek-lora-scan
     name: "[tekoztek/lora-scan](https://github.com/tekoztek/lora-scan)"
     class: "tooling"
@@ -1443,7 +1320,6 @@ entries:
     priority: "none"
     first_seen: "2026-10-30"
     last_verified: "2026-10-30"
-    legacy: { issue: 26 }
   - id: kako-jun-diffai
     name: "[kako-jun/diffai](https://github.com/kako-jun/diffai)"
     class: "tooling"
@@ -1454,7 +1330,6 @@ entries:
     priority: "none"
     first_seen: "2026-10-30"
     last_verified: "2026-10-30"
-    legacy: { issue: 26 }
   - id: srijitiyer-alloy
     name: "[srijitiyer/alloy](https://github.com/srijitiyer/alloy)"
     class: "tooling"
@@ -1465,7 +1340,6 @@ entries:
     priority: "none"
     first_seen: "2026-10-30"
     last_verified: "2026-10-30"
-    legacy: { issue: 26 }
   - id: llama-cpp-kl-divergence
     name: "[llama.cpp KL-divergence](https://github.com/ggml-org/llama.cpp/blob/master/tools/perplexity/README.md)"
     class: "tooling"
@@ -1476,7 +1350,6 @@ entries:
     priority: "none"
     first_seen: "2026-10-30"
     last_verified: "2026-10-30"
-    legacy: { issue: 26 }
   - id: ds2-lab-tensordex
     name: "[ds2-lab/TensorDex](https://github.com/ds2-lab/TensorDex)"
     class: "tooling"
@@ -1487,7 +1360,6 @@ entries:
     priority: "none"
     first_seen: "2026-10-30"
     last_verified: "2026-10-30"
-    legacy: { issue: 26 }
   - id: h9-tec-model-family-tree
     name: "[h9-tec/model-family-tree](https://github.com/h9-tec/model-family-tree)"
     class: "tooling"
@@ -1498,7 +1370,6 @@ entries:
     priority: "none"
     first_seen: "2026-10-30"
     last_verified: "2026-10-30"
-    legacy: { issue: 26 }
   - id: parameter-space-inspector
     name: "[Parameter Space Inspector](https://parameterspaceinspector.com/)"
     class: "tooling"
@@ -1509,7 +1380,6 @@ entries:
     priority: "none"
     first_seen: "2026-10-30"
     last_verified: "2026-10-30"
-    legacy: { issue: 26 }
   - id: skyld-labs-modeldna
     name: "[Skyld-Labs/ModelDNA](https://github.com/Skyld-Labs/ModelDNA)"
     class: "tooling"
@@ -1520,7 +1390,6 @@ entries:
     priority: "none"
     first_seen: "2026-10-30"
     last_verified: "2026-10-30"
-    legacy: { issue: 26 }
   - id: 200lz-open-model-integration-validator
     name: "[200lz/open-model-integration-validator](https://github.com/200lz/open-model-integration-validator)"
     class: "tooling"
@@ -1531,7 +1400,6 @@ entries:
     priority: "none"
     first_seen: "2026-10-30"
     last_verified: "2026-10-30"
-    legacy: { issue: 26 }
   - id: gavxm-yurai
     name: "[gavxm/yurai](https://github.com/gavxm/yurai)"
     class: "tooling"
@@ -1542,4 +1410,3 @@ entries:
     priority: "none"
     first_seen: "2026-10-30"
     last_verified: "2026-10-30"
-    legacy: { issue: 26 }
