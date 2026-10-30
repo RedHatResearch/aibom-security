@@ -19,6 +19,7 @@ Runnable checks for the [#26](https://github.com/RedHatResearch/aibom-security/i
 | TRACE s_H | [`trace-sft/`](trace-sft/) | Checkpoint-update geometry, NNLS harmful-objective score | [#26 TRACE](https://github.com/RedHatResearch/aibom-security/issues/26#issuecomment-6141610015) · self-trained LoRA trajectories |
 | What-you-sign | [`what-you-sign/`](what-you-sign/) | GGUF re-derivability: FP-contraction divergence, recipe/imatrix gaps, detection floor, ggufpacker EXACT/NEAR | [#26 What You Sign](https://github.com/RedHatResearch/aibom-security/issues/26#issuecomment-6289519448) |
 | GATE spectral | [`gate-spectral/`](gate-spectral/) | Gate-proj spectral entropy, depth-segment pooling, linear CKA | [#26 GATE](https://github.com/RedHatResearch/aibom-security/issues/26) · pbench pairs |
+| MoE expert lineage | [`moe-expert-lineage/`](moe-expert-lineage/) | Synthetic expert permutation/prune/merge recovery: descriptor + Hungarian, constrained mixture fit | [#26](https://github.com/RedHatResearch/aibom-security/issues/26) · TinyMixtral + OLMoE synthetic variants |
 | Routing agreement | [`routing-agreement/`](routing-agreement/) | Router-vs-expert 4-bit QDQ, top-k routing set agreement, shuffled-router control | [#26](https://github.com/RedHatResearch/aibom-security/issues/26) · TinyMixtral + OLMoE |
 
 Shared helpers: [`_lib/`](_lib/) (Hub load, fixture pairs).
