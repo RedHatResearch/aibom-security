@@ -27,6 +27,8 @@ Background and usage notes live on the
 | `cohorts.yaml` | Ordered `smoke`, `core`, and `all` cohorts |
 | `detect.py` | Detector under test |
 | `src/pbench/` | Loader and evaluation harness |
+| `src/pbench/fastpath.py` | Extraction-cache executor, seam wrappers, run sidecar |
+| `src/pbench/fastpath_store.py` | Extraction-cache on-disk store |
 | `runs/` | Local JSONL run artifacts; ignored by git |
 
 ## Run
@@ -135,3 +137,95 @@ down-projection fallback (GPT-2 `mlp.c_proj`, GPTNeoX `mlp.dense_4h_to_h`,
 Nemotron-H `mixer.down_proj`), so core-cohort numbers for those pairs
 (`pb-core-nemotron-h-4b`, `pb-core-gpt2-fineweb-fp8`) read a substituted down
 projection, not the gate branch.
+
+## Extraction cache (fastpath)
+
+### What it is
+
+`fastpath.py` is a harness-only executor. The harness loads `detect.py`, then installs
+the executor, which wraps two functions of the loaded module — `_load_gate_tensors` and
+`_svd_spectrum` — in-process. `detect.py` is not edited by this: its sha256 still names
+the method artifact, and `PB_NO_FASTPATH=1` runs the same detector without the wrappers.
+The executor only decides whether to compute something or to return bits an earlier call
+produced; it never substitutes a different computation.
+
+### The two tiers
+
+| Tier | Key | Value | Why |
+| --- | --- | --- | --- |
+| A: provenance replay | `repo_id@revision` | serialized `Extraction`: layer → name, role, shape, spectrum | Revisions are full 40-hex SHAs, so the key names immutable content and a replay reads zero weight bytes. Rows are bound to the sha256 of the `detect.py` that wrote them and are a miss under any other detector. |
+| B: content identity | `sha256(fp32 matrix bytes):rows x cols` | the full fp32 singular-value spectrum | A cold run never SVDs a matrix it has already seen: across the two sides of a pair, across formats that decode to the same fp32 weights, and across runs. The key hashes the decoded matrix, so a decode change is a new key, not a stale hit. |
+
+Tier A is keyed only for pinned revisions. An unpinned extraction (`revision is None`)
+is neither read from nor written to the store. Tier B hashes the matrix in canonical
+C-order, so two element-wise identical inputs whose layouts differ share one key.
+
+### Why it is bit-identical
+
+The detector's `_svd_spectrum` takes the fp32 SVD and widens the singular values to
+fp64. Those values are exactly fp32-representable, so storing the fp32 bits and widening
+on read reproduces the frozen call's output exactly, and the whole spectrum is stored
+rather than a top-`r` truncation, so every rank cutoff and tail statistic is still
+available. A cache hit therefore returns the bits an earlier call produced; the store's
+validation exists to test the antecedent of that guarantee — that the numeric stack did
+not change.
+
+### Store layout and environment
+
+The store root holds three things:
+
+| Path | Role |
+| --- | --- |
+| `index.json` | Authoritative index, replaced atomically (`index.json.tmp` → fsync → rename → directory fsync). |
+| `spectra.f32` | Append-only flat little-endian fp32 spectra. An interrupted append leaves unreferenced bytes, which the next open truncates. |
+| `store.lock` | One writer at a time. A second process opens read-only and skips writes. |
+
+The default root is `.cache/fastpath/` under this checkout, which is ignored by git.
+`PB_FASTPATH_STORE` overrides it; `PB_NO_FASTPATH=1` disables the cache entirely and
+runs the detector's own calls.
+
+### Open-time validation
+
+Each store records probe rows and recomputes them at open with the detector's own frozen
+call. The probe set is: a fixed-seed Gaussian 64², kept only as the cheapest pre-check
+and labelled `blind` in the index; Hilbert 64² and 256², which are ill-conditioned;
+a rank-one 96×192; an all-zero 32×48; and integer-arithmetic matrices at the real cohort
+gate shapes 768×2048 and 2880×2880. Any mismatch quarantines the store files as
+`*.refused-<utc>` and rebuilds the store; so does an unreadable or malformed index,
+a truncated blob, or a different store spec.
+
+The probe set is not a single Gaussian canary because a Gaussian canary is blind to the
+change that matters. Measured: fp64 `dgesdd` and `dgesvd` agree bitwise on 200 of 200
+Gaussian inputs, and the orientation change that really differs (transposing the input)
+flips no fp32 value on Gaussian 64², 256², or 1024² inputs. Well-conditioned inputs round
+the difference away, which is why the probes include ill-conditioned, rank-deficient, and
+real-shape rows.
+
+### Disclosure sidecar
+
+A cached run writes `<stem>.fastpath.json` next to its `.method.jsonl` and `.review.jsonl`.
+It records the executor's sha256, the store module's sha256, the detector's sha256, the
+seams that were wrapped, the store root (relative, never absolute), the open-time
+validation result, the numeric stack, and the hit and miss counters.
+
+Nothing is added to an artifact's `meta`, so the artifact schema and every case record
+stay byte-identical. Read that carefully: the artifact proves the detector is frozen, not
+that the executor was. The sidecar is what pins the executor for a later reader.
+
+### What it does not change
+
+Verdict-path numerics, verdicts, abstain reasons, diagnostics, and probe selection are
+unchanged. A failed or abstained extraction is never persisted, so a later run re-reads
+the checkpoint rather than replaying a failure; a spectrum is stored only after the
+frozen call returned it normally.
+
+### Running it
+
+```bash
+# cold run: populates the store
+uv run pbench-eval --cohort core
+# warm re-run: every side replays from (repo, revision), no weight bytes are read
+uv run pbench-eval --cohort core
+# reference run with the cache disabled
+PB_NO_FASTPATH=1 uv run pbench-eval --cohort core
+```

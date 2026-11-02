@@ -14,7 +14,7 @@ from pathlib import Path
 from types import ModuleType
 from typing import Any
 
-from pbench import load
+from pbench import fastpath, load
 from pbench.load import bench_root, canonical_sha256, manifest_hashes, model_pin
 
 EVAL_VERSION = "pbench-eval/1"
@@ -334,6 +334,12 @@ def run_eval(
     kinds: list[str] | None = None,
     out_path: Path | None = None,
 ) -> int:
+    """Score the selected cases and write the immutable method/review artifact pair.
+
+    The extraction cache is a harness-only executor wrapped around the detector's
+    ``_load_gate_tensors``/``_svd_spectrum`` seams, so ``hashes.method_sha256`` still
+    describes ``detect.py`` alone; its identity and hit counts live in ``<stem>.fastpath.json``.
+    """
     root = root or bench_root()
     detect = _load_detect(root)
     cases = load.load_cases(root)
@@ -344,6 +350,7 @@ def run_eval(
     out_path = out_path if out_path is not None else default_run_path(root, method_sha256)
     review_path = review_run_path(out_path)
     _assert_artifact_pair_is_new(out_path, review_path)
+    executor = fastpath.install(detect, method_sha256=method_sha256)
     hashes = {
         **manifest_hashes(root),
         "selection_sha256": selection["selection_sha256"],
@@ -359,31 +366,35 @@ def run_eval(
 
     method_rows: list[dict[str, Any]] = []
     review_rows: list[dict[str, Any]] = []
-    for case in selected:
-        subject, subject_rev = model_pin(case, "subject")
-        reference, reference_rev = model_pin(case, "reference")
-        result = detect.score(
-            subject,
-            reference,
-            subject_rev=subject_rev,
-            reference_rev=reference_rev,
-            stack=case["stack"],
-        )
-        verdict, score, diagnostics, note, abstain_reason = _result_fields(result)
-        method_case = _method_case_record(
-            case,
-            subject=subject,
-            subject_rev=subject_rev,
-            reference=reference,
-            reference_rev=reference_rev,
-            verdict=verdict,
-            score=score,
-            diagnostics=diagnostics,
-            note=note,
-            abstain_reason=abstain_reason,
-        )
-        method_rows.append(method_case)
-        review_rows.append(_review_case_record(method_case, case))
+    try:
+        for case in selected:
+            subject, subject_rev = model_pin(case, "subject")
+            reference, reference_rev = model_pin(case, "reference")
+            result = detect.score(
+                subject,
+                reference,
+                subject_rev=subject_rev,
+                reference_rev=reference_rev,
+                stack=case["stack"],
+            )
+            verdict, score, diagnostics, note, abstain_reason = _result_fields(result)
+            method_case = _method_case_record(
+                case,
+                subject=subject,
+                subject_rev=subject_rev,
+                reference=reference,
+                reference_rev=reference_rev,
+                verdict=verdict,
+                score=score,
+                diagnostics=diagnostics,
+                note=note,
+                abstain_reason=abstain_reason,
+            )
+            method_rows.append(method_case)
+            review_rows.append(_review_case_record(method_case, case))
+    finally:
+        if executor is not None:
+            executor.close()
 
     metrics = _rates(review_rows)
     summary = _summary_line(metrics, len(review_rows))
@@ -403,6 +414,8 @@ def run_eval(
             {"type": "trailer", "artifact": "review", "summary": summary, **metrics},
         ],
     )
+    if executor is not None:
+        fastpath.write_sidecar(fastpath.sidecar_path(out_path), executor.snapshot(root))
     print(summary, file=sys.stdout)
     return 0
 
