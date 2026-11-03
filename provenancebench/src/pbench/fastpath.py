@@ -31,7 +31,7 @@ from typing import Any
 
 import numpy as np
 
-from pbench.fastpath_store import SpectrumStore
+from pbench.fastpath_store import SpectrumStore, tensor_entry
 
 FASTPATH_SPEC = "pbench-fastpath/1"
 ENV_DISABLE = "PB_NO_FASTPATH"
@@ -127,6 +127,7 @@ class FastPath:
         detect = self._detect
         layers: dict[int, list[Any]] = {}
         for layer, tensors in row["layers"].items():
+            # One stored tensor is [name, role, shape, offset, count]; see fastpath_store.
             layers[int(layer)] = [
                 detect.TensorSpectrum(
                     name=name,
@@ -166,9 +167,7 @@ class FastPath:
                     # quarantined on the next open. Leave this extraction uncached instead;
                     # the bytes already staged above stay unreferenced and are truncated.
                     return
-                entries.append(
-                    [tensor.name, tensor.role, [int(size) for size in tensor.shape], offset, count]
-                )
+                entries.append(tensor_entry(tensor.name, tensor.role, tensor.shape, offset, count))
             layers[str(int(layer))] = entries
         self.store.put_extraction(
             repo_id,

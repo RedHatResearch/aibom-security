@@ -22,14 +22,19 @@ from pbench.fastpath_store import (
     SPEC,
     SpectrumStore,
     StoreRefused,
-    default_svd,
     spectrum_digest,
 )
 from pbench.load import bench_root, load_cohort
 
 
+def _svd(matrix: np.ndarray) -> np.ndarray:
+    """The frozen detector call, spelled out here so the store never guesses it."""
+    return np.linalg.svd(np.asarray(matrix, dtype=np.float32), compute_uv=False).astype(np.float64)
+
+
 def _open(root: Path, **kwargs: object) -> SpectrumStore:
     kwargs.setdefault("probe_profile", "fast")
+    kwargs.setdefault("svd", _svd)
     return SpectrumStore.open(root, **kwargs)
 
 
@@ -66,7 +71,7 @@ def test_spectrum_key_is_layout_and_shape_canonical() -> None:
 
 def test_store_roundtrips_spectra_and_extractions(tmp_path: Path) -> None:
     store = _open(tmp_path / "store")
-    sv = default_svd(_matrix())
+    sv = _svd(_matrix())
     key = SpectrumStore.spectrum_key(_matrix())
     store.put_spectrum(key, sv)
     offset, count = store.append_spectrum(sv)
@@ -98,7 +103,7 @@ def test_store_roundtrips_spectra_and_extractions(tmp_path: Path) -> None:
 
 def test_pending_spectrum_is_readable_before_flush(tmp_path: Path) -> None:
     store = _open(tmp_path / "store")
-    sv = default_svd(_matrix())
+    sv = _svd(_matrix())
     offset, count = store.append_spectrum(sv)
     assert (
         store.read_spectrum(offset, count).tobytes()
@@ -109,7 +114,7 @@ def test_pending_spectrum_is_readable_before_flush(tmp_path: Path) -> None:
 
 def test_returned_spectrum_is_a_copy(tmp_path: Path) -> None:
     store = _open(tmp_path / "store")
-    sv = default_svd(_matrix())
+    sv = _svd(_matrix())
     key = SpectrumStore.spectrum_key(_matrix())
     store.put_spectrum(key, sv)
     store.flush()
@@ -132,7 +137,7 @@ def test_one_ulp_numeric_change_refuses_and_rebuilds(tmp_path: Path) -> None:
     store.close()
 
     def perturbed(matrix: np.ndarray) -> np.ndarray:
-        values = default_svd(matrix)
+        values = _svd(matrix)
         # One fp32 ulp: the store's unit. An fp64 ulp would round away and prove nothing.
         values[0] = np.nextafter(np.float32(values[0]), np.float32(np.inf))
         return values
@@ -169,7 +174,7 @@ def test_tampered_probe_hash_is_rejected(tmp_path: Path) -> None:
 def test_torn_blob_tail_is_truncated(tmp_path: Path) -> None:
     root = tmp_path / "store"
     store = _open(root)
-    store.put_spectrum(SpectrumStore.spectrum_key(_matrix()), default_svd(_matrix()))
+    store.put_spectrum(SpectrumStore.spectrum_key(_matrix()), _svd(_matrix()))
     store.close()
     blob = root / "spectra.f32"
     expected = blob.stat().st_size
@@ -186,7 +191,7 @@ def test_torn_blob_tail_is_truncated(tmp_path: Path) -> None:
 def test_short_blob_refuses_and_rebuilds(tmp_path: Path) -> None:
     root = tmp_path / "store"
     store = _open(root)
-    store.put_spectrum(SpectrumStore.spectrum_key(_matrix()), default_svd(_matrix()))
+    store.put_spectrum(SpectrumStore.spectrum_key(_matrix()), _svd(_matrix()))
     store.close()
     blob = root / "spectra.f32"
     os.truncate(blob, 4)
@@ -228,7 +233,7 @@ def test_extraction_from_another_detector_is_a_miss_but_spectra_survive(
 ) -> None:
     root = tmp_path / "store"
     store = _open(root)
-    sv = default_svd(_matrix())
+    sv = _svd(_matrix())
     key = SpectrumStore.spectrum_key(_matrix())
     store.put_spectrum(key, sv)
     offset, count = store.append_spectrum(sv)
@@ -293,7 +298,7 @@ def test_read_only_store_that_cannot_be_rebuilt_raises(tmp_path: Path) -> None:
 
 def test_full_probe_profile_records_and_revalidates(tmp_path: Path) -> None:
     root = tmp_path / "store"
-    store = SpectrumStore.open(root, probe_profile="full")
+    store = SpectrumStore.open(root, svd=_svd, probe_profile="full")
     recorded = {
         row["id"]
         for row in json.loads((root / INDEX_NAME).read_text(encoding="utf-8"))["probes"]["rows"]
@@ -302,7 +307,7 @@ def test_full_probe_profile_records_and_revalidates(tmp_path: Path) -> None:
     assert store.validation.status == "new"
     store.close()
 
-    reopened = SpectrumStore.open(root, probe_profile="full")
+    reopened = SpectrumStore.open(root, svd=_svd, probe_profile="full")
     assert reopened.validation.status == "ok"
     assert reopened.validation.probes_checked == len(recorded)
     reopened.close()
@@ -347,7 +352,7 @@ def test_extraction_row_with_a_bad_layer_key_is_rebuilt(tmp_path: Path) -> None:
     """Adoption validates what the replay will index, so a bad key cannot reach score()."""
     root = tmp_path / "store"
     store = _open(root)
-    offset, count = store.append_spectrum(default_svd(_matrix()))
+    offset, count = store.append_spectrum(_svd(_matrix()))
     store.put_extraction(
         "a/b",
         "0" * 40,
@@ -367,6 +372,40 @@ def test_extraction_row_with_a_bad_layer_key_is_rebuilt(tmp_path: Path) -> None:
     rebuilt.close()
 
 
+def test_a_corrupted_blob_byte_refuses_and_rebuilds(tmp_path: Path) -> None:
+    """Every stored row is covered, not just the probes: one flipped byte refuses the store."""
+    root = tmp_path / "store"
+    store = _open(root)
+    store.put_spectrum(SpectrumStore.spectrum_key(_matrix()), _svd(_matrix()))
+    store.close()
+
+    blob = root / "spectra.f32"
+    raw = bytearray(blob.read_bytes())
+    raw[7] ^= 0x01
+    blob.write_bytes(bytes(raw))
+
+    rebuilt = _open(root)
+    assert rebuilt.validation.status == "rebuilt"
+    assert "blob digest does not match" in rebuilt.validation.detail
+    assert any(path.name.startswith("spectra.f32.refused-") for path in root.iterdir())
+    rebuilt.close()
+
+
+def test_an_index_without_a_blob_digest_refuses_and_rebuilds(tmp_path: Path) -> None:
+    root = tmp_path / "store"
+    store = _open(root)
+    store.close()
+    index_path = root / INDEX_NAME
+    index = json.loads(index_path.read_text(encoding="utf-8"))
+    del index["blob_sha256"]
+    index_path.write_text(json.dumps(index), encoding="utf-8")
+
+    rebuilt = _open(root)
+    assert rebuilt.validation.status == "rebuilt"
+    assert "no usable blob digest" in rebuilt.validation.detail
+    rebuilt.close()
+
+
 def test_corruption_is_not_reported_as_a_probe_mismatch(tmp_path: Path) -> None:
     """`probes_failed` names probe ids only; plain corruption must not impersonate one."""
     root = tmp_path / "store"
@@ -383,7 +422,7 @@ def test_flush_retry_after_a_torn_append_cannot_shift_data(tmp_path: Path) -> No
     """A tail written after open is discarded before the payload is re-appended."""
     root = tmp_path / "store"
     store = _open(root)
-    first = default_svd(_matrix(seed=11))
+    first = _svd(_matrix(seed=11))
     store.put_spectrum("first", first)
     store.flush()
     durable = (root / "spectra.f32").stat().st_size
@@ -393,7 +432,7 @@ def test_flush_retry_after_a_torn_append_cannot_shift_data(tmp_path: Path) -> No
         handle.write(b"\xde\xad\xbe\xef" * 2)
     assert (root / "spectra.f32").stat().st_size == durable + 8
 
-    second = default_svd(_matrix(seed=12))
+    second = _svd(_matrix(seed=12))
     key = SpectrumStore.spectrum_key(_matrix(seed=12))
     store.put_spectrum(key, second)
     store.flush()
@@ -433,13 +472,13 @@ def test_a_deleted_lock_file_stops_writes(tmp_path: Path) -> None:
     """A lock file replaced under a live writer must stop it publishing, not race it."""
     root = tmp_path / "store"
     store = _open(root)
-    store.put_spectrum("first", default_svd(_matrix()))
+    store.put_spectrum("first", _svd(_matrix()))
     store.flush()
     published = json.loads((root / INDEX_NAME).read_text(encoding="utf-8"))
     assert published["spectra"]
 
     (root / "store.lock").unlink()
-    store.put_spectrum("second", default_svd(_matrix(seed=3)))
+    store.put_spectrum("second", _svd(_matrix(seed=3)))
     store.flush()
 
     assert store.read_only is True
@@ -455,11 +494,11 @@ def test_a_deleted_lock_file_stops_writes(tmp_path: Path) -> None:
 def test_a_shrinking_blob_abandons_writes_instead_of_zero_filling(tmp_path: Path) -> None:
     root = tmp_path / "store"
     store = _open(root)
-    store.put_spectrum("first", default_svd(_matrix()))
+    store.put_spectrum("first", _svd(_matrix()))
     store.flush()
     os.truncate(root / "spectra.f32", 0)
 
-    store.put_spectrum("second", default_svd(_matrix(seed=4)))
+    store.put_spectrum("second", _svd(_matrix(seed=4)))
     store.flush()
 
     assert store.read_only is True
@@ -472,13 +511,13 @@ def test_a_shrinking_blob_abandons_writes_instead_of_zero_filling(tmp_path: Path
 def test_a_truncated_probe_table_rebuilds(tmp_path: Path) -> None:
     """Keeping the profile string but dropping rows must not downgrade the stamp."""
     root = tmp_path / "store"
-    SpectrumStore.open(root, probe_profile="fast").close()
+    SpectrumStore.open(root, svd=_svd, probe_profile="fast").close()
     index_path = root / INDEX_NAME
     index = json.loads(index_path.read_text(encoding="utf-8"))
     index["probes"]["rows"] = index["probes"]["rows"][:2]
     index_path.write_text(json.dumps(index), encoding="utf-8")
 
-    rebuilt = SpectrumStore.open(root, probe_profile="fast")
+    rebuilt = SpectrumStore.open(root, svd=_svd, probe_profile="fast")
     assert rebuilt.validation.status == "rebuilt"
     assert "probe rows" in rebuilt.validation.detail
     rebuilt.close()
@@ -490,7 +529,7 @@ def test_a_lock_lost_during_creation_abandons_instead_of_crashing(
     """The very first flush can hit the lock check; open must disclose, not AttributeError."""
     monkeypatch.setattr(SpectrumStore, "_lock_is_intact", lambda self: False)
 
-    store = SpectrumStore.open(tmp_path / "store", probe_profile="fast")
+    store = SpectrumStore.open(tmp_path / "store", svd=_svd, probe_profile="fast")
 
     assert store.read_only is True
     assert "writes abandoned" in store.validation.detail
@@ -501,9 +540,9 @@ def test_a_lock_lost_during_creation_abandons_instead_of_crashing(
 def test_probe_profile_mismatch_rebuilds(tmp_path: Path) -> None:
     """A store recorded under another profile can never claim this profile's stamp."""
     root = tmp_path / "store"
-    SpectrumStore.open(root, probe_profile="fast").close()
+    SpectrumStore.open(root, svd=_svd, probe_profile="fast").close()
 
-    rebuilt = SpectrumStore.open(root, probe_profile="full")
+    rebuilt = SpectrumStore.open(root, svd=_svd, probe_profile="full")
     assert rebuilt.validation.status == "rebuilt"
     assert "probe profile" in rebuilt.validation.detail
     rebuilt.close()

@@ -13,26 +13,30 @@ Two tiers share one flat ``float32`` blob:
   hashes the *decoded* matrix, so a decode change is a new key rather than a stale hit.
 
 **Bit identity.** The detector's ``_svd_spectrum`` returns fp32 singular values widened
-to fp64, so storing the fp32 bits and widening on read is exact (deep-dive §2.1); the
-full spectrum is stored, not a top-r truncation (N8), so every future ``r`` and tail
-statistic is still free. A replay returns the exact bits an earlier call produced; the
-store's contract stamp exists to test the antecedent — that the numeric stack did not
-change.
+to fp64, so storing the fp32 bits and widening on read is exact; the full spectrum is
+stored, not a top-r truncation, so every future ``r`` and tail statistic is still free.
+A replay returns the exact bits an earlier call produced; the store's contract stamp
+exists to test the antecedent — that the numeric stack did not change.
 
-**Why the stamp is probes, not a canary (N2, measured).** A fixed-seed Gaussian canary
-has demonstrated sensitivity *zero* to the failure that matters: fp64 ``dgesdd`` and
-``dgesvd`` agree bitwise on 200/200 Gaussian inputs, and the transposed path that really
-differs flips no fp32 value on a Gaussian 64²/256²/1024². So the store records probe
-*rows* that include ill-conditioned, rank-deficient and real-cohort-shape inputs, and
-recomputes them at open with the detector's own frozen call. Any mismatch quarantines and
-rebuilds the store. A Gaussian row is kept only as the cheapest pre-check and is
-labelled ``blind`` in the index so nobody mistakes a green canary for a proof.
+A replayed extraction also carries the provenance recorded when it was computed, including
+``source.fetch``: that field describes how those bytes were originally obtained, not how
+the replaying run was transported.
 
-**Store hygiene (deep-dive §7.1).** The caller decides what to write, so a failed or
-abstained extraction is never persisted. The index is replaced atomically and is
-authoritative: an interrupted append leaves unreferenced blob bytes, which the next open
-truncates. One writer at a time; a second process opens read-only and skips writes.
-Stored spectra are never handed out by reference, so a consumer cannot poison the store.
+**Validation.** A plain Gaussian canary is blind to the change that matters: fp64
+``dgesdd`` and ``dgesvd`` agree bitwise on Gaussian inputs, and a transposed input — which
+really does change the arithmetic — flips no fp32 value on a well-conditioned Gaussian
+matrix. So the store records *probe rows* built from ill-conditioned, rank-deficient and
+real gate-shape inputs, recomputes them at open with the detector's own frozen call, and
+quarantines and rebuilds on any mismatch. The Gaussian row is kept only as the cheapest
+pre-check and is labelled ``blind`` in the index so nobody mistakes a green canary for a
+proof. Independently, the blob's durable region is sha256-verified at open, so a corrupted
+or truncated store is refused rather than served.
+
+**Store hygiene.** The caller decides what to write, so a failed or abstained extraction is
+never persisted. The index is replaced atomically and is authoritative: an interrupted
+append leaves unreferenced blob bytes, which the next open truncates. One writer at a
+time; a second process opens read-only and skips writes. Stored spectra are never handed
+out by reference, so a consumer cannot poison the store.
 """
 
 from __future__ import annotations
@@ -73,7 +77,7 @@ class StoreRefused(RuntimeError):
 class Validation:
     """Outcome of the open-time contract check (disclosed in the run sidecar)."""
 
-    status: str
+    status: str  # "new" | "ok" | "rebuilt" | "empty" (read-only open, no index yet)
     probes_checked: int
     probes_failed: tuple[str, ...]
     detail: str
@@ -159,18 +163,70 @@ _PROBE_PROFILES: dict[str, tuple[str, ...]] = {
 }
 
 
-def default_svd(matrix: np.ndarray) -> np.ndarray:
-    """The frozen detector call, for stores opened without the detector's own function."""
-    return np.linalg.svd(np.asarray(matrix, dtype=np.float32), compute_uv=False).astype(np.float64)
-
-
 def spectrum_digest(values: np.ndarray) -> str:
     """sha256 of one spectrum's stored (fp32) bits; the probe comparison unit."""
     return hashlib.sha256(np.ascontiguousarray(values, dtype=_F32).tobytes()).hexdigest()
 
 
-def _stamp() -> str:
+#: One stored tensor inside an extraction row: name, role, shape, spectrum offset, count.
+def tensor_entry(name: str, role: str, shape: Sequence[int], offset: int, count: int) -> list[Any]:
+    """Encode one stored tensor; the only writer of that positional shape."""
+    return [name, role, [int(size) for size in shape], offset, count]
+
+
+def tensor_span(entry: Any) -> tuple[int, int]:
+    """Decode one stored tensor's ``(offset, count)``; the only reader of that shape."""
+    if not isinstance(entry, list) or len(entry) != 5:
+        raise TypeError(f"tensor entry must be a 5-element list, got {entry!r}")
+    offset, count = entry[3], entry[4]
+    if not isinstance(offset, int) or not isinstance(count, int):
+        raise TypeError(f"tensor entry must carry integer offsets, got {entry!r}")
+    return offset, count
+
+
+def _check_span(offset: object, count: object, blob_elements: int, label: str) -> None:
+    """Every stored spectrum must name a non-empty window inside the durable region."""
+    if not (
+        isinstance(offset, int)
+        and isinstance(count, int)
+        and offset >= 0
+        and count > 0
+        and offset + count <= blob_elements
+    ):
+        raise ValueError(f"{label} is outside the blob")
+
+
+def _entry_in_durable(entry: Any, durable: int) -> bool:
+    """True when one stored tensor's spectrum lies inside the published region."""
+    offset, count = tensor_span(entry)
+    return offset >= 0 and count > 0 and offset + count <= durable
+
+
+def _write_all(fd: int, data: bytes) -> None:
+    """Write every byte; a short write is retried, an error propagates."""
+    view = memoryview(data)
+    written = 0
+    while written < len(data):
+        written += os.write(fd, view[written:])
+
+
+def _utc_stamp() -> str:
     return datetime.now(UTC).strftime("%Y%m%dT%H%M%S%fZ")
+
+
+def _blob_digest(fd: int, byte_count: int) -> str:
+    """sha256 of the blob's durable region, read back through the store's own fd."""
+    digest = hashlib.sha256()
+    remaining = byte_count
+    offset = 0
+    while remaining > 0:
+        chunk = os.pread(fd, min(remaining, 1 << 20), offset)
+        if not chunk:
+            raise OSError(f"short blob read while digesting: {remaining} bytes missing")
+        digest.update(chunk)
+        offset += len(chunk)
+        remaining -= len(chunk)
+    return digest.hexdigest()
 
 
 def _fsync_dir(path: Path) -> None:
@@ -194,7 +250,7 @@ class SpectrumStore:
         self,
         root: Path,
         *,
-        svd: _Svd | None = None,
+        svd: _Svd,
         probe_profile: str = "full",
     ) -> None:
         if probe_profile not in _PROBE_PROFILES:
@@ -211,7 +267,7 @@ class SpectrumStore:
         self.path.mkdir(parents=True, exist_ok=True)
         self._index_path = self.path / INDEX_NAME
         self._blob_path = self.path / BLOB_NAME
-        self._svd = svd or default_svd
+        self._svd = svd
         self._lock_fd: int | None = None
         self.read_only = not self._take_lock()
         self._pending: list[np.ndarray] = []
@@ -238,7 +294,7 @@ class SpectrumStore:
         cls,
         root: Path,
         *,
-        svd: _Svd | None = None,
+        svd: _Svd,
         probe_profile: str = "full",
     ) -> SpectrumStore:
         """Open (or create) a store, validating its recorded probe rows."""
@@ -270,15 +326,16 @@ class SpectrumStore:
     def _empty_index(self) -> dict[str, Any]:
         return {
             "spec": SPEC,
-            "created_utc": _stamp(),
+            "created_utc": _utc_stamp(),
             "stack": self.stack,
             "probes": {"profile": self.probe_profile, "blind": [_BLIND_PROBE], "rows": []},
             "blob_elements": 0,
+            "blob_sha256": hashlib.sha256(b"").hexdigest(),
             "extractions": {},
             "spectra": {},
         }
 
-    def _validated(
+    def _validation_result(
         self, status: str, checked: int, failed: Sequence[str], detail: str
     ) -> Validation:
         """The validation to publish, unless a flush during open already abandoned writes."""
@@ -297,14 +354,14 @@ class SpectrumStore:
                 # Another process may be creating it right now; every lookup misses and
                 # nothing is written. Never pretend this is a fresh, populated store.
                 self._index = self._empty_index()
-                return self._validated(
+                return self._validation_result(
                     "empty", 0, (), "no index on disk; opened read-only, so nothing was written"
                 )
             self._index = self._empty_index()
             self._record_probes()
             self._dirty = True
             self.flush()
-            return self._validated(
+            return self._validation_result(
                 "new",
                 len(self._index["probes"]["rows"]),
                 (),
@@ -328,7 +385,7 @@ class SpectrumStore:
                 "probe mismatch after a numeric-stack change: " + ", ".join(failed),
                 failed=failed,
             )
-        return self._validated(
+        return self._validation_result(
             "ok", checked, (), f"{checked} recorded probe rows recomputed; all match"
         )
 
@@ -361,15 +418,11 @@ class SpectrumStore:
                 f"probe rows {sorted(recorded_ids)} are not the {self.probe_profile!r} set"
             )
         for key, entry in spectra.items():
-            offset, count = entry
-            if not (
-                isinstance(offset, int)
-                and isinstance(count, int)
-                and offset >= 0
-                and count > 0
-                and offset + count <= blob_elements
-            ):
-                raise ValueError(f"spectrum row {key!r} is outside the blob")
+            try:
+                offset, count = entry
+            except (TypeError, ValueError) as exc:
+                raise TypeError(f"spectrum row {key!r} is not a pair") from exc
+            _check_span(offset, count, blob_elements, f"spectrum row {key!r}")
         for key, row in extractions.items():
             if not isinstance(row, dict) or not isinstance(row.get("layers"), dict):
                 raise TypeError(f"extraction row {key!r} has no layer table")
@@ -381,21 +434,15 @@ class SpectrumStore:
                 if not isinstance(tensors, list):
                     raise TypeError(f"extraction row {key!r} layer {layer_key!r} is not a list")
                 for entry in tensors:
-                    name, role, shape, offset, count = entry
+                    name, role, shape, _offset, _count = entry
+                    offset, count = tensor_span(entry)
                     if not isinstance(name, str) or not isinstance(role, str):
                         raise TypeError(f"extraction row {key!r} has a non-string name/role")
                     if not isinstance(shape, list) or not all(
                         isinstance(size, int) for size in shape
                     ):
                         raise TypeError(f"extraction row {key!r} has a malformed shape")
-                    if not (
-                        isinstance(offset, int)
-                        and isinstance(count, int)
-                        and offset >= 0
-                        and count > 0
-                        and offset + count <= blob_elements
-                    ):
-                        raise ValueError(f"extraction row {key!r} is outside the blob")
+                    _check_span(offset, count, blob_elements, f"extraction row {key!r}")
         size = self._blob_path.stat().st_size if self._blob_path.exists() else 0
         expected = blob_elements * 4
         if size < expected:
@@ -403,6 +450,12 @@ class SpectrumStore:
         if size > expected and not self.read_only:
             # An interrupted flush: unreferenced tail bytes are never read.
             os.ftruncate(self._fd, expected)
+        recorded_digest = index.get("blob_sha256")
+        if not isinstance(recorded_digest, str) or len(recorded_digest) != 64:
+            raise ValueError("index carries no usable blob digest")
+        if _blob_digest(self._fd, expected) != recorded_digest:
+            # A corrupted store must never be served: every row below names these bytes.
+            raise ValueError("blob digest does not match the index")
         self._index = index
         self._blob_elements = blob_elements
         self._durable_elements = blob_elements
@@ -452,7 +505,7 @@ class SpectrumStore:
                 f"{self.path}: {reason}; the store is read-only in this process "
                 "(another writer holds the lock), so it cannot be rebuilt"
             )
-        stamp = _stamp()
+        stamp = _utc_stamp()
         quarantined: list[str] = []
         for path in (self._index_path, self._blob_path):
             if not path.exists():
@@ -472,7 +525,7 @@ class SpectrumStore:
         self._dirty = True
         self.flush()
         _fsync_dir(self.path)
-        return self._validated(
+        return self._validation_result(
             "rebuilt",
             len(self._index["probes"]["rows"]),
             failed,
@@ -487,7 +540,7 @@ class SpectrumStore:
 
         Canonical C-order is deliberate: numpy copies to its own Fortran-order buffer
         before LAPACK, so element-wise identical inputs have identical spectra whatever
-        their layout (measured, deep-dive §2.1) — and a key must not split them.
+        their layout — and a key must not split them.
         """
         arr = np.asarray(matrix, dtype=np.float32)
         if arr.ndim != 2:
@@ -603,7 +656,7 @@ class SpectrumStore:
             key: row
             for key, row in self._index["extractions"].items()
             if all(
-                entry[3] >= 0 and entry[3] + entry[4] <= durable
+                _entry_in_durable(entry, durable)
                 for tensors in row["layers"].values()
                 for entry in tensors
             )
@@ -661,20 +714,15 @@ class SpectrumStore:
             payload = b"".join(
                 np.ascontiguousarray(arr, dtype=_F32).tobytes() for arr in self._pending
             )
-            view = memoryview(payload)
-            written = 0
-            while written < len(payload):
-                written += os.write(self._fd, view[written:])
+            _write_all(self._fd, payload)
             os.fsync(self._fd)
+            self._index["blob_sha256"] = _blob_digest(self._fd, self._blob_elements * 4)
         self._index["blob_elements"] = self._blob_elements
         data = json.dumps(self._index, sort_keys=True, separators=(",", ":")).encode("utf-8")
         tmp = self._index_path.with_name(f"{INDEX_NAME}.tmp")
         fd = os.open(tmp, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o644)
         try:
-            view = memoryview(data)
-            written = 0
-            while written < len(data):
-                written += os.write(fd, view[written:])
+            _write_all(fd, data)
             os.fsync(fd)
         finally:
             os.close(fd)
