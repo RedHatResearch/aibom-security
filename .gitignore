@@ -32,5 +32,9 @@ htmlcov/
 .env.*
 !.env.example
 
+# Per-deployment GCP values (project id, ingress range, registry path).
+# Real values stay local; only site.env.example is committed.
+deploy/gce/site.env
+
 # Generated smoke records: reproducible by rerunning the smoke.
 smokes/*/results.json

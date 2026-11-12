@@ -1,6 +1,8 @@
 .git
 .github
 .venv
+.scratch
+runs
 .cache
 .pytest_cache
 .ruff_cache
