@@ -1,0 +1,139 @@
+apiVersion: tekton.dev/v1
+kind: Task
+metadata:
+  name: aibom-provenance-probe
+  labels:
+    app.kubernetes.io/name: aibom-provenance-probe
+    app.kubernetes.io/part-of: appstudio
+    app.kubernetes.io/version: "0.1"
+  annotations:
+    tekton.dev/displayName: "aibom provenance probe"
+    tekton.dev/pipelines.minVersion: "0.50.0"
+    tekton.dev/categories: Security
+spec:
+  description: >-
+    Submits a Hugging Face model id to the aibom-security verify service and
+    records the acknowledgement. The service answers 202 once the model is
+    queued; the verdict lands in the server's runs directory, never in this
+    Task. The step exits 0 on every reachable outcome unless fail-on-error is
+    "true".
+  params:
+    - name: model-id
+      type: string
+      description: >-
+        Hugging Face repo id (org/model) to submit; the base model is resolved
+        from the target's model card.
+    - name: endpoint
+      type: string
+      description: >-
+        Base URL of the aibom verify service, for example
+        http://<vm-private-ip>:8080. No default; the address is set in the
+        pipeline definition.
+    - name: token-secret
+      type: string
+      description: Secret in this namespace holding the bearer token.
+      default: "aibom-api-token"
+    - name: token-key
+      type: string
+      description: Key inside that Secret.
+      default: "token"
+    - name: attempts
+      type: string
+      description: POST attempts before giving up; 503 means the queue is full.
+      default: "3"
+    - name: timeout-seconds
+      type: string
+      description: Per-request curl timeout.
+      default: "20"
+    - name: fail-on-error
+      type: string
+      description: '"true" makes an unacknowledged submission fail the Task.'
+      default: "false"
+  results:
+    - name: ack
+      description: acknowledged | rejected | unreachable | skipped
+    - name: http-code
+      description: Last HTTP status returned by POST /verify
+    - name: run-id
+      description: aibom run_id when the submission was accepted
+  steps:
+    - name: submit
+      image: registry.access.redhat.com/ubi9/ubi-minimal:9.5
+      env:
+        - name: MODEL_ID
+          value: $(params.model-id)
+        - name: ENDPOINT
+          value: $(params.endpoint)
+        - name: ATTEMPTS
+          value: $(params.attempts)
+        - name: TIMEOUT
+          value: $(params.timeout-seconds)
+        - name: FAIL_ON_ERROR
+          value: $(params.fail-on-error)
+        # Optional so a missing Secret degrades to an unauthenticated attempt
+        # instead of failing the Pod at admission time.
+        - name: API_TOKEN
+          valueFrom:
+            secretKeyRef:
+              name: $(params.token-secret)
+              key: $(params.token-key)
+              optional: true
+        - name: ACK_PATH
+          value: $(results.ack.path)
+        - name: CODE_PATH
+          value: $(results.http-code.path)
+        - name: RUN_ID_PATH
+          value: $(results.run-id.path)
+      script: |
+        #!/usr/bin/env bash
+        set -uo pipefail
+        put() { printf '%s' "$2" > "$1"; }
+
+        put "$ACK_PATH" skipped
+        put "$CODE_PATH" 000
+        put "$RUN_ID_PATH" ""
+
+        if [ -z "${MODEL_ID// /}" ]; then
+          echo "aibom-probe: model-id is empty, nothing submitted"
+          exit 0
+        fi
+
+        body=$(printf '{"model_id":"%s"}' "$MODEL_ID")
+        code=000
+        resp=""
+        for i in $(seq 1 "$ATTEMPTS"); do
+          resp=$(curl -sS -X POST "$ENDPOINT/verify" \
+            --connect-timeout 5 --max-time "$TIMEOUT" \
+            -H 'content-type: application/json' \
+            ${API_TOKEN:+-H "authorization: Bearer $API_TOKEN"} \
+            -w '\n%{http_code}' -d "$body" 2>&1) || true
+          code=$(printf '%s' "$resp" | tail -n1)
+          echo "aibom-probe: attempt $i model=$MODEL_ID http=$code body=$(printf '%s' "$resp" | sed '$d')"
+          case "$code" in
+            202) break ;;
+            5*)  sleep $(( i * 2 )) ;;
+            *)   break ;;
+          esac
+        done
+
+        put "$CODE_PATH" "$code"
+        if [ "$code" = "202" ]; then
+          rid=$(printf '%s' "$resp" | sed -n 's/.*"run_id"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p')
+          put "$ACK_PATH" acknowledged
+          put "$RUN_ID_PATH" "$rid"
+          echo "aibom-probe: queued run_id=$rid"
+          exit 0
+        fi
+
+        if [ "$code" = "422" ]; then
+          put "$ACK_PATH" rejected
+          echo "aibom-probe: model id rejected by the service (422)"
+        else
+          put "$ACK_PATH" unreachable
+          echo "aibom-probe: service not reachable or not healthy (http=$code)"
+        fi
+
+        if [ "$FAIL_ON_ERROR" = "true" ]; then
+          exit 1
+        fi
+        exit 0
